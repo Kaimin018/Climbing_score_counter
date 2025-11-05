@@ -264,6 +264,14 @@ scoring/tests/
         ├── test_update_route_with_formdata_unmark_members
         ├── test_update_route_with_formdata_partial_checkboxes
         └── test_update_route_verify_api_response
+└── test_case_route_photo_upload.py  # 路線圖片上傳測試
+    └── TestCaseRoutePhotoUpload
+        ├── test_create_route_with_photo
+        ├── test_create_route_without_photo
+        ├── test_update_route_add_photo
+        ├── test_update_route_replace_photo
+        ├── test_update_route_remove_photo
+        └── test_get_route_with_photo_url
 ```
 
 ### 測試輔助工具 (`test_helpers.py`)

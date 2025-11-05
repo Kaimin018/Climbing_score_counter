@@ -321,7 +321,7 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ### Test Cases
 
-The system includes the following test cases (28 tests total):
+The system includes the following test cases (34 tests total):
 
 1. **Core Scoring Logic Tests** (`test_case_01_default_member.py`):
    - Progressive route addition scoring
@@ -365,6 +365,14 @@ The system includes the following test cases (28 tests total):
    - Create route with multiple completed members
    - Verify frontend displays correct completion count
    - Simulate complete frontend flow (create → immediate refresh)
+
+8. **Route Photo Upload Tests** (`test_case_route_photo_upload.py`):
+   - Create route with photo upload
+   - Create route without photo (should work normally)
+   - Update route to add photo (originally no photo)
+   - Update route to replace photo (originally has photo)
+   - Update route without updating photo (keep original photo)
+   - Get route and verify photo_url is correctly returned
 
 ### GitHub Actions Testing
 

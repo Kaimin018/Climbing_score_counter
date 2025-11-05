@@ -321,7 +321,7 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ### 測試案例
 
-系統包含以下測試案例（共 28 個測試）：
+系統包含以下測試案例（共 34 個測試）：
 
 1. **核心計分邏輯測試**（`test_case_01_default_member.py`）：
    - 循序漸進新增路線的計分
@@ -365,6 +365,14 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
    - 創建路線時選擇多個完成人員
    - 驗證前端顯示的完成人數正確
    - 模擬完整的前端流程（創建 → 立即刷新）
+
+8. **路線圖片上傳測試**（`test_case_route_photo_upload.py`）：
+   - 創建路線時上傳圖片
+   - 創建路線時不上傳圖片（應該可以正常創建）
+   - 更新路線時添加圖片（原本沒有圖片）
+   - 更新路線時替換圖片（原本有圖片）
+   - 更新路線時不更新圖片（保持原圖片）
+   - 獲取路線時，photo_url 應該正確返回
 
 ### GitHub Actions 測試
 
