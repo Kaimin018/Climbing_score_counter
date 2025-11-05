@@ -12,6 +12,27 @@ from .serializers import (
 class RoomViewSet(viewsets.ModelViewSet):
     queryset = Room.objects.all()
     serializer_class = RoomSerializer
+    
+    def get_queryset(self):
+        """確保查詢時預加載相關數據"""
+        return Room.objects.prefetch_related(
+            'routes__scores__member',
+            'members'
+        ).all()
+    
+    def retrieve(self, request, *args, **kwargs):
+        """獲取房間詳情，確保數據最新"""
+        instance = self.get_object()
+        
+        # 強制清除可能的緩存，重新查詢並預取相關數據
+        instance.refresh_from_db()
+        instance = Room.objects.prefetch_related(
+            'routes__scores__member',
+            'members'
+        ).get(pk=instance.pk)
+        
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         """創建房間"""
@@ -73,20 +94,21 @@ class RoomViewSet(viewsets.ModelViewSet):
         """新增路線與成績錄入"""
         room = self.get_object()
         
-        # 處理 member_completions（如果是 JSON 字符串，轉換為字典）
+        # 處理 member_completions：FormData 中的 JSON 字符串應該保持為字符串，讓序列化器處理
+        # 如果已經是字典（可能來自測試場景），轉換回 JSON 字符串
         data = request.data.copy()
-        if 'member_completions' in data and isinstance(data['member_completions'], str):
+        if 'member_completions' in data and isinstance(data['member_completions'], dict):
             import json
-            try:
-                data['member_completions'] = json.loads(data['member_completions'])
-            except json.JSONDecodeError:
-                data['member_completions'] = {}
+            data['member_completions'] = json.dumps(data['member_completions'])
         
         serializer = RouteCreateSerializer(data=data, context={'room': room, 'request': request})
         if serializer.is_valid():
             route = serializer.save()
-            # 刷新 route 對象以確保 scores 關係已正確加載
-            route.refresh_from_db()
+            
+            # 強制從數據庫重新獲取 route 對象，確保 scores 關係已正確加載
+            from .models import Route
+            route = Route.objects.prefetch_related('scores__member').get(id=route.id)
+            
             route_serializer = RouteSerializer(route, context={'request': request})
             return Response(route_serializer.data, status=status.HTTP_201_CREATED)
         
@@ -147,64 +169,31 @@ class RouteViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         """更新路線"""
-        import logging
-        logger = logging.getLogger(__name__)
-        
         route = self.get_object()
-        logger.info(f"[RouteViewSet.update] 開始更新路線 ID={route.id}")
-        logger.info(f"[RouteViewSet.update] 請求方法: {request.method}, Content-Type: {request.content_type}")
-        
-        # 處理 member_completions（如果是 JSON 字符串，轉換為字典）
         data = request.data.copy()
-        logger.info(f"[RouteViewSet.update] request.data 類型: {type(request.data)}")
-        logger.info(f"[RouteViewSet.update] request.data 內容: {dict(request.data) if hasattr(request.data, 'keys') else request.data}")
         
+        # 處理 member_completions：FormData 可能將值作為列表傳遞（QueryDict），取第一個元素
+        # 如果已經是字典，轉換為 JSON 字符串（因為 serializer 期望字符串）
         if 'member_completions' in data:
             member_completions = data['member_completions']
-            logger.info(f"[RouteViewSet.update] member_completions 原始類型: {type(member_completions)}, 值: {member_completions}")
-            
-            # 處理各種可能的格式
-            # FormData 可能將值作為列表傳遞（QueryDict），取第一個元素
             if isinstance(member_completions, list):
-                if len(member_completions) > 0:
-                    member_completions = member_completions[0]
-                    logger.info(f"[RouteViewSet.update] member_completions 是列表，取第一個元素: {member_completions}")
-                else:
-                    member_completions = '{}'
-                    logger.warning(f"[RouteViewSet.update] member_completions 是空列表，設為空 JSON 字符串")
-            
-            # 如果已經是字典，轉換為 JSON 字符串（因為 serializer 期望字符串）
+                member_completions = member_completions[0] if len(member_completions) > 0 else '{}'
             if isinstance(member_completions, dict):
                 import json
                 member_completions = json.dumps(member_completions)
-                logger.info(f"[RouteViewSet.update] member_completions 是字典，轉換為 JSON 字符串: {member_completions}")
-            
-            # 確保是字符串格式（serializer 期望 CharField）
             if not isinstance(member_completions, str):
-                logger.warning(f"[RouteViewSet.update] member_completions 類型不正確 ({type(member_completions)})，轉換為字符串")
                 member_completions = str(member_completions)
-            
             data['member_completions'] = member_completions
-            logger.info(f"[RouteViewSet.update] 最終傳遞給 serializer 的 member_completions: {member_completions} (類型: {type(member_completions)})")
-        else:
-            logger.warning(f"[RouteViewSet.update] request.data 中沒有 'member_completions' 字段")
-            logger.info(f"[RouteViewSet.update] request.data 的所有鍵: {list(data.keys()) if hasattr(data, 'keys') else 'N/A'}")
-        
-        logger.info(f"[RouteViewSet.update] 傳遞給 serializer 的 data: {data}")
         
         serializer = self.get_serializer(route, data=data, partial=True, context={'request': request})
-        
         if not serializer.is_valid():
-            logger.error(f"[RouteViewSet.update] Serializer 驗證失敗: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        logger.info(f"[RouteViewSet.update] Serializer 驗證通過，validated_data: {serializer.validated_data}")
         serializer.save()
         
         # 重新從數據庫獲取路線，確保包含最新的 scores
         route.refresh_from_db()
         route_serializer = RouteSerializer(route, context={'request': request})
-        logger.info(f"[RouteViewSet.update] 更新完成，返回的 scores 數量: {len(route_serializer.data.get('scores', []))}")
         return Response(route_serializer.data)
 
     def destroy(self, request, *args, **kwargs):
