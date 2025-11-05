@@ -58,7 +58,7 @@
                             <th>排名</th>
                             <th>成員</th>
                             <th>總分</th>
-                            <th>完成</th>
+                            <th>完成條數</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -227,6 +227,21 @@
     </div>
 </div>
 
+<!-- 查看完成路線彈窗 -->
+<div id="completedRoutesModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="completedRoutesModalTitle">完成的路線</h3>
+            <span class="close" onclick="closeCompletedRoutesModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div id="completedRoutesList" class="completed-routes-list">
+                <div class="loading">載入中...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 新增路線彈窗 -->
 <div id="addRouteModal" class="modal">
     <div class="modal-content">
@@ -369,7 +384,7 @@
             .catch(error => {
                 console.error('載入排行榜失敗:', error);
                 document.getElementById('leaderboardBody').innerHTML = 
-                    '<tr><td colspan="6" class="error">載入失敗，請刷新頁面</td></tr>';
+                    '<tr><td colspan="5" class="error">載入失敗，請刷新頁面</td></tr>';
             });
     }
 
@@ -404,7 +419,11 @@
                     <td>${rankIcon ? rankIcon + ' ' : ''}${rank}</td>
                     <td><strong>${member.name}</strong>${member.is_custom_calc ? ' <span style="color: #95a5a6; font-size: 0.75rem; font-weight: normal;">(客)</span>' : ''}</td>
                     <td class="score">${parseFloat(member.total_score).toFixed(2)}</td>
-                    <td>${member.completed_routes_count}</td>
+                    <td>
+                        <a href="#" class="completed-routes-link" onclick="showCompletedRoutes(${member.id}, '${member.name.replace(/'/g, "\\'")}'); return false;" title="點擊查看完成的路線">
+                            ${member.completed_routes_count}
+                        </a>
+                    </td>
                     <td>
                         <button class="btn btn-primary btn-small" onclick="editMember(${member.id}, '${member.name}', ${member.is_custom_calc})" title="編輯成員">
                             編輯
@@ -420,6 +439,65 @@
         loadRoutes();
         // 然後載入排行榜
         loadLeaderboard();
+    }
+
+    function showCompletedRoutes(memberId, memberName) {
+        // 顯示載入狀態
+        document.getElementById('completedRoutesModalTitle').textContent = `${memberName} 完成的路線`;
+        document.getElementById('completedRoutesList').innerHTML = '<div class="loading">載入中...</div>';
+        document.getElementById('completedRoutesModal').style.display = 'block';
+        
+        // 獲取成員完成的路線
+        fetch(`/api/members/${memberId}/completed-routes/`)
+            .then(response => response.json())
+            .then(data => {
+                displayCompletedRoutes(data);
+            })
+            .catch(error => {
+                console.error('載入完成路線失敗:', error);
+                document.getElementById('completedRoutesList').innerHTML = 
+                    '<div class="error">載入失敗，請刷新頁面重試</div>';
+            });
+    }
+
+    function displayCompletedRoutes(data) {
+        const container = document.getElementById('completedRoutesList');
+        const routes = data.completed_routes || [];
+        
+        if (routes.length === 0) {
+            container.innerHTML = '<div class="empty">該成員尚未完成任何路線</div>';
+            return;
+        }
+        
+        container.innerHTML = routes.map(route => {
+            const routeName = route.name || '未命名路線';
+            const grade = route.grade || '-';
+            const photoUrl = route.photo_url || '';
+            
+            // 統計完成人數
+            const scores = route.scores || [];
+            const completedCount = scores.filter(s => s.is_completed).length;
+            const totalCount = scores.length;
+            
+            return `
+                <div class="completed-route-item">
+                    <div class="completed-route-header">
+                        <div class="completed-route-info">
+                            <strong>${routeName}</strong>
+                            <span class="route-grade-badge">${grade}</span>
+                        </div>
+                        <div class="completed-route-stats">
+                            完成條數: ${completedCount}/${totalCount} 人
+                        </div>
+                    </div>
+                    ${photoUrl ? `<div class="completed-route-photo"><img src="${photoUrl}" alt="${routeName}" style="max-width: 100%; border-radius: 4px; margin-top: 10px;"></div>` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    function closeCompletedRoutesModal() {
+        document.getElementById('completedRoutesModal').style.display = 'none';
     }
 
     function loadRoutes() {
@@ -461,7 +539,7 @@
                             ${route.grade ? `<span class="route-grade">${route.grade}</span>` : ''}
                         </div>
                         <div class="route-stats">
-                            完成: ${completedCount}/${totalCount} 人
+                            完成條數: ${completedCount}/${totalCount} 人
                         </div>
                     </div>
                     <div class="route-actions">
@@ -819,6 +897,7 @@
         const editRouteModal = document.getElementById('editRouteModal');
         const editRoomModal = document.getElementById('editRoomModal');
         const editMemberModal = document.getElementById('editMemberModal');
+        const completedRoutesModal = document.getElementById('completedRoutesModal');
         
         if (event.target === addMemberModal) {
             closeAddMemberModal();
@@ -834,6 +913,9 @@
         }
         if (event.target === editMemberModal) {
             closeEditMemberModal();
+        }
+        if (event.target === completedRoutesModal) {
+            closeCompletedRoutesModal();
         }
     }
 

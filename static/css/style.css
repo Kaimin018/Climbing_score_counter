@@ -172,8 +172,9 @@ body {
 }
 
 .leaderboard-sidebar .leaderboard-table th:nth-child(4) {
-    width: 70px;
+    width: 100px;
     text-align: center;
+    white-space: nowrap;
 }
 
 .leaderboard-sidebar .leaderboard-table th:nth-child(5) {
@@ -245,6 +246,7 @@ body {
     text-align: center;
     color: #7f8c8d;
     font-weight: 500;
+    white-space: nowrap;
 }
 
 .leaderboard-sidebar .leaderboard-table .score {
@@ -263,6 +265,91 @@ body {
 .leaderboard-sidebar .leaderboard-table .btn-small:hover {
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+/* 完成路線連結樣式 */
+.completed-routes-link {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-block;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.completed-routes-link:hover {
+    color: #2980b9;
+    background-color: #e8f4f8;
+    text-decoration: underline;
+}
+
+/* 完成路線列表彈窗樣式 */
+.completed-routes-list {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.completed-route-item {
+    padding: 15px;
+    margin-bottom: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    transition: all 0.2s ease;
+}
+
+.completed-route-item:hover {
+    background: #f0f7ff;
+    border-color: #3498db;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.completed-route-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.completed-route-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.completed-route-info strong {
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.route-grade-badge {
+    color: #e74c3c;
+    font-weight: 600;
+    font-size: 0.9rem;
+    background: #fff;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid #e74c3c;
+}
+
+.completed-route-stats {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.completed-route-photo {
+    margin-top: 10px;
+}
+
+.completed-route-photo img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .room-header {

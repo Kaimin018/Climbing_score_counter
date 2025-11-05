@@ -239,6 +239,26 @@ class MemberViewSet(viewsets.ModelViewSet):
         update_scores(room_id)
         
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=True, methods=['get'], url_path='completed-routes')
+    def completed_routes(self, request, pk=None):
+        """獲取成員完成的路線列表"""
+        member = self.get_object()
+        
+        # 獲取該成員所有完成的路線
+        completed_scores = member.scores.filter(is_completed=True).select_related('route')
+        routes = [score.route for score in completed_scores]
+        
+        # 使用 RouteSerializer 序列化路線
+        from .serializers import RouteSerializer
+        route_serializer = RouteSerializer(routes, many=True, context={'request': request})
+        
+        return Response({
+            'member_id': member.id,
+            'member_name': member.name,
+            'completed_routes': route_serializer.data,
+            'total_count': len(routes)
+        })
 
 
 def index_view(request):

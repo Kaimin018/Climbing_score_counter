@@ -95,6 +95,7 @@ climbing_score_counting_system/
   - `create`: 創建成員
   - `update`: 更新成員
   - `destroy`: 刪除成員
+  - `completed_routes`: 獲取成員完成的路線列表（action）
 
 - **RouteViewSet**: 路線 CRUD 操作
   - `retrieve`: 獲取路線詳情
@@ -146,6 +147,7 @@ climbing_score_counting_system/
 /api/rooms/<id>/routes/         → RoomViewSet.create_route
 /api/members/                   → MemberViewSet (列表、創建)
 /api/members/<id>/              → MemberViewSet (詳情、更新、刪除)
+/api/members/<id>/completed-routes/ → MemberViewSet.completed_routes
 /api/routes/                    → RouteViewSet (列表)
 /api/routes/<id>/               → RouteViewSet (詳情、更新、刪除)
 /api/scores/                    → ScoreViewSet (列表)
@@ -162,11 +164,12 @@ climbing_score_counting_system/
   - 自動生成房間名稱範例
 
 - **leaderboard.html**: 排行榜頁面
-  - 顯示成員排行榜
+  - 顯示成員排行榜（右側固定欄）
   - 路線列表與完成狀態
   - 成員管理（新增、編輯、刪除）
   - 路線管理（新增、編輯、刪除）
   - 照片上傳功能
+  - 點擊「完成條數」查看成員完成的路線詳情
 
 - **rules.html**: 規則說明頁面
   - 計分規則說明
@@ -231,7 +234,8 @@ scoring/tests/
 │       ├── test_get_leaderboard
 │       ├── test_create_route
 │       ├── test_update_score
-│       └── test_create_room_add_member_create_route
+│       ├── test_create_room_add_member_create_route
+│       └── test_get_member_completed_routes
 ├── test_case_01_default_member.py # 計分邏輯測試
 │   └── TestCase1To10
 │       └── test_case_1_to_10

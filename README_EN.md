@@ -321,7 +321,7 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ### Test Cases
 
-The system includes the following test cases (27 tests total):
+The system includes the following test cases (28 tests total):
 
 1. **Core Scoring Logic Tests** (`test_case_01_default_member.py`):
    - Progressive route addition scoring
@@ -334,6 +334,7 @@ The system includes the following test cases (27 tests total):
    - Create route
    - Update score status
    - Complete workflow test (create room, add member, create route)
+   - Get member completed routes list
 
 3. **Progressive Route Completion Tests** (`test_case_route_progressive_completion.py`):
    - Route created with no completions

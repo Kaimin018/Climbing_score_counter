@@ -321,7 +321,7 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ### 測試案例
 
-系統包含以下測試案例（共 27 個測試）：
+系統包含以下測試案例（共 28 個測試）：
 
 1. **核心計分邏輯測試**（`test_case_01_default_member.py`）：
    - 循序漸進新增路線的計分
@@ -334,6 +334,7 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
    - 創建路線
    - 更新成績狀態
    - 完整流程測試（創建房間、新增成員、建立路線）
+   - 獲取成員完成的路線列表
 
 3. **路線漸進完成測試**（`test_case_route_progressive_completion.py`）：
    - 路線建立時無人完成

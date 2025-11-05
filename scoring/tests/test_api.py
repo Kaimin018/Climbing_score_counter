@@ -575,3 +575,84 @@ class APITestCase(TestCase):
         # 測試完成後清理房間
         cleanup_test_data(room=room)
 
+    def test_get_member_completed_routes(self):
+        """測試獲取成員完成的路線列表"""
+        # 創建測試環境：房間和三個成員
+        test_room = TestDataFactory.create_room(name="測試房間")
+        m1 = TestDataFactory.create_normal_members(test_room, count=1, names=["成員A"])[0]
+        m2 = TestDataFactory.create_normal_members(test_room, count=1, names=["成員B"])[0]
+        m3 = TestDataFactory.create_normal_members(test_room, count=1, names=["成員C"])[0]
+        
+        # 創建三條路線
+        route1 = TestDataFactory.create_route(
+            room=test_room,
+            name="路線1",
+            grade="V3",
+            members=[m1, m2, m3],
+            member_completions={str(m1.id): True, str(m2.id): False, str(m3.id): False}
+        )
+        route2 = TestDataFactory.create_route(
+            room=test_room,
+            name="路線2",
+            grade="V4",
+            members=[m1, m2, m3],
+            member_completions={str(m1.id): True, str(m2.id): True, str(m3.id): False}
+        )
+        route3 = TestDataFactory.create_route(
+            room=test_room,
+            name="路線3",
+            grade="V5",
+            members=[m1, m2, m3],
+            member_completions={str(m1.id): False, str(m2.id): False, str(m3.id): False}
+        )
+        
+        # 測試獲取成員1完成的路線（應該有2條：路線1和路線2）
+        url = f'/api/members/{m1.id}/completed-routes/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # 驗證響應結構
+        self.assertIn('member_id', response.data)
+        self.assertIn('member_name', response.data)
+        self.assertIn('completed_routes', response.data)
+        self.assertIn('total_count', response.data)
+        
+        # 驗證數據
+        self.assertEqual(response.data['member_id'], m1.id)
+        self.assertEqual(response.data['member_name'], '成員A')
+        self.assertEqual(response.data['total_count'], 2)
+        
+        # 驗證完成的路線
+        completed_routes = response.data['completed_routes']
+        self.assertEqual(len(completed_routes), 2)
+        
+        # 驗證路線ID和名稱
+        route_ids = [r['id'] for r in completed_routes]
+        self.assertIn(route1.id, route_ids)
+        self.assertIn(route2.id, route_ids)
+        self.assertNotIn(route3.id, route_ids)
+        
+        # 驗證路線數據結構
+        for route in completed_routes:
+            self.assertIn('id', route)
+            self.assertIn('name', route)
+            self.assertIn('grade', route)
+            self.assertIn('scores', route)
+        
+        # 測試獲取成員2完成的路線（應該有1條：路線2）
+        url = f'/api/members/{m2.id}/completed-routes/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total_count'], 1)
+        self.assertEqual(response.data['completed_routes'][0]['id'], route2.id)
+        
+        # 測試獲取成員3完成的路線（應該有0條）
+        url = f'/api/members/{m3.id}/completed-routes/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total_count'], 0)
+        self.assertEqual(len(response.data['completed_routes']), 0)
+        
+        # 測試完成後清理房間
+        cleanup_test_data(room=test_room)
+
