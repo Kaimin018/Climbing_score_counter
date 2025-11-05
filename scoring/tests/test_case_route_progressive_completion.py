@@ -1,5 +1,6 @@
 from django.test import TestCase
 from scoring.models import Room, Member, Route, Score, update_scores
+from scoring.tests.test_helpers import TestDataFactory, cleanup_test_data
 
 
 class TestCaseRouteProgressiveCompletion(TestCase):
@@ -7,10 +8,13 @@ class TestCaseRouteProgressiveCompletion(TestCase):
 
     def setUp(self):
         """設置測試數據"""
-        self.room = Room.objects.create(name="測試房間")
+        self.room = TestDataFactory.create_room(name="測試房間")
         # 創建兩個非客製化成員（一般組）
-        self.m1 = Member.objects.create(room=self.room, name="王小明", is_custom_calc=False)
-        self.m2 = Member.objects.create(room=self.room, name="李大華", is_custom_calc=False)
+        self.m1, self.m2 = TestDataFactory.create_normal_members(
+            self.room,
+            count=2,
+            names=["王小明", "李大華"]
+        )
         # 2個一般組成員，L = LCM(1,2) = 2
 
     def update_scores(self):
@@ -82,4 +86,8 @@ class TestCaseRouteProgressiveCompletion(TestCase):
             member__is_custom_calc=False
         ).count()
         self.assertEqual(normal_completers, 2)
+    
+    def tearDown(self):
+        """測試完成後清理數據"""
+        cleanup_test_data(room=self.room)
 

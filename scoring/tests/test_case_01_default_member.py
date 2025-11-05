@@ -1,5 +1,6 @@
 from django.test import TestCase
 from scoring.models import Room, Member, Route, Score, update_scores
+from scoring.tests.test_helpers import TestDataFactory, cleanup_test_data
 
 
 class TestCase1To10(TestCase):
@@ -7,12 +8,13 @@ class TestCase1To10(TestCase):
 
     def setUp(self):
         """設置測試數據"""
-        self.room = Room.objects.create(name="測試房間")
+        self.room = TestDataFactory.create_room(name="測試房間")
         # 所有成員都設置為非客製化組（一般組）
-        self.m1 = Member.objects.create(room=self.room, name="王小明", is_custom_calc=False)
-        self.m2 = Member.objects.create(room=self.room, name="李大華", is_custom_calc=False)
-        self.m3 = Member.objects.create(room=self.room, name="張三", is_custom_calc=False)
-        self.m4 = Member.objects.create(room=self.room, name="陳四", is_custom_calc=False)
+        self.m1, self.m2, self.m3, self.m4 = TestDataFactory.create_normal_members(
+            self.room,
+            count=4,
+            names=["王小明", "李大華", "張三", "陳四"]
+        )
 
     def update_scores(self):
         """更新分數"""
@@ -148,4 +150,8 @@ class TestCase1To10(TestCase):
         self.assertEqual(float(self.m1.total_score), 34.00)  # 28 + 6
         self.assertEqual(float(self.m2.total_score), 34.00)  # 不變
         self.assertEqual(float(self.m3.total_score), 40.00)  # 34 + 6
+    
+    def tearDown(self):
+        """測試完成後清理數據"""
+        cleanup_test_data(room=self.room)
 

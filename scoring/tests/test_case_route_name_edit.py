@@ -2,6 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 from scoring.models import Room, Member, Route, Score
+from scoring.tests.test_helpers import TestDataFactory, cleanup_test_data
 
 
 class TestCaseRouteNameEdit(TestCase):
@@ -9,22 +10,32 @@ class TestCaseRouteNameEdit(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.room = Room.objects.create(name="測試房間")
-        self.m1 = Member.objects.create(room=self.room, name="測試成員1", is_custom_calc=False)
-        self.m2 = Member.objects.create(room=self.room, name="測試成員2", is_custom_calc=False)
+        self.room = TestDataFactory.create_room(name="測試房間")
+        self.m1, self.m2 = TestDataFactory.create_normal_members(
+            self.room,
+            count=2,
+            names=["測試成員1", "測試成員2"]
+        )
         
-        # 創建測試路線
-        self.route1 = Route.objects.create(room=self.room, name="【路線】路線1", grade="V3")
-        self.route2 = Route.objects.create(room=self.room, name="【路線】123", grade="V4")
-        self.route3 = Route.objects.create(room=self.room, name="【路線】正面黑", grade="V5")
-        
-        # 創建成績記錄
-        Score.objects.create(member=self.m1, route=self.route1, is_completed=False)
-        Score.objects.create(member=self.m2, route=self.route1, is_completed=False)
-        Score.objects.create(member=self.m1, route=self.route2, is_completed=False)
-        Score.objects.create(member=self.m2, route=self.route2, is_completed=False)
-        Score.objects.create(member=self.m1, route=self.route3, is_completed=False)
-        Score.objects.create(member=self.m2, route=self.route3, is_completed=False)
+        # 創建測試路線並自動創建成績記錄
+        self.route1 = TestDataFactory.create_route(
+            room=self.room,
+            name="【路線】路線1",
+            grade="V3",
+            members=[self.m1, self.m2]
+        )
+        self.route2 = TestDataFactory.create_route(
+            room=self.room,
+            name="【路線】123",
+            grade="V4",
+            members=[self.m1, self.m2]
+        )
+        self.route3 = TestDataFactory.create_route(
+            room=self.room,
+            name="【路線】正面黑",
+            grade="V5",
+            members=[self.m1, self.m2]
+        )
 
     def test_edit_route_name_without_change(self):
         """測試：編輯路線但不修改名稱（應該保持原樣）"""
@@ -115,4 +126,8 @@ class TestCaseRouteNameEdit(TestCase):
         self.assertTrue(response.data['name'].startswith('【路線】'))
         # 驗證完整名稱包含"正面黑"
         self.assertIn('正面黑', response.data['name'])
+    
+    def tearDown(self):
+        """測試完成後清理數據"""
+        cleanup_test_data(room=self.room)
 

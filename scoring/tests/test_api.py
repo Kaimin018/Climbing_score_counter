@@ -2,6 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 from scoring.models import Room, Member, Route, Score
+from scoring.tests.test_helpers import TestDataFactory, cleanup_test_data, create_basic_test_setup
 
 
 class APITestCase(TestCase):
@@ -9,9 +10,13 @@ class APITestCase(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.room = Room.objects.create(name="API測試房間", standard_line_score=12)
-        self.m1 = Member.objects.create(room=self.room, name="測試成員1", is_custom_calc=False)
-        self.m2 = Member.objects.create(room=self.room, name="測試成員2", is_custom_calc=False)
+        self.room = TestDataFactory.create_room(name="API測試房間", standard_line_score=12)
+        self.m1 = TestDataFactory.create_normal_members(self.room, count=1, names=["測試成員1"])[0]
+        self.m2 = TestDataFactory.create_normal_members(self.room, count=1, names=["測試成員2"])[0]
+    
+    def tearDown(self):
+        """測試完成後清理數據"""
+        cleanup_test_data(room=self.room)
 
     def test_get_leaderboard(self):
         """測試獲取排行榜"""
@@ -60,6 +65,7 @@ class APITestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn('id', response.data)
         room_id = response.data['id']
+        test_room = Room.objects.get(id=room_id)
         
         # 驗證房間創建成功
         self.assertEqual(Room.objects.count(), 2)  # 原有1個 + 新建1個
@@ -90,9 +96,8 @@ class APITestCase(TestCase):
         self.assertEqual(Member.objects.filter(room_id=room_id).count(), 2)
         
         # 驗證每一條線總分自動更新（2個一般組成員，LCM(1,2) = 2）
-        room = Room.objects.get(id=room_id)
-        room.refresh_from_db()
-        self.assertEqual(room.standard_line_score, 2)
+        test_room.refresh_from_db()
+        self.assertEqual(test_room.standard_line_score, 2)
         
         # 步驟 3: 建立新路線
         route_data = {
@@ -130,6 +135,9 @@ class APITestCase(TestCase):
         member2 = Member.objects.get(id=member2_id)
         member2.refresh_from_db()
         self.assertEqual(float(member2.total_score), 0.00)
+        
+        # 測試完成後清理新創建的房間
+        cleanup_test_data(room=test_room)
 
     def test_create_route_with_initial_completions(self):
         """測試創建路線時勾選完成成員，驗證完成人數正確顯示"""
@@ -190,6 +198,9 @@ class APITestCase(TestCase):
         ).count()
         self.assertEqual(normal_completers, 2, 
                         f"一般組完成人數應該是 2，但實際是 {normal_completers}")
+        
+        # 測試完成後清理房間
+        cleanup_test_data(room=room)
 
     def test_get_room_with_routes_shows_completion_count(self):
         """測試通過 GET /api/rooms/{id}/ 獲取房間時，routes 的完成人數正確顯示"""
@@ -249,6 +260,9 @@ class APITestCase(TestCase):
         frontend_completed_count = len(completed_scores)
         self.assertEqual(frontend_completed_count, 2,
                         f"前端計算的完成人數應該是 2，但實際是 {frontend_completed_count}")
+        
+        # 測試完成後清理房間
+        cleanup_test_data(room=room)
 
     def test_create_route_with_multiple_completions_frontend_display(self):
         """測試新建立路線時選擇多個完成人員，驗證前端顯示的完成人數正確"""
@@ -347,6 +361,9 @@ class APITestCase(TestCase):
         self.assertTrue(Score.objects.get(member=m4, route=route).is_completed, "成員4應該標記為完成")
         self.assertFalse(Score.objects.get(member=m5, route=route).is_completed, "成員5應該標記為未完成")
         self.assertFalse(Score.objects.get(member=m6, route=route).is_completed, "成員6應該標記為未完成")
+        
+        # 測試完成後清理房間
+        cleanup_test_data(room=room)
 
     def test_create_route_immediate_refresh_simulation(self):
         """深度測試：模擬前端完整流程 - 創建路線後立即刷新獲取房間數據"""
@@ -445,6 +462,9 @@ class APITestCase(TestCase):
                                f"成員 {member_id} 的完成狀態不一致：API={is_completed}, DB={db_score.is_completed}")
             except Score.DoesNotExist:
                 self.fail(f"數據庫中找不到成員 {member_id} 的 score 記錄")
+        
+        # 測試完成後清理房間
+        cleanup_test_data(room=room)
 
     def test_create_route_deep_dive_complete_flow(self):
         """深度分析：完整追蹤創建路線的整個流程"""
@@ -551,4 +571,7 @@ class APITestCase(TestCase):
             db_score = Score.objects.get(member_id=member_id, route_id=route_id)
             self.assertEqual(db_score.is_completed, is_completed_api,
                            f"成員 {member_id} 的完成狀態不一致：API={is_completed_api}, DB={db_score.is_completed}")
+        
+        # 測試完成後清理房間
+        cleanup_test_data(room=room)
 

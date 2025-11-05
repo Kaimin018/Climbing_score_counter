@@ -2,6 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 from scoring.models import Room, Member, Route, Score, update_scores
+from scoring.tests.test_helpers import TestDataFactory, cleanup_test_data
 
 
 class TestCaseRouteUpdateCompletions(TestCase):
@@ -9,20 +10,20 @@ class TestCaseRouteUpdateCompletions(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.room = Room.objects.create(name="測試房間")
-        self.m1 = Member.objects.create(room=self.room, name="王小明", is_custom_calc=False)
-        self.m2 = Member.objects.create(room=self.room, name="李大華", is_custom_calc=False)
-        self.m3 = Member.objects.create(room=self.room, name="張三", is_custom_calc=False)
-        self.m4 = Member.objects.create(room=self.room, name="陳四", is_custom_calc=False)
+        self.room = TestDataFactory.create_room(name="測試房間")
+        self.m1, self.m2, self.m3, self.m4 = TestDataFactory.create_normal_members(
+            self.room, 
+            count=4,
+            names=["王小明", "李大華", "張三", "陳四"]
+        )
         
-        # 創建測試路線
-        self.route = Route.objects.create(room=self.room, name="【路線】路線1", grade="V3")
-        
-        # 創建成績記錄（初始狀態：所有人未完成）
-        Score.objects.create(member=self.m1, route=self.route, is_completed=False)
-        Score.objects.create(member=self.m2, route=self.route, is_completed=False)
-        Score.objects.create(member=self.m3, route=self.route, is_completed=False)
-        Score.objects.create(member=self.m4, route=self.route, is_completed=False)
+        # 創建測試路線並自動創建成績記錄
+        self.route = TestDataFactory.create_route(
+            room=self.room,
+            name="【路線】路線1",
+            grade="V3",
+            members=[self.m1, self.m2, self.m3, self.m4]
+        )
 
     def test_update_route_mark_two_members_completed(self):
         """測試：更新路線，標記兩個成員為完成"""
@@ -183,4 +184,8 @@ class TestCaseRouteUpdateCompletions(TestCase):
         # 2人完成，每人得 12/2 = 6分
         self.assertEqual(float(self.m1.total_score), 6.00)
         self.assertEqual(float(self.m2.total_score), 6.00)
+    
+    def tearDown(self):
+        """測試完成後清理數據"""
+        cleanup_test_data(room=self.room)
 
