@@ -473,15 +473,14 @@
     }
 
     function showEditRouteModal(route) {
+        // 保存原始路線名稱（包含【路線】前綴）
+        const originalRouteName = route.name || '';
+        
         // 填充表單（移除【路線】前綴以便編輯）
-        let routeNameForEdit = route.name || '';
-        // 移除【路線】前綴（5個字符）
+        let routeNameForEdit = originalRouteName;
+        // 移除【路線】前綴（4個字符：【、路、線、】）
         if (routeNameForEdit.startsWith('【路線】')) {
-            routeNameForEdit = routeNameForEdit.substring(5); // 移除【路線】前綴（5個字符）
-        }
-        // 移除開頭的】字符（處理可能的殘留）
-        if (routeNameForEdit.startsWith('】')) {
-            routeNameForEdit = routeNameForEdit.substring(1);
+            routeNameForEdit = routeNameForEdit.substring(4); // 移除【路線】前綴（4個字符）
         }
         // 如果移除後的名稱不包含"路線"但只是一個數字，添加"路線"前綴
         // 例如："線3" -> "路線3"，"3" -> "路線3"
@@ -497,7 +496,8 @@
         }
         
         currentEditingRouteId = route.id;
-        currentEditingRouteName = routeNameForEdit;
+        // 保存原始名稱（包含【路線】前綴）和編輯用的名稱（不包含前綴）
+        currentEditingRouteName = originalRouteName; // 保存原始完整名稱
         document.getElementById('editRouteId').value = route.id;
         document.getElementById('editRouteName').value = routeNameForEdit;
         document.getElementById('editRouteGrade').value = route.grade || '';
@@ -836,10 +836,30 @@
             memberCompletions[checkbox.value] = checkbox.checked;
         });
 
-        // 確保路線名稱有【路線】前綴
-        let routeName = document.getElementById('editRouteName').value;
-        if (routeName && !routeName.startsWith('【路線】')) {
-            routeName = '【路線】' + routeName;
+        // 獲取路線名稱
+        let routeName = document.getElementById('editRouteName').value.trim();
+        
+        // 如果用戶沒有修改名稱，使用原始完整名稱（避免自動添加前綴導致重複）
+        // currentEditingRouteName 保存的是原始完整名稱（包含【路線】前綴）
+        // 計算編輯框中應該顯示的原始名稱（不包含【路線】前綴）
+        let originalDisplayName = '';
+        if (currentEditingRouteName) {
+            if (currentEditingRouteName.startsWith('【路線】')) {
+                originalDisplayName = currentEditingRouteName.substring(4); // 【路線】是4個字符
+            } else {
+                originalDisplayName = currentEditingRouteName;
+            }
+        }
+        
+        // 如果當前輸入的值等於原始顯示值，說明用戶沒有修改
+        if (originalDisplayName && routeName === originalDisplayName) {
+            // 用戶沒有修改名稱，使用原始完整名稱
+            routeName = currentEditingRouteName;
+        } else {
+            // 用戶修改了名稱，確保有【路線】前綴
+            if (routeName && !routeName.startsWith('【路線】')) {
+                routeName = '【路線】' + routeName;
+            }
         }
 
         // 構建 FormData（支持文件上傳）

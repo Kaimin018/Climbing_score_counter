@@ -1,0 +1,63 @@
+﻿Found 1 test(s).
+python : Creating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+At C:\Users\lkiam\AppData\Local\Temp\ps-script-32590bb8-1b32-43b1-b0b9-04d3c6971713.ps1:93 char:1
++ python manage.py test scoring.tests.test_case_route_update_with_formd ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Creating test d...che=shared')...:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+Operations to perform:
+  Synchronize unmigrated apps: corsheaders, messages, rest_framework, staticfiles
+  Apply all migrations: admin, auth, contenttypes, scoring, sessions
+Synchronizing apps without migrations:
+  Creating tables...
+    Running deferred SQL...
+Running migrations:
+  Applying contenttypes.0001_initial... OK
+  Applying auth.0001_initial... OK
+  Applying admin.0001_initial... OK
+  Applying admin.0002_logentry_remove_auto_add... OK
+  Applying admin.0003_logentry_add_action_flag_choices... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying auth.0002_alter_permission_name_max_length... OK
+  Applying auth.0003_alter_user_email_max_length... OK
+  Applying auth.0004_alter_user_username_opts... OK
+  Applying auth.0005_alter_user_last_login_null... OK
+  Applying auth.0006_require_contenttypes_0002... OK
+  Applying auth.0007_alter_validators_add_error_messages... OK
+  Applying auth.0008_alter_user_username_max_length... OK
+  Applying auth.0009_alter_user_last_name_max_length... OK
+  Applying auth.0010_alter_group_name_max_length... OK
+  Applying auth.0011_update_proxy_permissions... OK
+  Applying auth.0012_alter_user_first_name_max_length... OK
+  Applying scoring.0001_initial... OK
+  Applying scoring.0002_route_photo_alter_room_standard_line_score_and_more... OK
+  Applying sessions.0001_initial... OK
+System check identified no issues (0 silenced).
+test_update_route_with_formdata_mark_two_members (scoring.tests.test_case_route_update_with_formdata.TestCaseRouteUpdat
+eWithFormData.test_update_route_with_formdata_mark_two_members)
+\u6e2c\u8a66\uff1a\u4f7f\u7528 FormData \u683c\u5f0f\uff08\u6a21\u64ec\u524d\u7aef\uff09\u66f4\u65b0\u8def\u7dda\uff0c\
+u6a19\u8a18\u5169\u500b\u6210\u54e1\u70ba\u5b8c\u6210 ... FAIL
+
+======================================================================
+FAIL: test_update_route_with_formdata_mark_two_members (scoring.tests.test_case_route_update_with_formdata.TestCaseRout
+eUpdateWithFormData.test_update_route_with_formdata_mark_two_members)
+\u6e2c\u8a66\uff1a\u4f7f\u7528 FormData \u683c\u5f0f\uff08\u6a21\u64ec\u524d\u7aef\uff09\u66f4\u65b0\u8def\u7dda\uff0c\
+u6a19\u8a18\u5169\u500b\u6210\u54e1\u70ba\u5b8c\u6210
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\2025 coding project\20_climbing_score_counting_system\scoring\tests\test_case_route_update_with_formdata.py"
+, line 64, in test_update_route_with_formdata_mark_two_members
+    self.assertTrue(score1.is_completed, f"M1 \u61c9\u8a72\u88ab\u6a19\u8a18\u70ba\u5b8c\u6210\uff0c\u4f46\u5be6\u969b\
+u70ba: {score1.is_completed}")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : M1 \u61c9\u8a72\u88ab\u6a19\u8a18\u70ba\u5b8c\u6210\uff0c\u4f46\u5be6\u969b\u70ba: 
+False
+
+----------------------------------------------------------------------
+Ran 1 test in 0.042s
+
+FAILED (failures=1)
+Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+

@@ -88,24 +88,68 @@ class RouteCreateSerializer(serializers.ModelSerializer):
 
 class RouteUpdateSerializer(serializers.ModelSerializer):
     """用於更新路線並批量更新成績記錄"""
-    member_completions = serializers.DictField(
-        child=serializers.BooleanField(),
+    member_completions = serializers.CharField(
         write_only=True,
         required=False,
-        help_text="格式: {'member_id': is_completed}"
+        allow_null=True,
+        allow_blank=True,
+        help_text="格式: JSON 字符串，如 '{\"member_id\": true}'"
     )
 
     class Meta:
         model = Route
         fields = ['name', 'grade', 'photo', 'photo_url', 'member_completions']
+    
+    def validate_member_completions(self, value):
+        """驗證 member_completions 字段"""
+        import logging
+        import json
+        logger = logging.getLogger(__name__)
+        
+        # 如果值為 None 或空字符串，返回 None
+        if value is None or (isinstance(value, str) and value.strip() == ''):
+            logger.info(f"[RouteUpdateSerializer.validate] member_completions 為空，返回 None")
+            return None
+        
+        logger.info(f"[RouteUpdateSerializer.validate] member_completions 類型: {type(value)}, 值: {value}")
+        
+        # 如果值是字符串，嘗試解析 JSON
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                logger.info(f"[RouteUpdateSerializer.validate] JSON 字符串解析成功: {parsed}")
+                # 確保解析後是字典
+                if not isinstance(parsed, dict):
+                    logger.warning(f"[RouteUpdateSerializer.validate] 解析結果不是字典，轉換為空字典")
+                    return {}
+                return parsed
+            except json.JSONDecodeError as e:
+                logger.error(f"[RouteUpdateSerializer.validate] JSON 解析失敗: {e}, 原始值: {value}")
+                return {}
+        
+        # 如果已經是字典，直接返回
+        if isinstance(value, dict):
+            logger.info(f"[RouteUpdateSerializer.validate] member_completions 已經是字典: {value}")
+            return value
+        
+        logger.warning(f"[RouteUpdateSerializer.validate] member_completions 類型不正確: {type(value)}, 返回空字典")
+        return {}
 
     def update(self, instance, validated_data):
+        import logging
+        logger = logging.getLogger(__name__)
+        
         member_completions = validated_data.pop('member_completions', None)
         room = instance.room
         
-        # 更新路線信息
-        instance.name = validated_data.get('name', instance.name)
-        instance.grade = validated_data.get('grade', instance.grade)
+        logger.info(f"[RouteUpdateSerializer] 開始更新路線 ID={instance.id}, name={instance.name}")
+        logger.info(f"[RouteUpdateSerializer] 接收到的 member_completions 類型: {type(member_completions)}, 值: {member_completions}")
+        
+        # 更新路線信息（只更新提供的字段）
+        if 'name' in validated_data:
+            instance.name = validated_data['name']
+        if 'grade' in validated_data:
+            instance.grade = validated_data['grade']
         # 如果提供了新照片，更新照片
         if 'photo' in validated_data:
             instance.photo = validated_data.get('photo')
@@ -116,29 +160,69 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
         
         # 如果提供了成員完成狀態，批量更新
         if member_completions is not None:
+            logger.info(f"[RouteUpdateSerializer] member_completions 不為 None，開始處理")
             # 處理 member_completions（可能是 JSON 字符串）
             if isinstance(member_completions, str):
+                logger.info(f"[RouteUpdateSerializer] member_completions 是字符串，嘗試解析 JSON: {member_completions}")
                 import json
                 try:
                     member_completions = json.loads(member_completions)
-                except json.JSONDecodeError:
+                    logger.info(f"[RouteUpdateSerializer] JSON 解析成功: {member_completions}")
+                except json.JSONDecodeError as e:
+                    logger.error(f"[RouteUpdateSerializer] JSON 解析失敗: {e}")
                     member_completions = {}
             
+            # 確保 member_completions 是字典類型
+            if not isinstance(member_completions, dict):
+                logger.warning(f"[RouteUpdateSerializer] member_completions 不是字典類型，轉換為空字典。原始類型: {type(member_completions)}")
+                member_completions = {}
+            
+            logger.info(f"[RouteUpdateSerializer] 處理後的 member_completions: {member_completions}, 類型: {type(member_completions)}")
+            
             # 獲取所有成員的成績記錄
-            for member in room.members.all():
+            all_members = list(room.members.all())
+            logger.info(f"[RouteUpdateSerializer] 房間共有 {len(all_members)} 個成員: {[m.id for m in all_members]}")
+            
+            for member in all_members:
                 score, created = Score.objects.get_or_create(
                     member=member,
                     route=instance,
                     defaults={'is_completed': False}
                 )
                 # 更新完成狀態：如果成員在字典中，使用提供的值；否則設為 False（未勾選）
-                is_completed = member_completions.get(str(member.id), False)
-                score.is_completed = is_completed
+                # 確保 member_id 作為字符串進行比較
+                member_id_str = str(member.id)
+                member_id_int = member.id
+                logger.debug(f"[RouteUpdateSerializer] 處理成員 ID={member.id} (字符串: {member_id_str}), 名稱: {member.name}")
+                
+                # 嘗試多種 key 格式
+                is_completed = None
+                if member_id_str in member_completions:
+                    is_completed = member_completions[member_id_str]
+                    logger.debug(f"[RouteUpdateSerializer] 使用字符串 key '{member_id_str}' 找到值: {is_completed}")
+                elif member_id_int in member_completions:
+                    is_completed = member_completions[member_id_int]
+                    logger.debug(f"[RouteUpdateSerializer] 使用整數 key '{member_id_int}' 找到值: {is_completed}")
+                else:
+                    is_completed = False
+                    logger.debug(f"[RouteUpdateSerializer] 成員 ID {member.id} 不在 member_completions 中，設為 False")
+                
+                # 確保 is_completed 是布林值
+                if isinstance(is_completed, str):
+                    is_completed = is_completed.lower() in ('true', '1', 'yes')
+                    logger.debug(f"[RouteUpdateSerializer] 將字符串 '{is_completed}' 轉換為布林值: {is_completed}")
+                
+                old_status = score.is_completed
+                score.is_completed = bool(is_completed)
                 score.save()
+                logger.info(f"[RouteUpdateSerializer] 成員 {member.name} (ID={member.id}): {old_status} -> {score.is_completed}")
+        else:
+            logger.info(f"[RouteUpdateSerializer] member_completions 為 None，跳過更新完成狀態")
         
         # 觸發計分更新
         from .models import update_scores
         update_scores(room.id)
+        logger.info(f"[RouteUpdateSerializer] 路線更新完成，已觸發計分更新")
         
         return instance
 
@@ -221,6 +305,18 @@ class RoomSerializer(serializers.ModelSerializer):
     class Meta:
         model = Room
         fields = ['id', 'name', 'standard_line_score', 'members', 'routes', 'created_at']
+    
+    def to_representation(self, instance):
+        """確保嵌套的 RouteSerializer 能正確獲取 context"""
+        representation = super().to_representation(instance)
+        # 手動序列化 routes 以確保 context 正確傳遞
+        request = self.context.get('request')
+        representation['routes'] = RouteSerializer(
+            instance.routes.all(), 
+            many=True, 
+            context={'request': request} if request else {}
+        ).data
+        return representation
 
 
 class LeaderboardSerializer(serializers.Serializer):
