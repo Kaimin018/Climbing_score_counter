@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}規則說明 - 攀岩計分系統{% endblock %}
+
+{% block content %}
+<div class="rules-container" style="max-width: 900px; margin: 0 auto; padding: 20px;">
+    <h1 style="color: #2c3e50; margin-bottom: 30px; text-align: center;">攀岩計分系統規則說明</h1>
+    
+    <div class="rules-section" style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px;">
+        <h2 style="color: #3498db; margin-top: 0; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
+            一、每一條線總分 (L) 的計算規則
+        </h2>
+        <div style="line-height: 1.8; color: #333;">
+            <p style="font-size: 16px; margin-bottom: 15px;">
+                每一條線總分會根據<strong>一般組成員數</strong>自動計算：
+            </p>
+            <ul style="font-size: 15px; padding-left: 25px;">
+                <li style="margin-bottom: 10px;">
+                    <strong>成員數 &lt; 8 人：</strong>使用最小公倍數 (LCM)
+                    <br>
+                    <span style="color: #666; margin-left: 20px;">
+                        計算 1 到成員數的最小公倍數。例如：3 人 → LCM(1,2,3) = 6；4 人 → LCM(1,2,3,4) = 12
+                    </span>
+                </li>
+                <li style="margin-bottom: 10px;">
+                    <strong>成員數 ≥ 8 人：</strong>固定為 <strong style="color: #e74c3c;">1000 分</strong>
+                </li>
+            </ul>
+            <p style="font-size: 14px; color: #666; margin-top: 15px; font-style: italic;">
+                💡 提示：系統會自動計算並更新每一條線總分，無需手動設定。每一條線總分只根據一般組成員數計算，客製化組成員不影響此計算。
+            </p>
+        </div>
+    </div>
+
+    <div class="rules-section" style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px;">
+        <h2 style="color: #3498db; margin-top: 0; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
+            二、計分方式
+        </h2>
+        <div style="line-height: 1.8; color: #333;">
+            <h3 style="color: #2c3e50; margin-top: 20px; margin-bottom: 10px;">常態組（一般組）</h3>
+            <p style="font-size: 15px; margin-bottom: 10px;">
+                對於每條路線，分數計算公式為：
+            </p>
+            <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0; border-left: 4px solid #3498db;">
+                <p style="margin: 0; font-size: 16px; font-family: 'Courier New', monospace;">
+                    <strong>路線分數 (S<sub>r</sub>) = L / P<sub>r</sub></strong>
+                </p>
+                <p style="margin: 5px 0 0 0; font-size: 14px; color: #666;">
+                    其中 L = 每一條線總分，P<sub>r</sub> = 完成該路線的常態組人數
+                </p>
+            </div>
+            <p style="font-size: 14px; margin-top: 15px;">
+                <strong>範例：</strong>假設 L = 12，路線 A 有 3 個常態組成員完成，則每個完成者獲得 12 ÷ 3 = 4 分。
+            </p>
+
+            <h3 style="color: #2c3e50; margin-top: 30px; margin-bottom: 10px;">客製化組</h3>
+            <div style="background: #e8f5e9; padding: 15px; border-radius: 5px; margin-bottom: 15px; border-left: 4px solid #4caf50;">
+                <p style="margin: 0; font-size: 14px; color: #2e7d32; font-weight: 500;">
+                    💡 <strong>設計理念：</strong>客製化組是為了讓程度較低的朋友也能加入對戰而設計的友善規則。
+                </p>
+            </div>
+            <p style="font-size: 15px; margin-bottom: 10px;">
+                客製化組成員完成一條路線時，獲得的分數與一般組成員相同（<strong>L 分</strong>），但<strong>不會被其他成員搶走分數</strong>。
+            </p>
+            <p style="font-size: 14px; margin-bottom: 10px; color: #666;">
+                換句話說，客製化組成員每完成一條路線，固定獲得 <strong>L 分</strong>，不論有多少人完成該路線，分數都不會被分攤。
+            </p>
+            <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0; border-left: 4px solid #e74c3c;">
+                <p style="margin: 0; font-size: 16px; font-family: 'Courier New', monospace;">
+                    <strong>總分 = 完成路線數 × L</strong>
+                </p>
+            </div>
+            <p style="font-size: 14px; margin-top: 15px;">
+                <strong>範例：</strong>假設 L = 12，客製化組成員完成 5 條路線，則總分為 5 × 12 = 60 分。
+            </p>
+            <p style="font-size: 14px; margin-top: 10px; color: #666;">
+                <strong>對比說明：</strong>如果一般組成員完成一條路線，但該路線有 3 個一般組成員完成，則每人只能獲得 12 ÷ 3 = 4 分。而客製化組成員完成同樣的路線，無論有多少人完成，都能獲得完整的 12 分。
+            </p>
+        </div>
+    </div>
+
+    <div class="rules-section" style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px;">
+        <h2 style="color: #3498db; margin-top: 0; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
+            三、功能說明
+        </h2>
+        <div style="line-height: 1.8; color: #333;">
+            <h3 style="color: #2c3e50; margin-top: 20px; margin-bottom: 10px;">房間管理</h3>
+            <ul style="font-size: 15px; padding-left: 25px;">
+                <li style="margin-bottom: 8px;">創建房間：設定房間名稱，每一條線總分會自動計算</li>
+                <li style="margin-bottom: 8px;">編輯房間：可修改房間名稱（每一條線總分無法手動修改）</li>
+            </ul>
+
+            <h3 style="color: #2c3e50; margin-top: 25px; margin-bottom: 10px;">成員管理</h3>
+            <ul style="font-size: 15px; padding-left: 25px;">
+                <li style="margin-bottom: 8px;">新增成員：設定成員名稱和組別（常態組/客製化組）</li>
+                <li style="margin-bottom: 8px;">編輯成員：可修改成員名稱和組別屬性</li>
+                <li style="margin-bottom: 8px;">新增成員後，每一條線總分會自動重新計算</li>
+            </ul>
+
+            <h3 style="color: #2c3e50; margin-top: 25px; margin-bottom: 10px;">路線管理</h3>
+            <ul style="font-size: 15px; padding-left: 25px;">
+                <li style="margin-bottom: 8px;">新增路線：設定路線名稱、難度等級（V1-V8）、照片網址</li>
+                <li style="margin-bottom: 8px;">編輯路線：可修改路線資訊和成員完成狀態</li>
+                <li style="margin-bottom: 8px;">完成狀態變更會自動觸發分數重新計算</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="rules-section" style="background: #fff3cd; padding: 25px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #ffc107;">
+        <h2 style="color: #856404; margin-top: 0; border-bottom: 2px solid #ffc107; padding-bottom: 10px;">
+            ⚠️ 重要提醒
+        </h2>
+        <ul style="font-size: 15px; padding-left: 25px; color: #856404; line-height: 1.8;">
+            <li style="margin-bottom: 10px;">每一條線總分會根據一般組成員數自動計算，無需手動設定</li>
+            <li style="margin-bottom: 10px;">當成員數達到 8 人時，每一條線總分會自動變為 1000 分</li>
+            <li style="margin-bottom: 10px;">新增或修改成員、路線時，分數會自動重新計算</li>
+            <li style="margin-bottom: 10px;">排行榜會即時更新，反映最新的分數和排名</li>
+        </ul>
+    </div>
+
+    <div style="text-align: center; margin-top: 40px;">
+        <a href="/" class="btn btn-primary" style="display: inline-block; padding: 12px 30px; text-decoration: none;">
+            返回首頁
+        </a>
+    </div>
+</div>
+
+<style>
+    .rules-container {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    
+    .rules-section h2 {
+        font-size: 22px;
+    }
+    
+    .rules-section h3 {
+        font-size: 18px;
+    }
+    
+    .btn {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+    }
+    
+    .btn:hover {
+        background-color: #2980b9;
+    }
+    
+    .btn-primary {
+        background-color: #3498db;
+    }
+    
+    .btn-primary:hover {
+        background-color: #2980b9;
+    }
+</style>
+{% endblock %}
+

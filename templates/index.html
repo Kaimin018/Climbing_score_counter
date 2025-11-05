@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}首頁 - 攀岩計分系統{% endblock %}
+
+{% block content %}
+<div class="home-container">
+    <div class="welcome-header">
+        <h1>攀岩計分系統</h1>
+        <p class="subtitle">選擇房間或創建新房間開始使用</p>
+        <p style="text-align: center; margin-top: 10px;">
+            <a href="/rules/" style="color: #3498db; text-decoration: none; font-size: 14px;">
+                📖 查看規則說明
+            </a>
+        </p>
+    </div>
+
+    <div class="actions-section">
+        <button class="btn btn-primary btn-large" onclick="showCreateRoomModal()">
+            <span class="btn-icon">➕</span>
+            創建新房間
+        </button>
+    </div>
+
+    <div class="rooms-section">
+        <h2>房間列表</h2>
+        <div id="roomsList" class="rooms-grid">
+            <div class="loading">載入中...</div>
+        </div>
+    </div>
+</div>
+
+<!-- 創建房間彈窗 -->
+<div id="createRoomModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>創建新房間</h3>
+            <span class="close" onclick="closeCreateRoomModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="createRoomForm">
+                <div class="form-group">
+                    <label for="roomName">房間名稱:</label>
+                    <input type="text" id="roomName" name="name" required placeholder="例如：風城_YYYYMMDD挑戰賽">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">創建房間</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeCreateRoomModal()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 頁面載入時獲取房間列表
+    document.addEventListener('DOMContentLoaded', function() {
+        loadRooms();
+    });
+
+    function setupRoomNameExample() {
+        // 獲取當前日期，格式為 YYYYMMDD
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const dateStr = year + month + day;
+        
+        // 設置範例文字為預設值（用戶可以直接選取和修改）
+        const roomNameInput = document.getElementById('roomName');
+        if (roomNameInput) {
+            const template = roomNameInput.placeholder || '例如：風城_YYYYMMDD挑戰賽';
+            const exampleText = template.replace('例如：', '').replace('YYYYMMDD', dateStr);
+            roomNameInput.value = exampleText;
+            // 選取所有文字，方便用戶直接修改
+            roomNameInput.select();
+        }
+    }
+
+    function loadRooms() {
+        fetch('/api/rooms/')
+            .then(response => response.json())
+            .then(data => {
+                displayRooms(data);
+            })
+            .catch(error => {
+                console.error('載入房間列表失敗:', error);
+                document.getElementById('roomsList').innerHTML = 
+                    '<div class="error">載入失敗，請刷新頁面</div>';
+            });
+    }
+
+    function displayRooms(rooms) {
+        const container = document.getElementById('roomsList');
+        
+        if (!rooms || rooms.length === 0) {
+            container.innerHTML = '<div class="empty">尚無房間，請創建一個新房間開始使用</div>';
+            return;
+        }
+
+        container.innerHTML = rooms.map(room => {
+            const memberCount = room.members ? room.members.length : 0;
+            const routeCount = room.routes ? room.routes.length : 0;
+            return `
+                <div class="room-card" onclick="enterRoom(${room.id})">
+                    <div class="room-card-header">
+                        <h3>${room.name}</h3>
+                        <span class="room-id">ID: ${room.id}</span>
+                    </div>
+                    <div class="room-card-info">
+                        <div class="info-item">
+                            <span class="label">每一條線總分 (L):</span>
+                            <span class="value">${room.standard_line_score}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">成員數:</span>
+                            <span class="value">${memberCount}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">路線數:</span>
+                            <span class="value">${routeCount}</span>
+                        </div>
+                    </div>
+                    <div class="room-card-actions">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); enterRoom(${room.id})">
+                            進入房間
+                        </button>
+                        <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); deleteRoom(${room.id}, '${room.name}')">
+                            刪除
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function enterRoom(roomId) {
+        window.location.href = `/leaderboard/${roomId}/`;
+    }
+
+    function deleteRoom(roomId, roomName) {
+        if (!confirm(`確定要刪除房間 "${roomName}" 嗎？\n\n此操作將刪除該房間的所有數據（成員、路線、成績），且無法恢復！`)) {
+            return;
+        }
+
+        fetch(`/api/rooms/${roomId}/`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            if (response.status === 204 || response.ok) {
+                alert('房間已刪除');
+                loadRooms(); // 刷新房間列表
+            } else {
+                return response.json().then(err => Promise.reject(err));
+            }
+        })
+        .catch(error => {
+            console.error('刪除房間失敗:', error);
+            alert('刪除房間時發生錯誤');
+        });
+    }
+
+    function showCreateRoomModal() {
+        document.getElementById('createRoomModal').style.display = 'block';
+        // 設置範例文字為預設值（自動選取，方便用戶直接修改）
+        setTimeout(function() {
+            setupRoomNameExample();
+        }, 100); // 稍延遲確保 DOM 已完全載入
+    }
+
+    function closeCreateRoomModal() {
+        document.getElementById('createRoomModal').style.display = 'none';
+        document.getElementById('createRoomForm').reset();
+    }
+
+    // 關閉彈窗（點擊外部）
+    window.onclick = function(event) {
+        const modal = document.getElementById('createRoomModal');
+        if (event.target === modal) {
+            closeCreateRoomModal();
+        }
+    }
+
+    // 創建房間表單提交
+    document.getElementById('createRoomForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const data = {
+            name: formData.get('name')
+            // standard_line_score 會自動計算，不需要發送
+        };
+
+        fetch('/api/rooms/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.id) {
+                closeCreateRoomModal();
+                loadRooms();
+                alert('房間創建成功！');
+                // 可選：自動進入新創建的房間
+                setTimeout(() => {
+                    enterRoom(data.id);
+                }, 500);
+            } else {
+                alert('創建失敗: ' + JSON.stringify(data));
+            }
+        })
+        .catch(error => {
+            console.error('創建房間失敗:', error);
+            const errorMsg = error.detail || error.message || JSON.stringify(error);
+            alert('創建房間時發生錯誤: ' + errorMsg);
+        });
+    });
+</script>
+{% endblock %}
+

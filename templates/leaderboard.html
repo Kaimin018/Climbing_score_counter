@@ -1,0 +1,1073 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}排行榜 - 攀岩計分系統{% endblock %}
+
+{% block content %}
+<div class="leaderboard-container">
+    <div class="room-header" id="roomHeader">
+        <div class="header-top">
+            <button class="btn btn-secondary btn-small" onclick="goHome()" style="margin-right: 10px;">
+                ← 返回首頁
+            </button>
+            <h2 id="roomName" style="flex: 1;">載入中...</h2>
+            <a href="/rules/" class="btn btn-secondary btn-small" style="margin-left: 10px; text-decoration: none; display: inline-block;">
+                規則說明
+            </a>
+            <button class="btn btn-secondary btn-small" onclick="showEditRoomModal()" style="margin-left: 10px;">
+                編輯房間
+            </button>
+        </div>
+        <div class="room-info">
+            <span>房間 ID: <strong id="roomIdDisplay">-</strong></span>
+            <span style="margin-left: 20px;">每一條線總分 (L): <strong id="standardLineScore">-</strong></span>
+        </div>
+    </div>
+
+    <div class="actions">
+        <button class="btn btn-primary" onclick="showAddMemberModal()">新增成員</button>
+        <button class="btn btn-primary" onclick="showAddRouteModal()">新增路線</button>
+        <button class="btn btn-secondary" onclick="refreshLeaderboard()">刷新排行榜</button>
+    </div>
+
+    <div class="routes-section" style="margin-bottom: 30px;">
+        <h3 style="margin-bottom: 15px; color: #2c3e50;">路線列表</h3>
+        <div id="routesList" class="routes-list">
+            <div class="loading">載入中...</div>
+        </div>
+    </div>
+
+    <div class="leaderboard-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>排名</th>
+                    <th>成員名稱</th>
+                    <th>總分</th>
+                    <th>完成路線數</th>
+                    <th>客製化?</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="leaderboardBody">
+                <tr>
+                    <td colspan="6" class="loading">載入中...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 新增成員彈窗 -->
+<div id="addMemberModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>新增成員</h3>
+            <span class="close" onclick="closeAddMemberModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="addMemberForm">
+                <div class="form-group">
+                    <label for="memberName">成員名稱:</label>
+                    <input type="text" id="memberName" name="name" required placeholder="請輸入成員名稱">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="isCustomCalc" name="is_custom_calc">
+                        是否為客製化組
+                    </label>
+                    <small style="display: block; color: #666; margin-top: 5px;">
+                        勾選後，該成員每完成一條路線固定獲得 L 分，不會被其他成員分攤分數。適合程度較低的朋友加入對戰。
+                    </small>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">創建成員</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeAddMemberModal()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 編輯成員彈窗 -->
+<div id="editMemberModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>編輯成員</h3>
+            <span class="close" onclick="closeEditMemberModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="editMemberForm">
+                <input type="hidden" id="editMemberId" name="member_id">
+                <div class="form-group">
+                    <label for="editMemberName">成員名稱:</label>
+                    <input type="text" id="editMemberName" name="name" required placeholder="請輸入成員名稱">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="editIsCustomCalc" name="is_custom_calc">
+                        是否為客製化組
+                    </label>
+                    <small style="display: block; color: #666; margin-top: 5px;">
+                        勾選後，該成員每完成一條路線固定獲得 L 分，不會被其他成員分攤分數。適合程度較低的朋友加入對戰。
+                    </small>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-danger" onclick="deleteMemberFromEditModal()" style="margin-right: auto;">
+                        刪除成員
+                    </button>
+                    <button type="submit" class="btn btn-primary">更新成員</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditMemberModal()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 編輯房間彈窗 -->
+<div id="editRoomModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>編輯房間</h3>
+            <span class="close" onclick="closeEditRoomModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="editRoomForm">
+                <input type="hidden" id="editRoomId" name="room_id">
+                <div class="form-group">
+                    <label for="editRoomName">房間名稱:</label>
+                    <input type="text" id="editRoomName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="editRoomStandardLineScore">每一條線總分 (L):</label>
+                    <input type="number" id="editRoomStandardLineScore" name="standard_line_score" 
+                           min="1" max="100" required disabled>
+                    <small style="display: block; color: #666; margin-top: 5px;">
+                        每一條線總分會自動根據一般組成員數計算（最小公倍數），無法手動修改
+                    </small>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">更新房間</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditRoomModal()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 編輯路線彈窗 -->
+<div id="editRouteModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>編輯路線</h3>
+            <span class="close" onclick="closeEditRouteModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="editRouteForm">
+                <input type="hidden" id="editRouteId" name="route_id">
+                <div class="form-group">
+                    <label for="editRouteName">路線名稱:</label>
+                    <input type="text" id="editRouteName" name="name" required placeholder="例如：123456">
+                    <small style="display: block; color: #666; margin-top: 5px;">
+                        輸入的名稱會自動加上【路線】前綴（編輯時會自動移除前綴以便修改）
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label for="editRouteGrade">難度等級 (Grade):</label>
+                    <select id="editRouteGrade" name="grade">
+                        <option value="">請選擇難度</option>
+                        <option value="V1">V1</option>
+                        <option value="V2">V2</option>
+                        <option value="V3">V3</option>
+                        <option value="V4">V4</option>
+                        <option value="V5">V5</option>
+                        <option value="V6">V6</option>
+                        <option value="V7">V7</option>
+                        <option value="V8+">V8+</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editRoutePhoto">照片:</label>
+                    <input type="file" id="editRoutePhoto" name="photo" accept="image/*">
+                    <div id="editRoutePhotoPreview" style="margin-top: 10px;"></div>
+                    <small style="display: block; color: #666; margin-top: 5px;">
+                        支援手機拍照上傳（點擊後可直接使用相機拍攝）。如需更換照片，請選擇新照片。
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label>成員完成狀態:</label>
+                    <div id="editMemberCompletions" class="member-completions">
+                        <!-- 動態生成 -->
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-danger" onclick="deleteRouteFromEditModal()" style="margin-right: auto;">
+                        刪除路線
+                    </button>
+                    <button type="submit" class="btn btn-primary">更新路線</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditRouteModal()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 新增路線彈窗 -->
+<div id="addRouteModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>新增路線</h3>
+            <span class="close" onclick="closeAddRouteModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="addRouteForm">
+                <div class="form-group">
+                    <label for="routeName">路線名稱:</label>
+                    <input type="text" id="routeName" name="name" required placeholder="路線1">
+                    <small style="display: block; color: #666; margin-top: 5px;">
+                        輸入的名稱會自動加上【路線】前綴
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label for="routeGrade">難度等級 (Grade): <span style="color: red;">*</span></label>
+                    <select id="routeGrade" name="grade" required>
+                        <option value="">請選擇難度</option>
+                        <option value="V1">V1</option>
+                        <option value="V2">V2</option>
+                        <option value="V3">V3</option>
+                        <option value="V4">V4</option>
+                        <option value="V5">V5</option>
+                        <option value="V6">V6</option>
+                        <option value="V7">V7</option>
+                        <option value="V8+">V8+</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="routePhoto">照片:</label>
+                    <input type="file" id="routePhoto" name="photo" accept="image/*">
+                    <small style="display: block; color: #666; margin-top: 5px;">
+                        支援手機拍照上傳（手機上點擊後可直接使用相機拍攝）
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label>成員完成狀態:</label>
+                    <div id="memberCompletions" class="member-completions">
+                        <!-- 動態生成 -->
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">創建路線</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeAddRouteModal()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+    .dropdown {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        right: 0;
+        background-color: #f9f9f9;
+        min-width: 120px;
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+        z-index: 1000;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .dropdown-content a {
+        color: #333;
+        padding: 12px 16px;
+        text-decoration: none;
+        display: block;
+        cursor: pointer;
+    }
+    
+    .dropdown-content a:hover {
+        background-color: #f1f1f1;
+    }
+    
+    .dropdown-content a:first-child {
+        border-bottom: 1px solid #ddd;
+    }
+</style>
+<script>
+    let ROOM_ID = {{ room_id|default:1 }};
+    
+    function goHome() {
+        window.location.href = '/';
+    }
+    
+    function toggleDropdown(event, dropdownId) {
+        event.stopPropagation();
+        // 關閉所有其他下拉菜單
+        document.querySelectorAll('.dropdown-content').forEach(function(dropdown) {
+            if (dropdown.id !== dropdownId) {
+                dropdown.style.display = 'none';
+            }
+        });
+        // 切換當前下拉菜單
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown) {
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+    
+    function closeDropdown(dropdownId) {
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown) {
+            dropdown.style.display = 'none';
+        }
+    }
+    
+    // 點擊頁面其他地方時關閉所有下拉菜單
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.dropdown')) {
+            document.querySelectorAll('.dropdown-content').forEach(function(dropdown) {
+                dropdown.style.display = 'none';
+            });
+        }
+    });
+    
+    // 頁面載入時獲取排行榜和路線列表
+    document.addEventListener('DOMContentLoaded', function() {
+        loadLeaderboard();
+        loadMembersForRouteForm();
+        loadRoutes();
+    });
+
+    function loadLeaderboard() {
+        fetch(`/api/rooms/${ROOM_ID}/leaderboard/`)
+            .then(response => response.json())
+            .then(data => {
+                displayLeaderboard(data);
+            })
+            .catch(error => {
+                console.error('載入排行榜失敗:', error);
+                document.getElementById('leaderboardBody').innerHTML = 
+                    '<tr><td colspan="6" class="error">載入失敗，請刷新頁面</td></tr>';
+            });
+    }
+
+    function displayLeaderboard(data) {
+        const roomInfo = data.room_info;
+        const leaderboard = data.leaderboard;
+
+        // 更新房間資訊並設置正確的房間 ID
+        ROOM_ID = roomInfo.id; // 從 API 獲取實際的房間 ID
+        document.getElementById('roomName').textContent = roomInfo.name;
+        document.getElementById('roomIdDisplay').textContent = roomInfo.id;
+        document.getElementById('standardLineScore').textContent = roomInfo.standard_line_score;
+        
+        // 更新編輯房間表單的預設值
+        document.getElementById('editRoomId').value = roomInfo.id;
+        document.getElementById('editRoomName').value = roomInfo.name;
+        document.getElementById('editRoomStandardLineScore').value = roomInfo.standard_line_score;
+
+        // 更新排行榜
+        const tbody = document.getElementById('leaderboardBody');
+            if (leaderboard.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty">尚無成員數據</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = leaderboard.map((member, index) => {
+            const rank = index + 1;
+            const groupType = member.is_custom_calc ? 'Y' : 'N';
+            return `
+                <tr>
+                    <td>${rank}</td>
+                    <td><strong>${member.name}</strong></td>
+                    <td class="score">${parseFloat(member.total_score).toFixed(2)}</td>
+                    <td>${member.completed_routes_count}</td>
+                    <td>${groupType}</td>
+                    <td>
+                        <button class="btn btn-primary btn-small" onclick="editMember(${member.id}, '${member.name}', ${member.is_custom_calc})">
+                            編輯
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function refreshLeaderboard() {
+        // 先重新載入路線列表，確保數據同步
+        loadRoutes();
+        // 然後載入排行榜
+        loadLeaderboard();
+    }
+
+    function loadRoutes() {
+        fetch(`/api/rooms/${ROOM_ID}/`)
+            .then(response => response.json())
+            .then(data => {
+                displayRoutes(data.routes || []);
+            })
+            .catch(error => {
+                console.error('載入路線列表失敗:', error);
+                document.getElementById('routesList').innerHTML = 
+                    '<div class="error">載入失敗，請刷新頁面</div>';
+            });
+    }
+
+    function displayRoutes(routes) {
+        const container = document.getElementById('routesList');
+        
+        if (!routes || routes.length === 0) {
+            container.innerHTML = '<div class="empty">尚無路線，請創建路線</div>';
+            return;
+        }
+
+        container.innerHTML = routes.map(route => {
+            // 統計完成人數
+            const completedCount = route.scores ? route.scores.filter(s => s.is_completed).length : 0;
+            const totalCount = route.scores ? route.scores.length : 0;
+            
+            // 在路線名稱前加上【路線】前綴
+            const routeDisplayName = route.name.startsWith('【路線】') 
+                ? route.name 
+                : '【路線】' + route.name;
+            
+            return `
+                <div class="route-item">
+                    <div class="route-info">
+                        <div class="route-name-grade">
+                            <strong>${routeDisplayName}</strong>
+                            ${route.grade ? `<span class="route-grade">${route.grade}</span>` : ''}
+                        </div>
+                        <div class="route-stats">
+                            完成: ${completedCount}/${totalCount} 人
+                        </div>
+                    </div>
+                    <div class="route-actions">
+                        <button class="btn btn-primary btn-small" onclick="editRoute(${route.id})">
+                            編輯
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function editRoute(routeId) {
+        // 獲取路線詳情
+        fetch(`/api/routes/${routeId}/`)
+            .then(response => response.json())
+            .then(route => {
+                showEditRouteModal(route);
+            })
+            .catch(error => {
+                console.error('載入路線詳情失敗:', error);
+                alert('載入路線詳情時發生錯誤');
+            });
+    }
+
+    function showEditRouteModal(route) {
+        // 填充表單（移除【路線】前綴以便編輯）
+        let routeNameForEdit = route.name || '';
+        // 移除【路線】前綴（5個字符）
+        if (routeNameForEdit.startsWith('【路線】')) {
+            routeNameForEdit = routeNameForEdit.substring(5); // 移除【路線】前綴（5個字符）
+        }
+        // 移除開頭的】字符（處理可能的殘留）
+        if (routeNameForEdit.startsWith('】')) {
+            routeNameForEdit = routeNameForEdit.substring(1);
+        }
+        // 如果移除後的名稱不包含"路線"但只是一個數字，添加"路線"前綴
+        // 例如："線3" -> "路線3"，"3" -> "路線3"
+        if (routeNameForEdit && !routeNameForEdit.includes('路線') && /^[線路\d]+$/.test(routeNameForEdit)) {
+            // 移除可能存在的"線"或"路"字符，然後添加"路線"
+            routeNameForEdit = routeNameForEdit.replace(/^[線路]*/, '');
+            if (routeNameForEdit && /^\d+$/.test(routeNameForEdit)) {
+                routeNameForEdit = '路線' + routeNameForEdit;
+            } else if (!routeNameForEdit || routeNameForEdit === '') {
+                // 如果完全移除後為空，保持原樣或添加預設值
+                routeNameForEdit = '路線1';
+            }
+        }
+        
+        currentEditingRouteId = route.id;
+        currentEditingRouteName = routeNameForEdit;
+        document.getElementById('editRouteId').value = route.id;
+        document.getElementById('editRouteName').value = routeNameForEdit;
+        document.getElementById('editRouteGrade').value = route.grade || '';
+        
+        // 顯示現有照片（如果有）
+        const photoPreview = document.getElementById('editRoutePhotoPreview');
+        if (route.photo_url) {
+            photoPreview.innerHTML = `
+                <div style="margin-top: 10px;">
+                    <p style="font-size: 14px; color: #666; margin-bottom: 5px;">目前照片:</p>
+                    <img src="${route.photo_url}" alt="路線照片" style="max-width: 200px; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;">
+                </div>
+            `;
+        } else {
+            photoPreview.innerHTML = '';
+        }
+        
+        // 清空文件輸入（因為文件輸入無法設置值）
+        const editPhotoInput = document.getElementById('editRoutePhoto');
+        if (editPhotoInput) {
+            editPhotoInput.value = '';
+            // 只在移動設備上添加 capture 屬性
+            if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                editPhotoInput.setAttribute('capture', 'environment');
+            } else {
+                editPhotoInput.removeAttribute('capture');
+            }
+        }
+        
+        // 填充成員完成狀態
+        const container = document.getElementById('editMemberCompletions');
+        loadMembersForEditRouteForm(container, route.scores || []);
+        
+        // 顯示彈窗
+        document.getElementById('editRouteModal').style.display = 'block';
+    }
+
+    let currentEditingRouteId = null;
+    let currentEditingRouteName = null;
+
+    function closeEditRouteModal() {
+        document.getElementById('editRouteModal').style.display = 'none';
+        document.getElementById('editRouteForm').reset();
+        currentEditingRouteId = null;
+        currentEditingRouteName = null;
+    }
+
+    function deleteRouteFromEditModal() {
+        const routeId = document.getElementById('editRouteId').value;
+        const routeName = document.getElementById('editRouteName').value || '此路線';
+        
+        if (!routeId) {
+            alert('錯誤：無法獲取路線資訊');
+            return;
+        }
+        
+        if (!confirm(`確定要刪除路線 "${routeName}" 嗎？\n\n此操作將刪除該路線的所有成績記錄，且無法恢復！`)) {
+            return;
+        }
+        
+        // 關閉編輯彈窗
+        closeEditRouteModal();
+        
+        // 執行刪除路線操作
+        fetch(`/api/routes/${routeId}/`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (response.status === 204 || response.ok) {
+                alert('路線已刪除');
+                refreshLeaderboard();
+            } else {
+                return response.json().then(err => Promise.reject(err));
+            }
+        })
+        .catch(error => {
+            console.error('刪除路線失敗:', error);
+            const errorMsg = error.detail || error.message || JSON.stringify(error);
+            alert('刪除路線時發生錯誤: ' + errorMsg);
+        });
+    }
+
+    function loadMembersForEditRouteForm(container, scores) {
+        // 將分數記錄轉換為字典，便於查找
+        const scoreMap = {};
+        scores.forEach(score => {
+            scoreMap[score.member_id] = score.is_completed;
+        });
+
+        // 獲取成員列表並顯示
+        fetch(`/api/rooms/${ROOM_ID}/`)
+            .then(response => response.json())
+            .then(data => {
+                container.innerHTML = (data.members || []).map(member => {
+                    const isCompleted = scoreMap[member.id] || false;
+                    return `
+                        <label class="member-checkbox">
+                            <input type="checkbox" name="member_${member.id}" value="${member.id}" ${isCompleted ? 'checked' : ''}>
+                            ${member.name} ${member.is_custom_calc ? '(Y)' : '(N)'}
+                        </label>
+                    `;
+                }).join('');
+            })
+            .catch(error => {
+                console.error('載入成員列表失敗:', error);
+            });
+    }
+    
+
+    function loadMembersForRouteForm() {
+        fetch(`/api/rooms/${ROOM_ID}/`)
+            .then(response => response.json())
+            .then(data => {
+                displayMembersForForm(data.members);
+            })
+            .catch(error => {
+                console.error('載入成員列表失敗:', error);
+            });
+    }
+
+    function displayMembersForForm(members) {
+        const container = document.getElementById('memberCompletions');
+        container.innerHTML = members.map(member => {
+            return `
+                <label class="member-checkbox">
+                    <input type="checkbox" name="member_${member.id}" value="${member.id}">
+                    ${member.name} ${member.is_custom_calc ? '(Y)' : '(N)'}
+                </label>
+            `;
+        }).join('');
+    }
+
+    function showAddMemberModal() {
+        document.getElementById('addMemberModal').style.display = 'block';
+        // 自動聚焦到成員名稱輸入框，方便直接輸入
+        setTimeout(function() {
+            const memberNameInput = document.getElementById('memberName');
+            if (memberNameInput) {
+                memberNameInput.focus();
+            }
+        }, 100); // 稍延遲確保彈窗已完全顯示
+    }
+
+    function closeAddMemberModal() {
+        document.getElementById('addMemberModal').style.display = 'none';
+        document.getElementById('addMemberForm').reset();
+    }
+
+    let currentEditingMemberId = null;
+    let currentEditingMemberName = null;
+
+    function editMember(memberId, memberName, isCustomCalc) {
+        currentEditingMemberId = memberId;
+        currentEditingMemberName = memberName;
+        document.getElementById('editMemberId').value = memberId;
+        document.getElementById('editMemberName').value = memberName;
+        document.getElementById('editIsCustomCalc').checked = isCustomCalc;
+        document.getElementById('editMemberModal').style.display = 'block';
+    }
+
+    function closeEditMemberModal() {
+        document.getElementById('editMemberModal').style.display = 'none';
+        document.getElementById('editMemberForm').reset();
+        currentEditingMemberId = null;
+        currentEditingMemberName = null;
+    }
+
+    function deleteMemberFromEditModal() {
+        if (!currentEditingMemberId || !currentEditingMemberName) {
+            alert('錯誤：無法獲取成員資訊');
+            return;
+        }
+        
+        // 關閉編輯彈窗
+        closeEditMemberModal();
+        
+        // 執行刪除操作
+        deleteMember(currentEditingMemberId, currentEditingMemberName);
+    }
+
+    function deleteMember(memberId, memberName) {
+        if (!confirm(`確定要刪除成員 "${memberName}" 嗎？\n\n此操作將刪除該成員的所有成績記錄，且無法恢復！`)) {
+            return;
+        }
+
+        fetch(`/api/members/${memberId}/`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            if (response.status === 204 || response.ok) {
+                alert('成員已刪除');
+                refreshLeaderboard();
+                loadMembersForRouteForm(); // 刷新成員列表供路線表單使用
+            } else {
+                return response.json().then(err => Promise.reject(err));
+            }
+        })
+        .catch(error => {
+            console.error('刪除成員失敗:', error);
+            const errorMsg = error.detail || error.message || JSON.stringify(error);
+            alert('刪除成員時發生錯誤: ' + errorMsg);
+        });
+    }
+
+    function showAddRouteModal() {
+        document.getElementById('addRouteModal').style.display = 'block';
+        // 設置路線名稱預設值（路線1、路線2等）
+        setTimeout(function() {
+            setupRouteNameExample();
+        }, 100);
+        // 只在移動設備上添加 capture 屬性
+        const routePhotoInput = document.getElementById('routePhoto');
+        if (routePhotoInput && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            routePhotoInput.setAttribute('capture', 'environment');
+        } else if (routePhotoInput) {
+            routePhotoInput.removeAttribute('capture');
+        }
+    }
+    
+    function setupRouteNameExample() {
+        // 獲取當前房間的路線數量，計算下一個路線編號
+        fetch(`/api/rooms/${ROOM_ID}/`)
+            .then(response => response.json())
+            .then(data => {
+                const routeCount = data.routes ? data.routes.length : 0;
+                const nextRouteNumber = routeCount + 1;
+                const routeNameInput = document.getElementById('routeName');
+                if (routeNameInput) {
+                    routeNameInput.value = `路線${nextRouteNumber}`;
+                    routeNameInput.select(); // 自動選取，方便直接修改
+                }
+            })
+            .catch(error => {
+                console.error('獲取路線數量失敗:', error);
+                // 如果獲取失敗，使用預設值
+                const routeNameInput = document.getElementById('routeName');
+                if (routeNameInput) {
+                    routeNameInput.value = '路線1';
+                    routeNameInput.select();
+                }
+            });
+    }
+
+    function closeAddRouteModal() {
+        document.getElementById('addRouteModal').style.display = 'none';
+        document.getElementById('addRouteForm').reset();
+    }
+
+    function showEditRoomModal() {
+        // 表單已通過 loadLeaderboard 填充，直接顯示
+        document.getElementById('editRoomModal').style.display = 'block';
+    }
+
+    function closeEditRoomModal() {
+        document.getElementById('editRoomModal').style.display = 'none';
+    }
+
+    // 編輯房間表單提交
+    document.getElementById('editRoomForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const data = {
+            name: formData.get('name')
+            // standard_line_score 會自動計算，不需要發送
+        };
+
+        fetch(`/api/rooms/${ROOM_ID}/`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.id) {
+                closeEditRoomModal();
+                refreshLeaderboard();
+                alert('房間更新成功！');
+            } else {
+                alert('更新失敗: ' + JSON.stringify(data));
+            }
+        })
+        .catch(error => {
+            console.error('更新房間失敗:', error);
+            const errorMsg = error.detail || error.message || JSON.stringify(error);
+            alert('更新房間時發生錯誤: ' + errorMsg);
+        });
+    });
+
+    // 關閉彈窗（點擊外部）
+    window.onclick = function(event) {
+        const addMemberModal = document.getElementById('addMemberModal');
+        const addRouteModal = document.getElementById('addRouteModal');
+        const editRouteModal = document.getElementById('editRouteModal');
+        const editRoomModal = document.getElementById('editRoomModal');
+        const editMemberModal = document.getElementById('editMemberModal');
+        
+        if (event.target === addMemberModal) {
+            closeAddMemberModal();
+        }
+        if (event.target === addRouteModal) {
+            closeAddRouteModal();
+        }
+        if (event.target === editRouteModal) {
+            closeEditRouteModal();
+        }
+        if (event.target === editRoomModal) {
+            closeEditRoomModal();
+        }
+        if (event.target === editMemberModal) {
+            closeEditMemberModal();
+        }
+    }
+
+    // 編輯路線表單提交
+    document.getElementById('editRouteForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const routeId = document.getElementById('editRouteId').value;
+        const formData = new FormData();
+        const memberCompletions = {};
+        
+        // 收集成員完成狀態
+        const checkboxes = document.querySelectorAll('#editMemberCompletions input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            memberCompletions[checkbox.value] = checkbox.checked;
+        });
+
+        // 確保路線名稱有【路線】前綴
+        let routeName = document.getElementById('editRouteName').value;
+        if (routeName && !routeName.startsWith('【路線】')) {
+            routeName = '【路線】' + routeName;
+        }
+
+        // 構建 FormData（支持文件上傳）
+        formData.append('name', routeName);
+        formData.append('grade', document.getElementById('editRouteGrade').value || '');
+        const photoFile = document.getElementById('editRoutePhoto').files[0];
+        if (photoFile) {
+            formData.append('photo', photoFile);
+        }
+        formData.append('member_completions', JSON.stringify(memberCompletions));
+
+        fetch(`/api/routes/${routeId}/`, {
+            method: 'PATCH',
+            body: formData
+            // 注意：不要設置 Content-Type，讓瀏覽器自動設置（包含 boundary）
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.id) {
+                closeEditRouteModal();
+                // 強制刷新排行榜和路線列表
+                setTimeout(function() {
+                    refreshLeaderboard();
+                }, 100);
+                alert('路線更新成功！');
+            } else {
+                alert('更新失敗: ' + JSON.stringify(data));
+            }
+        })
+        .catch(error => {
+            console.error('更新路線失敗:', error);
+            const errorMsg = error.detail || error.message || JSON.stringify(error);
+            alert('更新路線時發生錯誤: ' + errorMsg);
+        });
+    });
+
+    // 新增成員表單提交
+    document.getElementById('addMemberForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        // 驗證房間 ID
+        const roomId = parseInt(ROOM_ID);
+        if (isNaN(roomId) || roomId <= 0) {
+            alert('錯誤：無效的房間 ID。請刷新頁面重試。');
+            return;
+        }
+
+        const data = {
+            room: roomId, // 確保是整數類型
+            name: formData.get('name'),
+            is_custom_calc: document.getElementById('isCustomCalc').checked
+        };
+
+        console.log('Creating member with data:', data); // 調試信息
+
+        fetch('/api/members/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.id) {
+                closeAddMemberModal();
+                refreshLeaderboard();
+                loadMembersForRouteForm(); // 刷新成員列表供路線表單使用
+                alert('成員創建成功！');
+            } else {
+                alert('創建失敗: ' + JSON.stringify(data));
+            }
+        })
+        .catch(error => {
+            console.error('創建成員失敗:', error);
+            // 處理驗證錯誤
+            let errorMsg = '創建成員時發生錯誤';
+            if (error.name && error.name.length > 0) {
+                // 如果有 name 欄位的錯誤（重複名稱）
+                errorMsg = error.name[0];
+            } else if (error.detail) {
+                errorMsg = error.detail;
+            } else if (error.message) {
+                errorMsg = error.message;
+            } else if (typeof error === 'string') {
+                errorMsg = error;
+            } else if (error.non_field_errors) {
+                errorMsg = error.non_field_errors[0];
+            }
+            alert(errorMsg);
+        });
+    });
+
+    // 編輯成員表單提交
+    document.getElementById('editMemberForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const memberId = document.getElementById('editMemberId').value;
+
+        const data = {
+            name: formData.get('name'),
+            is_custom_calc: document.getElementById('editIsCustomCalc').checked
+        };
+
+        fetch(`/api/members/${memberId}/`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.id) {
+                closeEditMemberModal();
+                refreshLeaderboard();
+                loadMembersForRouteForm(); // 刷新成員列表供路線表單使用
+                alert('成員更新成功！');
+            } else {
+                alert('更新失敗: ' + JSON.stringify(data));
+            }
+        })
+        .catch(error => {
+            console.error('更新成員失敗:', error);
+            // 處理驗證錯誤
+            let errorMsg = '更新成員時發生錯誤';
+            if (error.name && error.name.length > 0) {
+                // 如果有 name 欄位的錯誤（重複名稱）
+                errorMsg = error.name[0];
+            } else if (error.detail) {
+                errorMsg = error.detail;
+            } else if (error.message) {
+                errorMsg = error.message;
+            } else if (typeof error === 'string') {
+                errorMsg = error;
+            } else if (error.non_field_errors) {
+                errorMsg = error.non_field_errors[0];
+            }
+            alert(errorMsg);
+        });
+    });
+
+    document.getElementById('addRouteForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // 驗證難度等級是否已選擇
+        const gradeValue = document.getElementById('routeGrade').value;
+        if (!gradeValue || gradeValue.trim() === '') {
+            alert('請選擇難度等級');
+            document.getElementById('routeGrade').focus();
+            return;
+        }
+        
+        const formData = new FormData();
+        const memberCompletions = {};
+        
+        // 收集成員完成狀態
+        const checkboxes = document.querySelectorAll('#memberCompletions input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            memberCompletions[checkbox.value] = checkbox.checked;
+        });
+
+        // 確保路線名稱有【路線】前綴
+        let routeName = document.getElementById('routeName').value;
+        if (routeName && !routeName.startsWith('【路線】')) {
+            routeName = '【路線】' + routeName;
+        }
+
+        // 構建 FormData（支持文件上傳）
+        formData.append('name', routeName);
+        formData.append('grade', gradeValue);
+        const photoFile = document.getElementById('routePhoto').files[0];
+        if (photoFile) {
+            formData.append('photo', photoFile);
+        }
+        formData.append('member_completions', JSON.stringify(memberCompletions));
+
+        fetch(`/api/rooms/${ROOM_ID}/routes/`, {
+            method: 'POST',
+            body: formData
+            // 注意：不要設置 Content-Type，讓瀏覽器自動設置（包含 boundary）
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.id) {
+                closeAddRouteModal();
+                refreshLeaderboard();
+                alert('路線創建成功！');
+            } else {
+                alert('創建失敗: ' + JSON.stringify(data));
+            }
+        })
+        .catch(error => {
+            console.error('創建路線失敗:', error);
+            // 處理驗證錯誤
+            let errorMsg = '創建路線時發生錯誤';
+            if (error.grade && error.grade.length > 0) {
+                // 如果有 grade 欄位的錯誤（必填驗證）
+                errorMsg = error.grade[0];
+            } else if (error.detail) {
+                errorMsg = error.detail;
+            } else if (error.message) {
+                errorMsg = error.message;
+            } else if (typeof error === 'string') {
+                errorMsg = error;
+            } else if (error.non_field_errors) {
+                errorMsg = error.non_field_errors[0];
+            }
+            alert(errorMsg);
+        });
+    });
+</script>
+{% endblock %}
+

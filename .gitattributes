@@ -1,0 +1,36 @@
+# 自動檢測文本文件並規範化行尾符
+* text=auto
+
+# 明確指定為文本文件的文件類型
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# 配置文件和設定文件
+.gitignore text eol=lf
+.gitattributes text eol=lf
+*.config text eol=lf
+*.conf text eol=lf
+
+# 二進制文件
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+
