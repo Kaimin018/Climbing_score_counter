@@ -321,7 +321,7 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ### Test Cases
 
-The system includes the following test cases (48 tests total):
+The system includes the following test cases (52 tests total):
 
 1. **Core Scoring Logic Tests** (`test_case_01_default_member.py`):
    - Progressive route addition scoring
@@ -374,7 +374,13 @@ The system includes the following test cases (48 tests total):
    - Update route without updating photo (keep original photo)
    - Get route and verify photo_url is correctly returned
 
-9. **Mobile UI Tests** (`test_case_mobile_ui.py`):
+9. **Route Photo Thumbnail Display Tests** (`test_case_route_photo_thumbnail.py`):
+   - Routes with photos display thumbnails in route list
+   - Routes without photos do not display thumbnails
+   - Thumbnail updates after route photo update
+   - Multiple routes (with and without photos) display thumbnails correctly
+
+10. **Mobile UI Tests** (`test_case_mobile_ui.py`):
    - Page contains viewport meta tag
    - Mobile leaderboard page loads correctly
    - Mobile API responses work correctly

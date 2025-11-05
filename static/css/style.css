@@ -785,6 +785,41 @@ tbody tr:hover {
     border: 1px solid #e74c3c;
 }
 
+.route-photo-thumbnail {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 2px solid #ddd;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.route-photo-thumbnail:hover {
+    transform: scale(1.1);
+    border-color: #3498db;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* 圖片大圖查看彈窗樣式 */
+.photo-modal-content {
+    max-width: 90%;
+    max-height: 90vh;
+}
+
+.photo-modal-body {
+    text-align: center;
+    padding: 20px;
+    overflow: auto;
+}
+
+.photo-modal-body img {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+}
+
 .route-stats {
     color: #666;
     font-size: 0.9rem;

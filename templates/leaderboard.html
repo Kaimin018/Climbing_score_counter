@@ -242,6 +242,19 @@
     </div>
 </div>
 
+<!-- 圖片大圖查看彈窗 -->
+<div id="photoModal" class="modal">
+    <div class="modal-content photo-modal-content">
+        <div class="modal-header">
+            <h3 id="photoModalTitle">路線圖片</h3>
+            <span class="close" onclick="closePhotoModal()">&times;</span>
+        </div>
+        <div class="modal-body photo-modal-body">
+            <img id="photoModalImage" src="" alt="" style="max-width: 100%; height: auto; border-radius: 8px;">
+        </div>
+    </div>
+</div>
+
 <!-- 新增路線彈窗 -->
 <div id="addRouteModal" class="modal">
     <div class="modal-content">
@@ -500,6 +513,17 @@
         document.getElementById('completedRoutesModal').style.display = 'none';
     }
 
+    function showPhotoModal(photoUrl, routeName) {
+        document.getElementById('photoModalTitle').textContent = routeName || '路線圖片';
+        document.getElementById('photoModalImage').src = photoUrl;
+        document.getElementById('photoModalImage').alt = routeName || '路線圖片';
+        document.getElementById('photoModal').style.display = 'block';
+    }
+
+    function closePhotoModal() {
+        document.getElementById('photoModal').style.display = 'none';
+    }
+
     function loadRoutes() {
         fetch(`/api/rooms/${ROOM_ID}/`)
             .then(response => response.json())
@@ -531,12 +555,21 @@
                 ? route.name 
                 : '【路線】' + route.name;
             
+            // 如果有圖片，顯示縮圖
+            const photoUrl = route.photo_url || '';
+            const photoThumbnail = photoUrl ? `
+                <img src="${photoUrl}" alt="${routeDisplayName}" class="route-photo-thumbnail" 
+                     onclick="showPhotoModal('${photoUrl}', '${routeDisplayName}')" 
+                     title="點擊查看大圖">
+            ` : '';
+            
             return `
                 <div class="route-item">
                     <div class="route-info">
                         <div class="route-name-grade">
                             <strong>${routeDisplayName}</strong>
                             ${route.grade ? `<span class="route-grade">${route.grade}</span>` : ''}
+                            ${photoThumbnail}
                         </div>
                         <div class="route-stats">
                             完成條數: ${completedCount}/${totalCount} 人
@@ -898,6 +931,7 @@
         const editRoomModal = document.getElementById('editRoomModal');
         const editMemberModal = document.getElementById('editMemberModal');
         const completedRoutesModal = document.getElementById('completedRoutesModal');
+        const photoModal = document.getElementById('photoModal');
         
         if (event.target === addMemberModal) {
             closeAddMemberModal();

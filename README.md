@@ -368,13 +368,19 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 8. **路線圖片上傳測試**（`test_case_route_photo_upload.py`）：
    - 創建路線時上傳圖片
-   - 創建路線時不上傳圖片（應該可以正常創建）
-   - 更新路線時添加圖片（原本沒有圖片）
-   - 更新路線時替換圖片（原本有圖片）
-   - 更新路線時不更新圖片（保持原圖片）
-   - 獲取路線時，photo_url 應該正確返回
+   - 創建路線時不上傳圖片
+   - 更新路線時添加圖片
+   - 更新路線時替換圖片
+   - 更新路線時移除圖片
+   - 獲取路線時 photo_url 正確返回
 
-9. **手機版界面測試**（`test_case_mobile_ui.py`）：
+9. **路線圖片縮圖顯示測試**（`test_case_route_photo_thumbnail.py`）：
+   - 路線列表中有圖片的路線顯示縮圖
+   - 沒有圖片的路線不顯示縮圖
+   - 更新路線圖片後縮圖更新
+   - 多個路線（有圖片和無圖片）同時存在時縮圖顯示正確
+
+10. **手機版界面測試**（`test_case_mobile_ui.py`）：
    - 頁面包含 viewport meta 標籤
    - 手機端排行榜頁面可以正常載入
    - 手機端 API 響應正常
