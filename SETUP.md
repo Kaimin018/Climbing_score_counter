@@ -258,13 +258,22 @@ python manage.py runserver
 
 **訪問地址**：
 
-- **排行榜頁面**: http://127.0.0.1:8000/api/leaderboard/1/
-  - 🎯 **這是主要使用頁面**，可以直接開始添加路線和成績
+- **首頁**: http://127.0.0.1:8000/
+  - 創建新房間、查看所有房間列表
+  
+- **排行榜頁面**: http://127.0.0.1:8000/leaderboard/1/
+  - 🎯 **這是主要使用頁面**，可以：
+    - 查看排行榜
+    - 新增/編輯/刪除成員
+    - 新增/編輯/刪除路線
+    - 設定成員完成狀態
+    - 查看路線列表
+  
+- **規則說明**: http://127.0.0.1:8000/rules/
+  - 查看詳細的計分規則說明
   
 - **管理後台**: http://127.0.0.1:8000/admin/
   - 首次使用需要創建超級用戶：`python manage.py createsuperuser`
-  
-- **API 文檔**: http://127.0.0.1:8000/api/
 
 ### 6. 手動創建數據（可選）
 
@@ -285,20 +294,28 @@ python manage.py shell
 ```
 
 ```python
-from scoring.models import Room, Member
+from scoring.models import Room, Member, update_scores
 
-# 創建房間
-room = Room.objects.create(name="竹北岩館挑戰賽", standard_line_score=12)
+# 創建房間（standard_line_score 會自動計算，無需手動設定）
+room = Room.objects.create(name="竹北岩館挑戰賽")
+# 注意：剛創建時每一條線總分為1（因為還沒有一般組成員）
 
 # 創建成員（常態組）
 Member.objects.create(room=room, name="王小明", is_custom_calc=False)
 Member.objects.create(room=room, name="李大華", is_custom_calc=False)
+# 創建成員後，每一條線總分會自動更新（2個成員，LCM(1,2) = 2）
 
 # 創建成員（客製化組）
 Member.objects.create(room=room, name="張三", is_custom_calc=True)
+# 客製化組成員不影響每一條線總分的計算
 
-# 查看房間 ID
+# 更新分數（確保所有數據同步）
+update_scores(room.id)
+
+# 查看房間 ID 和每一條線總分
+room.refresh_from_db()
 print(f"房間 ID: {room.id}")
+print(f"每一條線總分: {room.standard_line_score}")
 ```
 
 ## 常見問題
@@ -339,6 +356,25 @@ python manage.py collectstatic --noinput
 ```bash
 python manage.py test scoring.tests
 ```
+
+運行特定測試案例：
+
+```bash
+# 測試完整流程：創建房間 -> 新增成員 -> 建立路線
+python manage.py test scoring.tests.APITestCase.test_create_room_add_member_create_route
+
+# 測試核心計分邏輯
+python manage.py test scoring.tests.ScoringLogicTestCase
+
+# 測試所有 API 接口
+python manage.py test scoring.tests.APITestCase
+```
+
+### GitHub Actions 自動測試
+
+項目已配置 GitHub Actions，每次推送代碼時會自動運行測試。測試配置位於 `.github/workflows/test.yml`。
+
+測試會在多個 Python 版本（3.8, 3.9, 3.10, 3.11, 3.12）上運行，確保兼容性。
 
 ## 下一步
 
