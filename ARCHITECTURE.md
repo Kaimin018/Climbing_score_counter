@@ -178,11 +178,14 @@ climbing_score_counting_system/
 ### 前端技術
 - **HTML5**: 語義化標籤
 - **CSS3**: 響應式設計
+  - 支持桌面端（>1200px）、平板端（768px-1200px）、手機端（<768px）、超小屏幕（<480px）
+  - 移動端優化：排行榜顯示在頂部、按鈕全寬、表單輸入框字體大小優化（防止 iOS 自動縮放）
 - **JavaScript (Vanilla)**: 
   - Fetch API 進行 API 調用
   - FormData 處理文件上傳
   - 動態 DOM 操作
   - 模態框管理
+  - 移動端檢測和優化
 
 ## 資料庫架構
 
@@ -279,6 +282,22 @@ scoring/tests/
 │       ├── test_update_route_replace_photo
 │       ├── test_update_route_remove_photo
 │       └── test_get_route_with_photo_url
+└── test_case_mobile_ui.py                    # 手機版界面測試
+    └── TestCaseMobileUI
+        ├── test_mobile_viewport_meta_tag
+        ├── test_mobile_leaderboard_page_loads
+        ├── test_mobile_api_responses
+        ├── test_mobile_create_route_with_formdata
+        ├── test_mobile_create_route_with_photo_detailed
+        ├── test_mobile_update_route_add_photo
+        ├── test_mobile_update_route_replace_photo
+        ├── test_mobile_photo_upload_different_formats (PNG, JPEG, HEIC)
+        ├── test_mobile_photo_upload_verify_url
+        ├── test_mobile_update_route
+        ├── test_mobile_get_member_completed_routes
+        ├── test_mobile_responsive_layout_elements
+        ├── test_mobile_css_media_queries_referenced
+        └── test_mobile_form_input_font_size
 ```
 
 ### 測試輔助工具 (`test_helpers.py`)

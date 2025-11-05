@@ -826,57 +826,191 @@ tbody tr:hover {
         padding: 10px;
     }
 
+    .navbar .container {
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px 15px;
+    }
+
+    .navbar h1 {
+        font-size: 1.2rem;
+    }
+
+    .navbar div {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .navbar a {
+        padding: 6px 12px;
+        font-size: 0.9rem;
+    }
+
     .leaderboard-layout {
         padding: 10px;
         gap: 15px;
+        flex-direction: column;
     }
 
     .leaderboard-container {
         padding: 15px;
     }
 
-    .leaderboard-sidebar {
-        max-height: 500px;
+    .room-header {
+        margin-bottom: 20px;
+    }
+
+    .header-top {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+
+    .header-top h2 {
+        font-size: 1.3rem;
+        margin: 10px 0;
+    }
+
+    .room-info {
+        flex-direction: column;
+        gap: 8px;
+        font-size: 0.9rem;
+    }
+
+    .room-info span {
+        margin-left: 0 !important;
+    }
+
+    .actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .actions .btn {
         width: 100%;
+        padding: 12px;
+        font-size: 1rem;
+    }
+
+    .leaderboard-sidebar {
+        max-height: 400px;
+        width: 100%;
+        position: relative;
+        top: 0;
+        order: -1;
+        border-radius: 8px;
     }
 
     .leaderboard-sidebar-header {
-        padding: 15px;
+        padding: 12px 15px;
     }
 
     .leaderboard-sidebar-header h3 {
-        font-size: 1.1rem;
+        font-size: 1rem;
+    }
+
+    .leaderboard-table-wrapper {
+        max-height: 300px;
     }
 
     .leaderboard-sidebar .leaderboard-table th,
     .leaderboard-sidebar .leaderboard-table td {
-        padding: 10px 8px;
-        font-size: 0.85rem;
+        padding: 8px 6px;
+        font-size: 0.8rem;
     }
 
     .leaderboard-sidebar .leaderboard-table th {
         font-size: 0.7rem;
-        padding: 10px 8px;
+        padding: 8px 6px;
+    }
+
+    .leaderboard-sidebar .leaderboard-table th:nth-child(1) {
+        width: 50px;
+    }
+
+    .leaderboard-sidebar .leaderboard-table th:nth-child(2) {
+        width: 100px;
+    }
+
+    .leaderboard-sidebar .leaderboard-table th:nth-child(3) {
+        width: 70px;
+    }
+
+    .leaderboard-sidebar .leaderboard-table th:nth-child(4) {
+        width: 70px;
+    }
+
+    .leaderboard-sidebar .leaderboard-table th:nth-child(5) {
+        width: 60px;
     }
 
     .leaderboard-sidebar .leaderboard-table td:nth-child(1) {
-        font-size: 0.9rem;
+        font-size: 0.85rem;
     }
 
     .leaderboard-sidebar .leaderboard-table .score {
         font-size: 0.9rem;
     }
 
+    .leaderboard-sidebar .leaderboard-table .btn-small {
+        padding: 4px 8px;
+        font-size: 0.75rem;
+    }
+
+    .routes-list {
+        gap: 10px;
+    }
+
+    .route-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px;
+    }
+
+    .route-info {
+        width: 100%;
+    }
+
+    .route-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .route-actions .btn {
+        flex: 1;
+        max-width: 120px;
+    }
+
     .home-container {
         padding: 20px 10px;
     }
 
+    .welcome-header {
+        padding: 20px 0;
+        margin-bottom: 30px;
+    }
+
     .welcome-header h1 {
-        font-size: 2rem;
+        font-size: 1.8rem;
+    }
+
+    .subtitle {
+        font-size: 1rem;
     }
 
     .rooms-grid {
         grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .room-card {
+        padding: 15px;
+    }
+
+    .room-card-header h3 {
+        font-size: 1.1rem;
     }
 
     table {
@@ -889,7 +1023,110 @@ tbody tr:hover {
 
     .modal-content {
         width: 95%;
-        margin: 10% auto;
+        margin: 5% auto;
+        max-width: none;
+    }
+
+    .modal-header {
+        padding: 15px;
+    }
+
+    .modal-header h3 {
+        font-size: 1.1rem;
+    }
+
+    .modal-body {
+        padding: 20px 15px;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="url"],
+    .form-group select {
+        padding: 12px;
+        font-size: 16px; /* 防止 iOS 自動縮放 */
+    }
+
+    .form-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+        padding: 12px;
+    }
+
+    .member-completions {
+        max-height: 200px;
+        padding: 10px;
+    }
+
+    .member-checkbox {
+        padding: 10px;
+        font-size: 0.95rem;
+    }
+}
+
+/* 超小屏幕優化 */
+@media (max-width: 480px) {
+    .leaderboard-layout {
+        padding: 8px;
+        gap: 10px;
+    }
+
+    .leaderboard-container {
+        padding: 12px;
+    }
+
+    .header-top h2 {
+        font-size: 1.1rem;
+    }
+
+    .room-info {
+        font-size: 0.85rem;
+    }
+
+    .leaderboard-sidebar {
+        max-height: 350px;
+    }
+
+    .leaderboard-sidebar-header {
+        padding: 10px 12px;
+    }
+
+    .leaderboard-sidebar-header h3 {
+        font-size: 0.9rem;
+    }
+
+    .leaderboard-table-wrapper {
+        max-height: 250px;
+    }
+
+    .leaderboard-sidebar .leaderboard-table th,
+    .leaderboard-sidebar .leaderboard-table td {
+        padding: 6px 4px;
+        font-size: 0.75rem;
+    }
+
+    .leaderboard-sidebar .leaderboard-table th {
+        font-size: 0.65rem;
+    }
+
+    .modal-content {
+        width: 98%;
+        margin: 2% auto;
+    }
+
+    .modal-body {
+        padding: 15px 10px;
+    }
+
+    .welcome-header h1 {
+        font-size: 1.5rem;
     }
 }
 

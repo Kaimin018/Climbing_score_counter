@@ -321,7 +321,7 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ### 測試案例
 
-系統包含以下測試案例（共 34 個測試）：
+系統包含以下測試案例（共 48 個測試）：
 
 1. **核心計分邏輯測試**（`test_case_01_default_member.py`）：
    - 循序漸進新增路線的計分
@@ -373,6 +373,22 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
    - 更新路線時替換圖片（原本有圖片）
    - 更新路線時不更新圖片（保持原圖片）
    - 獲取路線時，photo_url 應該正確返回
+
+9. **手機版界面測試**（`test_case_mobile_ui.py`）：
+   - 頁面包含 viewport meta 標籤
+   - 手機端排行榜頁面可以正常載入
+   - 手機端 API 響應正常
+   - 手機端使用 FormData 創建路線（模擬手機上傳）
+   - 手機端創建路線時上傳圖片（詳細驗證）
+   - 手機端更新路線時添加圖片（原本沒有圖片）
+   - 手機端更新路線時替換圖片（原本有圖片）
+   - 手機端上傳不同格式的圖片（PNG、JPEG、HEIC）
+   - 手機端上傳圖片後，photo_url 正確返回（測試多種手機瀏覽器）
+   - 手機端更新路線
+   - 手機端獲取成員完成的路線列表
+   - 手機端頁面包含響應式設計所需的元素
+   - CSS 文件包含移動端媒體查詢
+   - 手機端表單輸入框字體大小（防止 iOS 自動縮放）
 
 ### GitHub Actions 測試
 
