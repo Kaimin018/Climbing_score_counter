@@ -342,6 +342,37 @@ python manage.py test scoring.tests.test_case_route_update_with_formdata.TestCas
 
 測試會在多個 Python 版本（3.8, 3.9, 3.10, 3.11, 3.12）上運行，確保兼容性。
 
+### 運行特定測試案例
+
+```bash
+# 運行特定測試文件
+python manage.py test scoring.tests.test_api
+
+# 運行特定測試類
+python manage.py test scoring.tests.test_api.APITestCase
+
+# 運行特定測試方法
+python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_member_create_route
+```
+
+## 開發注意事項
+
+### 代碼規範
+
+- 所有 debug logging 已移除，只保留核心業務邏輯
+- 代碼已簡化，避免冗餘
+- 臨時文件和測試輸出文件已加入 `.gitignore`
+
+### 問題修復記錄
+
+已修復的問題記錄在 `issue_fixed/` 資料夾中，包含詳細的流程分析和修復報告。
+
+**命名規則**：同一問題使用相同的編號（如 `issue_01`），不同類型的文檔使用不同的後綴（`flow_analysis`、`fix_report`）。
+
+例如：
+- `issue_01_create_route_completion_count_zero_flow_analysis.md` - 問題 01 的流程分析
+- `issue_01_create_route_completion_count_zero_fix_report.md` - 問題 01 的修復報告
+
 ## 下一步
 
 1. 通過管理後台創建房間和成員

@@ -107,7 +107,12 @@ climbing_score_counting_system/
 - **RoomSerializer**: 房間序列化（包含嵌套路線序列化）
 - **MemberSerializer**: 成員序列化（包含名稱唯一性驗證）
 - **RouteSerializer**: 路線序列化（包含照片 URL 和分數資訊）
-- **RouteCreateSerializer**: 創建路線序列化（支持批量創建成績，grade 必填）
+  - 使用 `prefetch_related` 優化查詢，確保 scores 數據完整
+- **RouteCreateSerializer**: 創建路線序列化
+  - 使用 `CharField` 處理 `member_completions`，支持 JSON 字符串格式
+  - 支持批量創建成績記錄
+  - `grade` 為必填項目
+  - 自動解析 JSON 字符串為字典格式
 - **RouteUpdateSerializer**: 更新路線序列化
   - 使用 `CharField` 處理 `member_completions`，支持 JSON 字符串格式
   - 支持 FormData 格式的請求（照片上傳）
@@ -322,7 +327,9 @@ scoring/tests/
 所有數據（房間、成員、路線）需通過網頁界面創建：
 - **首頁** (`/`): 創建房間
 - **排行榜頁面** (`/leaderboard/{room_id}/`): 新增成員、創建路線
-- **管理後台** (`/admin/`): 管理所有數據（需創建超級用戶）
+- **管理後台** (`/admin/`): 管理所有數據（需創建超級用戶：`python manage.py createsuperuser`）
+
+**注意**：系統不提供命令列初始化數據的功能，所有數據必須通過網頁界面創建。
 
 ## 未來擴展建議
 

@@ -310,12 +310,16 @@ DELETE /api/routes/{route_id}/
 ### 運行測試
 
 ```bash
+# 運行所有測試
 python manage.py test scoring.tests
+
+# 運行特定測試案例
+python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_member_create_route
 ```
 
 ### 測試案例
 
-系統包含以下測試案例：
+系統包含以下測試案例（共 27 個測試）：
 
 1. **核心計分邏輯測試**（`test_case_01_default_member.py`）：
    - 循序漸進新增路線的計分
@@ -354,9 +358,16 @@ python manage.py test scoring.tests
    - 部分勾選框的 FormData 處理
    - 驗證 API 響應結構
 
+7. **創建路線完整流程測試**（`test_api.py`）：
+   - 創建路線時選擇多個完成人員
+   - 驗證前端顯示的完成人數正確
+   - 模擬完整的前端流程（創建 → 立即刷新）
+
 ### GitHub Actions 測試
 
 項目已配置 GitHub Actions 自動測試，每次推送代碼時會自動運行測試。詳見 `.github/workflows/test.yml`。
+
+測試會在多個 Python 版本（3.8, 3.9, 3.10, 3.11, 3.12）上運行，確保兼容性。
 
 ## 開發與維護
 
@@ -364,12 +375,33 @@ python manage.py test scoring.tests
 
 訪問 `/admin/` 可以使用 Django 管理後台管理所有數據。
 
+**首次使用**：需要創建超級用戶：
+```bash
+python manage.py createsuperuser
+```
+
 ### 添加測試數據
 
 所有數據需通過網頁界面創建：
 - **首頁** (`/`): 創建房間
 - **排行榜頁面** (`/leaderboard/{room_id}/`): 新增成員、創建路線
-- **管理後台** (`/admin/`): 管理所有數據（需創建超級用戶：`python manage.py createsuperuser`）
+- **管理後台** (`/admin/`): 管理所有數據
+
+**注意**：系統不提供命令列初始化數據的功能，所有數據必須通過網頁界面創建。
+
+### 問題修復記錄
+
+已修復的問題記錄在 `issue_fixed/` 資料夾中：
+- `issue_01_create_route_completion_count_zero_flow_analysis.md` - 詳細流程分析
+- `issue_01_create_route_completion_count_zero_fix_report.md` - 修復報告
+
+**命名規則**：同一問題使用相同的編號（如 `issue_01`），不同類型的文檔使用不同的後綴（`flow_analysis`、`fix_report`）。
+
+### 代碼規範
+
+- 已移除所有 debug logging 代碼
+- 代碼已簡化，只保留核心邏輯和必要註釋
+- 臨時文件和測試輸出文件已加入 `.gitignore`
 
 ## 許可證
 

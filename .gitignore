@@ -47,3 +47,19 @@ Thumbs.db
 # Environment variables
 .env
 
+# Test output files
+test_output.txt
+*.test.txt
+*.output.txt
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
+
+# Media files (user uploads)
+/media/
+
+# Static files (collected)
+/staticfiles/
+
