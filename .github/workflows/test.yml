@@ -37,5 +37,5 @@ jobs:
     
     - name: Test example workflow - Create Room, Add Member, Create Route
       run: |
-        python manage.py test scoring.tests.APITestCase.test_create_room_add_member_create_route
+        python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_member_create_route
 
