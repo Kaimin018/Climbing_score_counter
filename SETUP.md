@@ -243,80 +243,34 @@ chmod +x start_server.sh
 # 運行遷移
 python manage.py migrate
 
-# 初始化默認數據
-python manage.py init_default_data
-
 # 啟動服務器
 python manage.py runserver
 ```
 
-### 5. 訪問系統
+**注意**：所有數據（房間、成員、路線）需通過網頁界面創建。
 
-啟動成功後，系統會自動創建：
-- **房間**: 竹北岩館挑戰賽 (ID: 1)
-- **成員**: 王小明、李大華（常態組）、張三（客製化組）
+### 5. 訪問系統
 
 **訪問地址**：
 
 - **首頁**: http://127.0.0.1:8000/
   - 創建新房間、查看所有房間列表
+  - 🎯 **首次使用請在此頁面創建房間**
   
-- **排行榜頁面**: http://127.0.0.1:8000/leaderboard/1/
+- **排行榜頁面**: http://127.0.0.1:8000/leaderboard/{room_id}/
   - 🎯 **這是主要使用頁面**，可以：
     - 查看排行榜
     - 新增/編輯/刪除成員
     - 新增/編輯/刪除路線
     - 設定成員完成狀態
     - 查看路線列表
+  - 將 `{room_id}` 替換為實際的房間 ID（創建房間後會自動跳轉）
   
 - **規則說明**: http://127.0.0.1:8000/rules/
   - 查看詳細的計分規則說明
   
 - **管理後台**: http://127.0.0.1:8000/admin/
-  - 首次使用需要創建超級用戶：`python manage.py createsuperuser`
-
-### 6. 手動創建數據（可選）
-
-如果需要手動創建或重置數據：
-
-```bash
-# 使用初始化命令（如果數據已存在，不會重複創建）
-python manage.py init_default_data
-
-# 強制重新創建（會刪除現有數據）
-python manage.py init_default_data --force
-```
-
-或在 Django shell 中：
-
-```bash
-python manage.py shell
-```
-
-```python
-from scoring.models import Room, Member, update_scores
-
-# 創建房間（standard_line_score 會自動計算，無需手動設定）
-room = Room.objects.create(name="竹北岩館挑戰賽")
-# 注意：剛創建時每一條線總分為1（因為還沒有一般組成員）
-
-# 創建成員（常態組）
-Member.objects.create(room=room, name="王小明", is_custom_calc=False)
-Member.objects.create(room=room, name="李大華", is_custom_calc=False)
-# 創建成員後，每一條線總分會自動更新（2個成員，LCM(1,2) = 2）
-
-# 創建成員（客製化組）
-Member.objects.create(room=room, name="張三", is_custom_calc=True)
-# 客製化組成員不影響每一條線總分的計算
-
-# 更新分數（確保所有數據同步）
-update_scores(room.id)
-
-# 查看房間 ID 和每一條線總分
-room.refresh_from_db()
-print(f"房間 ID: {room.id}")
-print(f"每一條線總分: {room.standard_line_score}")
-```
+  - 管理所有數據（需創建超級用戶：`python manage.py createsuperuser`）
 
 ## 常見問題
 
@@ -361,13 +315,25 @@ python manage.py test scoring.tests
 
 ```bash
 # 測試完整流程：創建房間 -> 新增成員 -> 建立路線
-python manage.py test scoring.tests.APITestCase.test_create_room_add_member_create_route
-
-# 測試核心計分邏輯
-python manage.py test scoring.tests.ScoringLogicTestCase
+python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_member_create_route
 
 # 測試所有 API 接口
-python manage.py test scoring.tests.APITestCase
+python manage.py test scoring.tests.test_api.APITestCase
+
+# 測試核心計分邏輯
+python manage.py test scoring.tests.test_case_01_default_member.TestCase1To10
+
+# 測試路線漸進完成
+python manage.py test scoring.tests.test_case_route_progressive_completion.TestCaseRouteProgressiveCompletion
+
+# 測試路線名稱編輯
+python manage.py test scoring.tests.test_case_route_name_edit.TestCaseRouteNameEdit
+
+# 測試路線完成狀態更新
+python manage.py test scoring.tests.test_case_route_update_completions.TestCaseRouteUpdateCompletions
+
+# 測試 FormData 格式處理
+python manage.py test scoring.tests.test_case_route_update_with_formdata.TestCaseRouteUpdateWithFormData
 ```
 
 ### GitHub Actions 自動測試

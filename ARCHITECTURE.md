@@ -21,11 +21,15 @@ climbing_score_counting_system/
 │   ├── admin.py            # Django Admin 配置
 │   ├── management/         # 管理命令
 │   │   └── commands/
-│   │       └── init_default_data.py
 │   ├── migrations/         # 資料庫遷移文件
 │   └── tests/              # 測試模組
+│       ├── __init__.py
 │       ├── test_api.py
-│       └── test_case_01_default_member.py
+│       ├── test_case_01_default_member.py
+│       ├── test_case_route_progressive_completion.py
+│       ├── test_case_route_name_edit.py
+│       ├── test_case_route_update_completions.py
+│       └── test_case_route_update_with_formdata.py
 ├── templates/              # HTML 模板
 │   ├── base.html
 │   ├── index.html          # 首頁（房間列表）
@@ -100,11 +104,15 @@ climbing_score_counting_system/
   - `update`: 更新成績狀態
 
 #### Serializers
-- **RoomSerializer**: 房間序列化
+- **RoomSerializer**: 房間序列化（包含嵌套路線序列化）
 - **MemberSerializer**: 成員序列化（包含名稱唯一性驗證）
-- **RouteSerializer**: 路線序列化（包含照片 URL）
-- **RouteCreateSerializer**: 創建路線序列化（支持批量創建成績）
+- **RouteSerializer**: 路線序列化（包含照片 URL 和分數資訊）
+- **RouteCreateSerializer**: 創建路線序列化（支持批量創建成績，grade 必填）
 - **RouteUpdateSerializer**: 更新路線序列化
+  - 使用 `CharField` 處理 `member_completions`，支持 JSON 字符串格式
+  - 支持 FormData 格式的請求（照片上傳）
+  - 自動解析 JSON 字符串為字典格式
+  - 支持部分更新（name、grade、member_completions、photo）
 - **ScoreSerializer**: 成績序列化
 
 ### 3. 視圖層 (views.py)
@@ -218,22 +226,49 @@ scoring/tests/
 │       ├── test_create_route
 │       ├── test_update_score
 │       └── test_create_room_add_member_create_route
-└── test_case_01_default_member.py # 計分邏輯測試
-    └── TestCase1To10
-        └── test_case_1_to_10
+├── test_case_01_default_member.py # 計分邏輯測試
+│   └── TestCase1To10
+│       └── test_case_1_to_10
+├── test_case_route_progressive_completion.py  # 路線漸進完成測試
+│   └── TestCaseRouteProgressiveCompletion
+│       └── test_route_progressive_completion
+├── test_case_route_name_edit.py   # 路線名稱編輯測試
+│   └── TestCaseRouteNameEdit
+│       ├── test_edit_route_name_without_change
+│       ├── test_edit_route_name_change_to_number
+│       ├── test_edit_route_name_change_to_text
+│       ├── test_edit_route_name_remove_prefix_in_request
+│       ├── test_retrieve_route_returns_correct_name
+│       └── test_retrieve_route_with_text_name
+├── test_case_route_update_completions.py  # 路線完成狀態更新測試
+│   └── TestCaseRouteUpdateCompletions
+│       ├── test_update_route_mark_two_members_completed
+│       ├── test_update_route_unmark_completed_members
+│       ├── test_update_route_partial_member_completions
+│       ├── test_update_route_with_empty_member_completions
+│       ├── test_update_route_with_json_string_member_completions
+│       └── test_update_route_verify_scores_updated
+└── test_case_route_update_with_formdata.py  # FormData 格式測試
+    └── TestCaseRouteUpdateWithFormData
+        ├── test_update_route_with_formdata_mark_two_members
+        ├── test_update_route_with_formdata_unmark_members
+        ├── test_update_route_with_formdata_partial_checkboxes
+        └── test_update_route_verify_api_response
 ```
 
 ### 測試覆蓋範圍
-- API 端點測試
-- 計分邏輯測試
-- 資料驗證測試
-- 完整流程測試
+- **API 端點測試**: 獲取排行榜、創建路線、更新成績狀態
+- **計分邏輯測試**: 分數計算、完成狀態更新、成員組別處理
+- **資料驗證測試**: 成員名稱唯一性、路線難度必填、JSON 格式驗證
+- **完整流程測試**: 創建房間、新增成員、建立路線的完整流程
+- **路線管理測試**: 路線名稱編輯、完成狀態更新、FormData 處理
+- **邊界條件測試**: 空完成狀態、部分更新、漸進式完成
 
 ### CI/CD
 - **GitHub Actions**: 自動運行測試
   - Python 版本: 3.8, 3.9, 3.10, 3.11, 3.12
   - 測試套件: `scoring.tests`
-  - 特定測試案例: `test_create_room_add_member_create_route`
+  - 特定測試案例: `scoring.tests.test_api.APITestCase.test_create_room_add_member_create_route`
 
 ## 靜態文件與媒體
 
@@ -282,13 +317,12 @@ scoring/tests/
 ### 資料庫依賴（可選）
 - `mysqlclient` 或 `pymysql`: MySQL 支持
 
-## 管理命令
+## 數據創建
 
-### init_default_data
-創建預設測試數據
-```bash
-python manage.py init_default_data
-```
+所有數據（房間、成員、路線）需通過網頁界面創建：
+- **首頁** (`/`): 創建房間
+- **排行榜頁面** (`/leaderboard/{room_id}/`): 新增成員、創建路線
+- **管理後台** (`/admin/`): 管理所有數據（需創建超級用戶）
 
 ## 未來擴展建議
 

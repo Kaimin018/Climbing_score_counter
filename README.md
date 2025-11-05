@@ -54,7 +54,6 @@
 
    啟動腳本會自動完成：
    - ✅ 數據庫遷移
-   - ✅ 初始化默認數據（房間和成員）
    - ✅ 啟動服務器
 
 3. **訪問系統**：
@@ -79,8 +78,9 @@
 1. 安裝依賴
 2. 配置數據庫（預設使用 SQLite）
 3. 運行遷移
-4. 初始化數據（`python manage.py init_default_data`）
-5. 啟動服務器
+4. 啟動服務器
+
+**注意**：所有數據（房間、成員、路線）需通過網頁界面創建，系統不提供命令列初始化數據的功能。
 
 ## API 接口
 
@@ -142,6 +142,33 @@ POST /api/members/
 
 **注意**：成員名稱在同一房間內必須唯一。
 
+### 更新成員
+
+```
+PATCH /api/members/{member_id}/
+```
+
+請求體格式：
+```json
+{
+  "name": "新成員名稱",
+  "is_custom_calc": true
+}
+```
+
+**注意**：
+- 可以只更新部分欄位（name、is_custom_calc）
+- 更新成員名稱時，仍需確保在同一房間內唯一
+- 修改成員組別（is_custom_calc）會自動觸發計分更新
+
+### 刪除成員
+
+```
+DELETE /api/members/{member_id}/
+```
+
+刪除成員後會自動觸發計分更新。
+
 ### 新增路線
 
 ```
@@ -173,6 +200,39 @@ member_completions: {"1":true,"2":false}
 - 難度等級（grade）為必填項目，範圍：V1-V8+
 - 路線名稱會自動加上【路線】前綴
 - 支持照片上傳（手機可直接拍照）
+
+### 更新路線
+
+```
+PATCH /api/routes/{route_id}/
+```
+
+請求體格式（JSON）：
+```json
+{
+  "name": "路線1",
+  "grade": "V5",
+  "member_completions": {
+    "1": true,
+    "2": false,
+    "3": true
+  }
+}
+```
+
+請求體格式（FormData，支持照片上傳）：
+```
+name: 路線1
+grade: V5
+photo: [文件]
+member_completions: {"1":true,"2":false,"3":true}
+```
+
+**注意**：
+- 可以只更新部分欄位（name、grade、member_completions、photo）
+- `member_completions` 為 JSON 字符串格式，鍵為成員 ID（字符串），值為布林值
+- 未在 `member_completions` 中指定的成員，其完成狀態會被設為 `false`
+- 支持照片更新（上傳新照片會覆蓋舊照片）
 
 ### 更新成績狀態
 
@@ -257,16 +317,42 @@ python manage.py test scoring.tests
 
 系統包含以下測試案例：
 
-1. **核心計分邏輯測試**（`ScoringLogicTestCase`）：
+1. **核心計分邏輯測試**（`test_case_01_default_member.py`）：
    - 循序漸進新增路線的計分
    - 標記完成/未完成狀態的計分更新
    - 刪除路線後的計分重算
    - 客製化組與常態組的分數獨立計算
 
-2. **API 接口測試**（`APITestCase`）：
+2. **API 接口測試**（`test_api.py`）：
    - 獲取排行榜
    - 創建路線
    - 更新成績狀態
+   - 完整流程測試（創建房間、新增成員、建立路線）
+
+3. **路線漸進完成測試**（`test_case_route_progressive_completion.py`）：
+   - 路線建立時無人完成
+   - 後來有一人完成
+   - 後來再有一人完成
+   - 驗證完成人數和分數計算
+
+4. **路線名稱編輯測試**（`test_case_route_name_edit.py`）：
+   - 編輯路線名稱（不變更）
+   - 編輯路線名稱（改為數字）
+   - 編輯路線名稱（改為文字）
+   - 驗證 API 返回的路線名稱正確性
+
+5. **路線完成狀態更新測試**（`test_case_route_update_completions.py`）：
+   - 標記兩個成員為完成
+   - 取消標記已完成成員
+   - 部分成員完成狀態更新
+   - 空完成狀態處理
+   - 驗證分數更新
+
+6. **FormData 格式測試**（`test_case_route_update_with_formdata.py`）：
+   - 使用 FormData 標記成員完成
+   - 使用 FormData 取消標記
+   - 部分勾選框的 FormData 處理
+   - 驗證 API 響應結構
 
 ### GitHub Actions 測試
 
@@ -280,23 +366,10 @@ python manage.py test scoring.tests
 
 ### 添加測試數據
 
-可以使用 Django shell 或管理後台添加測試數據：
-
-```python
-python manage.py shell
-```
-
-```python
-from scoring.models import Room, Member
-
-# 創建房間
-room = Room.objects.create(name="測試房間", standard_line_score=12)
-
-# 創建成員
-Member.objects.create(room=room, name="王小明", is_custom_calc=False)
-Member.objects.create(room=room, name="李大華", is_custom_calc=False)
-Member.objects.create(room=room, name="張三", is_custom_calc=True)
-```
+所有數據需通過網頁界面創建：
+- **首頁** (`/`): 創建房間
+- **排行榜頁面** (`/leaderboard/{room_id}/`): 新增成員、創建路線
+- **管理後台** (`/admin/`): 管理所有數據（需創建超級用戶：`python manage.py createsuperuser`）
 
 ## 許可證
 
