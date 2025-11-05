@@ -30,7 +30,10 @@ climbing_score_counting_system/
 │       ├── test_case_route_progressive_completion.py
 │       ├── test_case_route_name_edit.py
 │       ├── test_case_route_update_completions.py
-│       └── test_case_route_update_with_formdata.py
+│       ├── test_case_route_update_with_formdata.py
+│       ├── test_case_route_photo_upload.py
+│       ├── test_case_route_photo_thumbnail.py
+│       └── test_case_mobile_ui.py
 ├── templates/              # HTML 模板
 │   ├── base.html
 │   ├── index.html          # 首頁（房間列表）
@@ -86,10 +89,11 @@ climbing_score_counting_system/
 
 #### ViewSets
 - **RoomViewSet**: 房間 CRUD 操作
-  - `create`: 創建房間
-  - `update`: 更新房間
+  - `create`: 創建房間（自動計算 standard_line_score，預設為 1）
+  - `update`: 更新房間（自動重新計算 standard_line_score）
+  - `retrieve`: 獲取房間詳情（包含路線列表和成員列表，使用 prefetch_related 優化）
   - `leaderboard`: 獲取排行榜
-  - `create_route`: 創建路線
+  - `create_route`: 創建路線（支持圖片上傳，支持初始完成狀態設置）
 
 - **MemberViewSet**: 成員 CRUD 操作
   - `create`: 創建成員
@@ -98,8 +102,8 @@ climbing_score_counting_system/
   - `completed_routes`: 獲取成員完成的路線列表（action）
 
 - **RouteViewSet**: 路線 CRUD 操作
-  - `retrieve`: 獲取路線詳情
-  - `update`: 更新路線
+  - `retrieve`: 獲取路線詳情（包含照片 URL 和完成狀態，使用 prefetch_related 優化）
+  - `update`: 更新路線（支持部分更新：名稱、難度、完成狀態、照片，支持 FormData）
   - `destroy`: 刪除路線
 
 - **ScoreViewSet**: 成績 CRUD 操作
@@ -107,19 +111,27 @@ climbing_score_counting_system/
 
 #### Serializers
 - **RoomSerializer**: 房間序列化（包含嵌套路線序列化）
+  - 手動序列化 routes，使用 `RouteSerializer` 並傳遞 `context={'request': request}` 以生成完整的照片 URL
+  - 使用 `prefetch_related('routes__scores__member', 'members')` 優化查詢
 - **MemberSerializer**: 成員序列化（包含名稱唯一性驗證）
+  - 驗證成員名稱在同一房間內唯一
+  - 創建/更新後自動觸發 `update_scores`
 - **RouteSerializer**: 路線序列化（包含照片 URL 和分數資訊）
   - 使用 `prefetch_related` 優化查詢，確保 scores 數據完整
+  - `get_photo_url` 方法生成完整的照片 URL（包含域名）
+  - `to_representation` 確保數據始終從數據庫最新獲取
 - **RouteCreateSerializer**: 創建路線序列化
   - 使用 `CharField` 處理 `member_completions`，支持 JSON 字符串格式
   - 支持批量創建成績記錄
-  - `grade` 為必填項目
+  - `grade` 為必填項目（`required=True`）
+  - `photo` 字段支持圖片上傳（`ImageField`）
   - 自動解析 JSON 字符串為字典格式
 - **RouteUpdateSerializer**: 更新路線序列化
   - 使用 `CharField` 處理 `member_completions`，支持 JSON 字符串格式
   - 支持 FormData 格式的請求（照片上傳）
   - 自動解析 JSON 字符串為字典格式
   - 支持部分更新（name、grade、member_completions、photo）
+  - 更新完成狀態時自動觸發 `update_scores`
 - **ScoreSerializer**: 成績序列化
 
 ### 3. 視圖層 (views.py)
@@ -164,12 +176,14 @@ climbing_score_counting_system/
   - 自動生成房間名稱範例
 
 - **leaderboard.html**: 排行榜頁面
-  - 顯示成員排行榜（右側固定欄）
+  - 顯示成員排行榜（右側固定欄，可隨時查看排名變化）
   - 路線列表與完成狀態
+  - 路線圖片縮圖顯示（有圖片的路線在等級後方顯示縮圖，點擊可查看大圖）
   - 成員管理（新增、編輯、刪除）
   - 路線管理（新增、編輯、刪除）
-  - 照片上傳功能
+  - 照片上傳功能（支持 PNG、JPEG、HEIC 格式）
   - 點擊「完成條數」查看成員完成的路線詳情
+  - 圖片大圖查看彈窗
 
 - **rules.html**: 規則說明頁面
   - 計分規則說明
@@ -180,12 +194,20 @@ climbing_score_counting_system/
 - **CSS3**: 響應式設計
   - 支持桌面端（>1200px）、平板端（768px-1200px）、手機端（<768px）、超小屏幕（<480px）
   - 移動端優化：排行榜顯示在頂部、按鈕全寬、表單輸入框字體大小優化（防止 iOS 自動縮放）
+  - Flexbox 布局：兩欄布局（主內容區 + 固定排行榜側邊欄）
+  - 圖片縮圖樣式：40x40px 圓角縮圖，懸停放大效果
+  - 自定義滾動條樣式
+  - 漸變背景和過渡動畫效果
 - **JavaScript (Vanilla)**: 
   - Fetch API 進行 API 調用
-  - FormData 處理文件上傳
+  - FormData 處理文件上傳（支持圖片上傳，multipart/form-data）
   - 動態 DOM 操作
-  - 模態框管理
-  - 移動端檢測和優化
+  - 模態框管理（多個模態框：新增/編輯成員、新增/編輯路線、編輯房間、查看完成路線、查看圖片大圖）
+  - 移動端檢測和優化（自動檢測設備類型，動態調整表單行為）
+  - 圖片縮圖顯示和點擊查看大圖功能
+  - 自動聚焦功能（新增成員時自動聚焦到輸入框）
+  - 房間名稱自動生成範例（格式：攀岩館名稱_YYYYMMDD挑戰賽）
+  - 路線名稱自動編號（創建路線時自動生成「路線N」格式）
 
 ## 資料庫架構
 
@@ -260,13 +282,6 @@ scoring/tests/
 │       ├── test_update_route_partial_member_completions
 │       ├── test_update_route_with_empty_member_completions
 │       ├── test_update_route_with_json_string_member_completions
-├── test_case_route_update_completions.py     # 路線完成狀態更新測試
-│   └── TestCaseRouteUpdateCompletions
-│       ├── test_update_route_mark_two_members_completed
-│       ├── test_update_route_unmark_completed_members
-│       ├── test_update_route_partial_member_completions
-│       ├── test_update_route_with_empty_member_completions
-│       ├── test_update_route_with_json_string_member_completions
 │       └── test_update_route_verify_scores_updated
 ├── test_case_route_update_with_formdata.py   # FormData 格式測試
 │   └── TestCaseRouteUpdateWithFormData
@@ -282,6 +297,12 @@ scoring/tests/
 │       ├── test_update_route_replace_photo
 │       ├── test_update_route_remove_photo
 │       └── test_get_route_with_photo_url
+├── test_case_route_photo_thumbnail.py        # 路線圖片縮圖顯示測試
+│   └── TestCaseRoutePhotoThumbnail
+│       ├── test_route_list_shows_photo_thumbnail
+│       ├── test_route_list_no_thumbnail_for_route_without_photo
+│       ├── test_route_thumbnail_after_photo_update
+│       └── test_multiple_routes_with_and_without_photos
 └── test_case_mobile_ui.py                    # 手機版界面測試
     └── TestCaseMobileUI
         ├── test_mobile_viewport_meta_tag
@@ -318,12 +339,16 @@ scoring/tests/
 所有測試文件都使用這些輔助工具來簡化測試代碼，並在 `tearDown` 中統一清理測試數據。
 
 ### 測試覆蓋範圍
-- **API 端點測試**: 獲取排行榜、創建路線、更新成績狀態
+- **API 端點測試**: 獲取排行榜、創建路線、更新成績狀態、獲取成員完成的路線列表
 - **計分邏輯測試**: 分數計算、完成狀態更新、成員組別處理
 - **資料驗證測試**: 成員名稱唯一性、路線難度必填、JSON 格式驗證
 - **完整流程測試**: 創建房間、新增成員、建立路線的完整流程
 - **路線管理測試**: 路線名稱編輯、完成狀態更新、FormData 處理
+- **圖片功能測試**: 圖片上傳、圖片縮圖顯示、圖片格式支持（PNG、JPEG、HEIC）
+- **手機端測試**: 響應式設計、移動端 API 調用、移動端圖片上傳
 - **邊界條件測試**: 空完成狀態、部分更新、漸進式完成
+
+**總測試數量：52 個測試**
 
 ### CI/CD
 - **GitHub Actions**: 自動運行測試
@@ -340,8 +365,10 @@ scoring/tests/
 
 ### 媒體文件
 - **位置**: `media/route_photos/`
-- **用途**: 路線照片
+- **用途**: 路線照片（支持 PNG、JPEG、HEIC 格式）
 - **配置**: `settings.MEDIA_URL`, `settings.MEDIA_ROOT`
+- **處理**: 使用 `Pillow` 庫進行圖片驗證和處理
+- **URL 生成**: 通過 `RouteSerializer.get_photo_url` 生成完整的訪問 URL
 
 ## 安全配置
 
