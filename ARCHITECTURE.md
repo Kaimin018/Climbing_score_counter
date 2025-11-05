@@ -257,21 +257,28 @@ scoring/tests/
 │       ├── test_update_route_partial_member_completions
 │       ├── test_update_route_with_empty_member_completions
 │       ├── test_update_route_with_json_string_member_completions
+├── test_case_route_update_completions.py     # 路線完成狀態更新測試
+│   └── TestCaseRouteUpdateCompletions
+│       ├── test_update_route_mark_two_members_completed
+│       ├── test_update_route_unmark_completed_members
+│       ├── test_update_route_partial_member_completions
+│       ├── test_update_route_with_empty_member_completions
+│       ├── test_update_route_with_json_string_member_completions
 │       └── test_update_route_verify_scores_updated
-└── test_case_route_update_with_formdata.py  # FormData 格式測試
-    └── TestCaseRouteUpdateWithFormData
-        ├── test_update_route_with_formdata_mark_two_members
-        ├── test_update_route_with_formdata_unmark_members
-        ├── test_update_route_with_formdata_partial_checkboxes
-        └── test_update_route_verify_api_response
-└── test_case_route_photo_upload.py  # 路線圖片上傳測試
-    └── TestCaseRoutePhotoUpload
-        ├── test_create_route_with_photo
-        ├── test_create_route_without_photo
-        ├── test_update_route_add_photo
-        ├── test_update_route_replace_photo
-        ├── test_update_route_remove_photo
-        └── test_get_route_with_photo_url
+├── test_case_route_update_with_formdata.py   # FormData 格式測試
+│   └── TestCaseRouteUpdateWithFormData
+│       ├── test_update_route_with_formdata_mark_two_members
+│       ├── test_update_route_with_formdata_unmark_members
+│       ├── test_update_route_with_formdata_partial_checkboxes
+│       └── test_update_route_verify_api_response
+├── test_case_route_photo_upload.py           # 路線圖片上傳測試
+│   └── TestCaseRoutePhotoUpload
+│       ├── test_create_route_with_photo
+│       ├── test_create_route_without_photo
+│       ├── test_update_route_add_photo
+│       ├── test_update_route_replace_photo
+│       ├── test_update_route_remove_photo
+│       └── test_get_route_with_photo_url
 ```
 
 ### 測試輔助工具 (`test_helpers.py`)
