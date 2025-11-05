@@ -24,6 +24,7 @@ climbing_score_counting_system/
 │   ├── migrations/         # 資料庫遷移文件
 │   └── tests/              # 測試模組
 │       ├── __init__.py
+│       ├── test_helpers.py  # 測試輔助工具模組
 │       ├── test_api.py
 │       ├── test_case_01_default_member.py
 │       ├── test_case_route_progressive_completion.py
@@ -260,6 +261,23 @@ scoring/tests/
         ├── test_update_route_with_formdata_partial_checkboxes
         └── test_update_route_verify_api_response
 ```
+
+### 測試輔助工具 (`test_helpers.py`)
+
+提供可重用的測試數據創建和清理函數：
+
+- **`TestDataFactory`** 類：
+  - `create_room()`: 創建測試房間
+  - `create_normal_members()`: 創建一般組成員
+  - `create_custom_members()`: 創建客製化組成員
+  - `create_route()`: 創建路線並自動創建成績記錄
+  - `create_route_with_scores()`: 根據配置創建路線和成績記錄
+
+- **`cleanup_test_data()`**: 清理測試數據（刪除房間及其相關數據）
+
+- **`create_basic_test_setup()`**: 一鍵創建基本測試設置（房間 + 成員）
+
+所有測試文件都使用這些輔助工具來簡化測試代碼，並在 `tearDown` 中統一清理測試數據。
 
 ### 測試覆蓋範圍
 - **API 端點測試**: 獲取排行榜、創建路線、更新成績狀態

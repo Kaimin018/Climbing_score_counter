@@ -399,10 +399,21 @@ python manage.py createsuperuser
 
 **命名規則**：同一問題使用相同的編號（如 `issue_01`），不同類型的文檔使用不同的後綴（`flow_analysis`、`fix_report`）。
 
+### 測試輔助工具
+
+系統提供了 `scoring/tests/test_helpers.py` 模組，包含可重用的測試數據創建函數：
+
+- **`TestDataFactory`**: 提供創建房間、成員、路線的便捷方法
+- **`cleanup_test_data()`**: 統一清理測試數據（刪除房間及其相關數據）
+- **`create_basic_test_setup()`**: 一鍵創建基本測試設置
+
+所有測試都在 `tearDown` 方法中使用 `cleanup_test_data()` 確保測試後數據清理乾淨。
+
 ### 代碼規範
 
 - 已移除所有 debug logging 代碼
 - 代碼已簡化，只保留核心邏輯和必要註釋
+- 測試代碼使用輔助工具模組提高可維護性
 - 臨時文件和測試輸出文件已加入 `.gitignore`
 
 ## 許可證

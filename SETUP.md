@@ -357,10 +357,45 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ## 開發注意事項
 
+### 測試輔助工具
+
+系統提供了 `scoring/tests/test_helpers.py` 模組，方便編寫測試案例：
+
+- **`TestDataFactory`**: 提供創建測試數據的便捷方法
+  - `create_room()`: 創建測試房間
+  - `create_normal_members()`: 創建一般組成員
+  - `create_custom_members()`: 創建客製化組成員
+  - `create_route()`: 創建路線並自動創建成績記錄
+
+- **`cleanup_test_data()`**: 統一清理測試數據（刪除房間及其相關數據）
+
+- **`create_basic_test_setup()`**: 一鍵創建基本測試設置
+
+**使用範例**：
+```python
+from scoring.tests.test_helpers import TestDataFactory, cleanup_test_data
+
+class MyTestCase(TestCase):
+    def setUp(self):
+        self.room = TestDataFactory.create_room(name="測試房間")
+        self.m1, self.m2 = TestDataFactory.create_normal_members(
+            self.room, count=2, names=["成員1", "成員2"]
+        )
+        self.route = TestDataFactory.create_route(
+            room=self.room, name="路線1", grade="V3",
+            members=[self.m1, self.m2]
+        )
+    
+    def tearDown(self):
+        cleanup_test_data(room=self.room)
+```
+
 ### 代碼規範
 
 - 所有 debug logging 已移除，只保留核心業務邏輯
 - 代碼已簡化，避免冗餘
+- 測試代碼使用輔助工具模組提高可維護性
+- 所有測試都在 `tearDown` 中統一清理數據
 - 臨時文件和測試輸出文件已加入 `.gitignore`
 
 ### 問題修復記錄

@@ -399,10 +399,21 @@ Fixed issues are documented in the `issue_fixed/` folder:
 
 **Naming Convention**: Same issue uses the same number (e.g., `issue_01`), different document types use different suffixes (`flow_analysis`, `fix_report`).
 
+### Test Helpers
+
+The system provides a `scoring/tests/test_helpers.py` module with reusable test data creation functions:
+
+- **`TestDataFactory`**: Provides convenient methods for creating rooms, members, and routes
+- **`cleanup_test_data()`**: Unified test data cleanup (deletes rooms and all related data)
+- **`create_basic_test_setup()`**: One-click basic test setup creation
+
+All tests use `cleanup_test_data()` in their `tearDown` methods to ensure clean test environments.
+
 ### Code Standards
 
 - All debug logging code has been removed
 - Code simplified, only core logic and necessary comments retained
+- Test code uses helper modules for improved maintainability
 - Temporary files and test output files have been added to `.gitignore`
 
 ## License
