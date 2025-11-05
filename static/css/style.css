@@ -30,12 +30,239 @@ body {
     font-size: 1.5rem;
 }
 
-/* 排行榜容器 */
+/* 排行榜布局 */
+.leaderboard-layout {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1800px;
+    margin: 0 auto;
+    min-height: calc(100vh - 80px);
+}
+
+/* 左側主內容區 */
+.main-content {
+    flex: 1;
+    min-width: 0; /* 允許 flex 項目收縮 */
+}
+
 .leaderboard-container {
     background: white;
     border-radius: 8px;
     padding: 30px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* 右側固定排行榜 */
+.leaderboard-sidebar {
+    width: 480px;
+    flex-shrink: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 40px);
+    position: sticky;
+    top: 20px;
+    align-self: flex-start;
+    overflow: hidden;
+}
+
+.leaderboard-sidebar-header {
+    padding: 18px 20px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+}
+
+.leaderboard-sidebar-header h3 {
+    margin: 0;
+    color: white;
+    font-size: 1.3rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.leaderboard-sidebar-header .btn {
+    padding: 8px 14px;
+    font-size: 1rem;
+    background-color: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.leaderboard-sidebar-header .btn:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+    transform: scale(1.05);
+}
+
+.leaderboard-table-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #f8f9fa;
+}
+
+.leaderboard-table-wrapper::-webkit-scrollbar {
+    width: 6px;
+}
+
+.leaderboard-table-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.leaderboard-table-wrapper::-webkit-scrollbar-thumb {
+    background: #95a5a6;
+    border-radius: 3px;
+}
+
+.leaderboard-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #7f8c8d;
+}
+
+.leaderboard-table {
+    overflow-x: auto;
+}
+
+.leaderboard-sidebar .leaderboard-table table {
+    margin-top: 0;
+    font-size: 0.95rem;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.leaderboard-sidebar .leaderboard-table th,
+.leaderboard-sidebar .leaderboard-table td {
+    padding: 14px 15px;
+    font-size: 0.95rem;
+}
+
+.leaderboard-sidebar .leaderboard-table th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    padding: 12px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.leaderboard-sidebar .leaderboard-table th:nth-child(1) {
+    width: 70px;
+    text-align: center;
+}
+
+.leaderboard-sidebar .leaderboard-table th:nth-child(2) {
+    width: 160px;
+    text-align: left;
+}
+
+.leaderboard-sidebar .leaderboard-table th:nth-child(3) {
+    width: 100px;
+    text-align: right;
+}
+
+.leaderboard-sidebar .leaderboard-table th:nth-child(4) {
+    width: 70px;
+    text-align: center;
+}
+
+.leaderboard-sidebar .leaderboard-table th:nth-child(5) {
+    width: 80px;
+    text-align: center;
+}
+
+.leaderboard-sidebar .leaderboard-table tbody tr {
+    background: white;
+    border-bottom: 1px solid #e8e9ea;
+    transition: all 0.2s ease;
+}
+
+.leaderboard-sidebar .leaderboard-table tbody tr:hover {
+    background: #f0f7ff;
+    transform: translateX(2px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.leaderboard-sidebar .leaderboard-table tbody tr.rank-1 {
+    background: linear-gradient(90deg, #fff9e6 0%, #ffffff 100%);
+    border-left: 4px solid #ffd700;
+}
+
+.leaderboard-sidebar .leaderboard-table tbody tr.rank-2 {
+    background: linear-gradient(90deg, #f5f5f5 0%, #ffffff 100%);
+    border-left: 4px solid #c0c0c0;
+}
+
+.leaderboard-sidebar .leaderboard-table tbody tr.rank-3 {
+    background: linear-gradient(90deg, #ffe8d6 0%, #ffffff 100%);
+    border-left: 4px solid #cd7f32;
+}
+
+.leaderboard-sidebar .leaderboard-table td:nth-child(1) {
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: #2c3e50;
+    position: relative;
+}
+
+.leaderboard-sidebar .leaderboard-table tbody tr.rank-1 td:nth-child(1) {
+    color: #ffd700;
+    font-size: 1.1rem;
+}
+
+.leaderboard-sidebar .leaderboard-table tbody tr.rank-2 td:nth-child(1) {
+    color: #c0c0c0;
+    font-size: 1.05rem;
+}
+
+.leaderboard-sidebar .leaderboard-table tbody tr.rank-3 td:nth-child(1) {
+    color: #cd7f32;
+    font-size: 1.05rem;
+}
+
+.leaderboard-sidebar .leaderboard-table td:nth-child(2) {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.leaderboard-sidebar .leaderboard-table td:nth-child(3) {
+    text-align: right;
+    font-weight: 600;
+}
+
+.leaderboard-sidebar .leaderboard-table td:nth-child(4) {
+    text-align: center;
+    color: #7f8c8d;
+    font-weight: 500;
+}
+
+.leaderboard-sidebar .leaderboard-table .score {
+    font-weight: 700;
+    color: #e74c3c;
+    font-size: 1.05rem;
+}
+
+.leaderboard-sidebar .leaderboard-table .btn-small {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.leaderboard-sidebar .leaderboard-table .btn-small:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
 
 .room-header {
@@ -123,7 +350,8 @@ tbody tr:hover {
     background-color: #f8f9fa;
 }
 
-.score {
+/* 主內容區的分數樣式（保持原樣） */
+.main-content .score {
     font-weight: bold;
     color: #e74c3c;
     font-size: 1.1rem;
@@ -481,13 +709,75 @@ tbody tr:hover {
 }
 
 /* 響應式設計 */
+@media (max-width: 1200px) {
+    .leaderboard-layout {
+        flex-direction: column;
+        padding: 15px;
+    }
+
+    .leaderboard-sidebar {
+        width: 100%;
+        position: relative;
+        top: 0;
+        max-height: 600px;
+        order: -1; /* 在移動設備上，排行榜顯示在頂部 */
+    }
+
+    .main-content {
+        width: 100%;
+    }
+
+    .leaderboard-sidebar .leaderboard-table th,
+    .leaderboard-sidebar .leaderboard-table td {
+        padding: 12px 10px;
+        font-size: 0.9rem;
+    }
+}
+
 @media (max-width: 768px) {
     .container {
         padding: 10px;
     }
 
+    .leaderboard-layout {
+        padding: 10px;
+        gap: 15px;
+    }
+
     .leaderboard-container {
         padding: 15px;
+    }
+
+    .leaderboard-sidebar {
+        max-height: 500px;
+        width: 100%;
+    }
+
+    .leaderboard-sidebar-header {
+        padding: 15px;
+    }
+
+    .leaderboard-sidebar-header h3 {
+        font-size: 1.1rem;
+    }
+
+    .leaderboard-sidebar .leaderboard-table th,
+    .leaderboard-sidebar .leaderboard-table td {
+        padding: 10px 8px;
+        font-size: 0.85rem;
+    }
+
+    .leaderboard-sidebar .leaderboard-table th {
+        font-size: 0.7rem;
+        padding: 10px 8px;
+    }
+
+    .leaderboard-sidebar .leaderboard-table td:nth-child(1) {
+        font-size: 0.9rem;
+    }
+
+    .leaderboard-sidebar .leaderboard-table .score {
+        font-size: 0.9rem;
     }
 
     .home-container {

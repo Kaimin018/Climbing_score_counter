@@ -4,57 +4,72 @@
 {% block title %}排行榜 - 攀岩計分系統{% endblock %}
 
 {% block content %}
-<div class="leaderboard-container">
-    <div class="room-header" id="roomHeader">
-        <div class="header-top">
-            <button class="btn btn-secondary btn-small" onclick="goHome()" style="margin-right: 10px;">
-                ← 返回首頁
+<div class="leaderboard-layout">
+    <!-- 左側主內容區 -->
+    <div class="main-content">
+        <div class="leaderboard-container">
+            <div class="room-header" id="roomHeader">
+                <div class="header-top">
+                    <button class="btn btn-secondary btn-small" onclick="goHome()" style="margin-right: 10px;">
+                        ← 返回首頁
+                    </button>
+                    <h2 id="roomName" style="flex: 1;">載入中...</h2>
+                    <a href="/rules/" class="btn btn-secondary btn-small" style="margin-left: 10px; text-decoration: none; display: inline-block;">
+                        規則說明
+                    </a>
+                    <button class="btn btn-secondary btn-small" onclick="showEditRoomModal()" style="margin-left: 10px;">
+                        編輯房間
+                    </button>
+                </div>
+                <div class="room-info">
+                    <span>房間 ID: <strong id="roomIdDisplay">-</strong></span>
+                    <span style="margin-left: 20px;">每一條線總分 (L): <strong id="standardLineScore">-</strong></span>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-primary" onclick="showAddMemberModal()">新增成員</button>
+                <button class="btn btn-primary" onclick="showAddRouteModal()">新增路線</button>
+                <button class="btn btn-secondary" onclick="refreshLeaderboard()">刷新排行榜</button>
+            </div>
+
+            <div class="routes-section" style="margin-bottom: 30px;">
+                <h3 style="margin-bottom: 15px; color: #2c3e50;">路線列表</h3>
+                <div id="routesList" class="routes-list">
+                    <div class="loading">載入中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右側固定排行榜 -->
+    <div class="leaderboard-sidebar">
+        <div class="leaderboard-sidebar-header">
+            <h3>排行榜</h3>
+            <button class="btn btn-secondary btn-small" onclick="refreshLeaderboard()" title="刷新排行榜">
+                🔄
             </button>
-            <h2 id="roomName" style="flex: 1;">載入中...</h2>
-            <a href="/rules/" class="btn btn-secondary btn-small" style="margin-left: 10px; text-decoration: none; display: inline-block;">
-                規則說明
-            </a>
-            <button class="btn btn-secondary btn-small" onclick="showEditRoomModal()" style="margin-left: 10px;">
-                編輯房間
-            </button>
         </div>
-        <div class="room-info">
-            <span>房間 ID: <strong id="roomIdDisplay">-</strong></span>
-            <span style="margin-left: 20px;">每一條線總分 (L): <strong id="standardLineScore">-</strong></span>
+        <div class="leaderboard-table-wrapper">
+            <div class="leaderboard-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>排名</th>
+                            <th>成員</th>
+                            <th>總分</th>
+                            <th>完成</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody">
+                        <tr>
+                            <td colspan="5" class="loading">載入中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
-
-    <div class="actions">
-        <button class="btn btn-primary" onclick="showAddMemberModal()">新增成員</button>
-        <button class="btn btn-primary" onclick="showAddRouteModal()">新增路線</button>
-        <button class="btn btn-secondary" onclick="refreshLeaderboard()">刷新排行榜</button>
-    </div>
-
-    <div class="routes-section" style="margin-bottom: 30px;">
-        <h3 style="margin-bottom: 15px; color: #2c3e50;">路線列表</h3>
-        <div id="routesList" class="routes-list">
-            <div class="loading">載入中...</div>
-        </div>
-    </div>
-
-    <div class="leaderboard-table">
-        <table>
-            <thead>
-                <tr>
-                    <th>排名</th>
-                    <th>成員名稱</th>
-                    <th>總分</th>
-                    <th>完成路線數</th>
-                    <th>客製化?</th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-            <tbody id="leaderboardBody">
-                <tr>
-                    <td colspan="6" class="loading">載入中...</td>
-                </tr>
-            </tbody>
-        </table>
     </div>
 </div>
 
@@ -375,23 +390,23 @@
 
         // 更新排行榜
         const tbody = document.getElementById('leaderboardBody');
-            if (leaderboard.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty">尚無成員數據</td></tr>';
+        if (leaderboard.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty">尚無成員數據</td></tr>';
             return;
         }
 
         tbody.innerHTML = leaderboard.map((member, index) => {
             const rank = index + 1;
-            const groupType = member.is_custom_calc ? 'Y' : 'N';
+            const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+            const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
             return `
-                <tr>
-                    <td>${rank}</td>
-                    <td><strong>${member.name}</strong></td>
+                <tr class="${rankClass}">
+                    <td>${rankIcon ? rankIcon + ' ' : ''}${rank}</td>
+                    <td><strong>${member.name}</strong>${member.is_custom_calc ? ' <span style="color: #95a5a6; font-size: 0.75rem; font-weight: normal;">(客)</span>' : ''}</td>
                     <td class="score">${parseFloat(member.total_score).toFixed(2)}</td>
                     <td>${member.completed_routes_count}</td>
-                    <td>${groupType}</td>
                     <td>
-                        <button class="btn btn-primary btn-small" onclick="editMember(${member.id}, '${member.name}', ${member.is_custom_calc})">
+                        <button class="btn btn-primary btn-small" onclick="editMember(${member.id}, '${member.name}', ${member.is_custom_calc})" title="編輯成員">
                             編輯
                         </button>
                     </td>
