@@ -36,11 +36,13 @@ nano .server-config
 
 ```bash
 # 服务器配置（不提交到 Git）
-DOMAIN=countclimbingscore.online
-WWW_DOMAIN=www.countclimbingscore.online
-EC2_IP=3.26.6.19
+DOMAIN=your-domain.com
+WWW_DOMAIN=www.your-domain.com
+EC2_IP=your-ec2-ip
 SECRET_KEY=your-actual-secret-key-here
 ```
+
+**注意**：请将示例值替换为您的实际域名、IP 地址和密钥。
 
 ### 步骤 2: 运行部署脚本
 

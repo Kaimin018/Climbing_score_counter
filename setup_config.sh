@@ -33,7 +33,7 @@ echo ""
 echo "請輸入以下配置信息："
 echo ""
 
-read -p "域名 (例如: countclimbingscore.online): " DOMAIN
+read -p "域名 (例如: example.com): " DOMAIN
 read -p "WWW 域名 (留空使用 www.$DOMAIN): " WWW_DOMAIN
 read -p "EC2 IP 地址: " EC2_IP
 read -sp "SECRET_KEY (留空將自動生成): " SECRET_KEY
