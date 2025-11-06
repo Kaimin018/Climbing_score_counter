@@ -26,6 +26,20 @@
 - **API**: Django REST Framework
 - **前端**: HTML + CSS + JavaScript
 - **圖片處理**: Pillow（支持手機照片上傳）
+- **生產環境**: Gunicorn + Nginx（AWS EC2 部署）
+
+## 部署
+
+### AWS EC2 部署
+
+系統已配置支持 AWS EC2 部署，使用 Gunicorn + Nginx + SQLite 架構。
+
+詳細部署指南請參考：
+- `AWS_EC2_DEPLOYMENT.md` - 完整部署指南
+- `QUICK_START.md` - 快速參考
+- `DEPLOYMENT_CHANGES.md` - 部署修改總結
+
+**部署路徑**: `/var/www/Climbing_score_counter`
 
 ## 快速開始
 
@@ -320,7 +334,7 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ### 測試案例
 
-系統包含以下測試案例（共 48 個測試）：
+系統包含以下測試案例（共 83 個測試）：
 
 1. **核心計分邏輯測試**（`test_case_01_default_member.py`）：
    - 循序漸進新增路線的計分
@@ -395,6 +409,16 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
    - CSS 文件包含移動端媒體查詢
    - 手機端表單輸入框字體大小（防止 iOS 自動縮放）
 
+11. **安全性測試**（`test_case_security.py`）：
+   - 用戶認證（註冊、登錄、登出）
+   - API 權限控制（開發/生產環境）
+   - XSS 攻擊防護
+
+12. **設置配置測試**（`test_case_settings_config.py`）：
+   - 日誌配置（開發/生產環境）
+   - 權限配置（開發/生產環境）
+   - 環境變數配置
+
 ### GitHub Actions 測試
 
 項目已配置 GitHub Actions 自動測試，每次推送代碼時會自動運行測試。詳見 `.github/workflows/test.yml`。
@@ -426,16 +450,29 @@ python manage.py createsuperuser
 已修復的問題記錄在 `issue_fixed/` 資料夾中：
 - `issue_01_create_route_completion_count_zero_flow_analysis.md` - 詳細流程分析
 - `issue_01_create_route_completion_count_zero_fix_report.md` - 修復報告
+- `issue_02_logging_and_permission_config_fix_report.md` - 日誌和權限配置修復報告
+- `issue_02_logging_and_permission_config_flow_analysis.md` - 日誌和權限配置流程分析
 
-**命名規則**：同一問題使用相同的編號（如 `issue_01`），不同類型的文檔使用不同的後綴（`flow_analysis`、`fix_report`）。
+**命名規則**：同一問題使用相同的編號（如 `issue_01`、`issue_02`），不同類型的文檔使用不同的後綴（`flow_analysis`、`fix_report`）。
 
 ### 測試輔助工具
 
-系統提供了 `scoring/tests/test_helpers.py` 模組，包含可重用的測試數據創建函數：
+系統提供了 `scoring/tests/test_helpers.py` 模組，包含可重用的測試數據創建、配置檢查和斷言函數：
 
-- **`TestDataFactory`**: 提供創建房間、成員、路線的便捷方法
-- **`cleanup_test_data()`**: 統一清理測試數據（刪除房間及其相關數據）
-- **`create_basic_test_setup()`**: 一鍵創建基本測試設置
+- **數據創建**：
+  - `TestDataFactory`: 提供創建房間、成員、路線的便捷方法
+  - `cleanup_test_data()`: 統一清理測試數據（刪除房間及其相關數據）
+  - `create_basic_test_setup()`: 一鍵創建基本測試設置
+
+- **配置檢查**：
+  - `is_allow_any_permission()`: 檢查當前環境是否使用 AllowAny 權限
+  - `is_debug_mode()`: 檢查當前是否為開發模式
+  - `should_allow_unauthenticated_access()`: 檢查當前環境是否應該允許未認證訪問
+  - `get_logging_handlers()`: 獲取當前日誌配置的 handlers
+  - `has_file_logging()`: 檢查當前是否配置了文件日誌
+
+- **測試斷言**：
+  - `assert_response_status_for_permission()`: 根據當前權限配置驗證響應狀態碼
 
 所有測試都在 `tearDown` 方法中使用 `cleanup_test_data()` 確保測試後數據清理乾淨。
 

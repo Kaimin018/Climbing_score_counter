@@ -254,6 +254,16 @@ Route (1) ──→ (N) Score
 ```
 scoring/tests/
 ├── __init__.py
+├── test_helpers.py                # 測試輔助工具模組
+│   ├── TestDataFactory            # 測試數據工廠
+│   ├── cleanup_test_data          # 清理測試數據
+│   ├── create_basic_test_setup    # 創建基本測試設置
+│   ├── is_allow_any_permission    # 檢查權限配置
+│   ├── is_debug_mode              # 檢查 DEBUG 模式
+│   ├── should_allow_unauthenticated_access  # 檢查是否允許未認證訪問
+│   ├── assert_response_status_for_permission  # 驗證響應狀態
+│   ├── get_logging_handlers       # 獲取日誌 handlers
+│   └── has_file_logging           # 檢查文件日誌配置
 ├── test_api.py                    # API 測試
 │   └── APITestCase
 │       ├── test_get_leaderboard
@@ -303,27 +313,35 @@ scoring/tests/
 │       ├── test_route_list_no_thumbnail_for_route_without_photo
 │       ├── test_route_thumbnail_after_photo_update
 │       └── test_multiple_routes_with_and_without_photos
-└── test_case_mobile_ui.py                    # 手機版界面測試
-    └── TestCaseMobileUI
-        ├── test_mobile_viewport_meta_tag
-        ├── test_mobile_leaderboard_page_loads
-        ├── test_mobile_api_responses
-        ├── test_mobile_create_route_with_formdata
-        ├── test_mobile_create_route_with_photo_detailed
-        ├── test_mobile_update_route_add_photo
-        ├── test_mobile_update_route_replace_photo
-        ├── test_mobile_photo_upload_different_formats (PNG, JPEG, HEIC)
-        ├── test_mobile_photo_upload_verify_url
-        ├── test_mobile_update_route
-        ├── test_mobile_get_member_completed_routes
-        ├── test_mobile_responsive_layout_elements
-        ├── test_mobile_css_media_queries_referenced
-        └── test_mobile_form_input_font_size
+├── test_case_mobile_ui.py                    # 手機版界面測試
+│   └── TestCaseMobileUI
+│       ├── test_mobile_viewport_meta_tag
+│       ├── test_mobile_leaderboard_page_loads
+│       ├── test_mobile_api_responses
+│       ├── test_mobile_create_route_with_formdata
+│       ├── test_mobile_create_route_with_photo_detailed
+│       ├── test_mobile_update_route_add_photo
+│       ├── test_mobile_update_route_replace_photo
+│       ├── test_mobile_photo_upload_different_formats (PNG, JPEG, HEIC)
+│       ├── test_mobile_photo_upload_verify_url
+│       ├── test_mobile_update_route
+│       ├── test_mobile_get_member_completed_routes
+│       ├── test_mobile_responsive_layout_elements
+│       ├── test_mobile_css_media_queries_referenced
+│       └── test_mobile_form_input_font_size
+├── test_case_security.py                     # 安全性測試
+│   ├── TestCaseAuthentication                # 用戶認證測試
+│   ├── TestCaseAPIPermissions                # API 權限測試
+│   └── TestCaseXSSProtection                 # XSS 防護測試
+└── test_case_settings_config.py              # 設置配置測試
+    ├── TestCaseLoggingConfig                 # 日誌配置測試
+    ├── TestCasePermissionConfig              # 權限配置測試
+    └── TestCaseEnvironmentVariables          # 環境變數測試
 ```
 
 ### 測試輔助工具 (`test_helpers.py`)
 
-提供可重用的測試數據創建和清理函數：
+提供可重用的測試數據創建、清理和配置檢查函數：
 
 - **`TestDataFactory`** 類：
   - `create_room()`: 創建測試房間
@@ -332,9 +350,19 @@ scoring/tests/
   - `create_route()`: 創建路線並自動創建成績記錄
   - `create_route_with_scores()`: 根據配置創建路線和成績記錄
 
-- **`cleanup_test_data()`**: 清理測試數據（刪除房間及其相關數據）
+- **數據清理函數**：
+  - `cleanup_test_data()`: 清理測試數據（刪除房間及其相關數據）
+  - `create_basic_test_setup()`: 一鍵創建基本測試設置（房間 + 成員）
 
-- **`create_basic_test_setup()`**: 一鍵創建基本測試設置（房間 + 成員）
+- **配置檢查函數**：
+  - `is_allow_any_permission()`: 檢查當前環境是否使用 AllowAny 權限
+  - `is_debug_mode()`: 檢查當前是否為開發模式
+  - `should_allow_unauthenticated_access()`: 檢查當前環境是否應該允許未認證訪問
+  - `get_logging_handlers()`: 獲取當前日誌配置的 handlers
+  - `has_file_logging()`: 檢查當前是否配置了文件日誌
+
+- **測試斷言函數**：
+  - `assert_response_status_for_permission()`: 根據當前權限配置驗證響應狀態碼
 
 所有測試文件都使用這些輔助工具來簡化測試代碼，並在 `tearDown` 中統一清理測試數據。
 
@@ -347,8 +375,10 @@ scoring/tests/
 - **圖片功能測試**: 圖片上傳、圖片縮圖顯示、圖片格式支持（PNG、JPEG、HEIC）
 - **手機端測試**: 響應式設計、移動端 API 調用、移動端圖片上傳
 - **邊界條件測試**: 空完成狀態、部分更新、漸進式完成
+- **安全性測試**: 用戶認證、API 權限控制、XSS 防護
+- **配置測試**: 日誌配置（開發/生產環境）、權限配置（開發/生產環境）、環境變數配置
 
-**總測試數量：52 個測試**
+**總測試數量：83 個測試**
 
 ### CI/CD
 - **GitHub Actions**: 自動運行測試
@@ -361,7 +391,8 @@ scoring/tests/
 ### 靜態文件
 - **位置**: `static/`
 - **用途**: CSS、JavaScript
-- **服務**: Django 開發服務器自動處理
+- **開發環境**: Django 開發服務器自動處理
+- **生產環境**: 收集到 `staticfiles/` 目錄，由 Nginx 服務
 
 ### 媒體文件
 - **位置**: `media/route_photos/`
@@ -369,16 +400,51 @@ scoring/tests/
 - **配置**: `settings.MEDIA_URL`, `settings.MEDIA_ROOT`
 - **處理**: 使用 `Pillow` 庫進行圖片驗證和處理
 - **URL 生成**: 通過 `RouteSerializer.get_photo_url` 生成完整的訪問 URL
+- **生產環境**: 由 Nginx 直接服務媒體文件
+
+## 日誌配置
+
+### 開發環境（DEBUG=True）
+- **Handlers**: 僅使用 `console` handler
+- **輸出**: 標準輸出（控制台）
+- **級別**: INFO
+
+### 生產環境（DEBUG=False）
+- **Handlers**: `console` + `file` handler
+- **輸出**: 
+  - 控制台（標準輸出）
+  - 文件：`logs/django.log`
+- **級別**: INFO
+- **目錄**: 自動創建 `logs/` 目錄（如果不存在）
 
 ## 安全配置
 
 ### CORS 設置
 - 使用 `django-cors-headers` 處理跨域請求
-- 開發環境允許所有來源
+- 開發環境允許所有來源（`CORS_ALLOW_ALL_ORIGINS=True`）
+- 生產環境可通過環境變數設置具體的允許來源（`CORS_ALLOWED_ORIGINS`）
 
 ### CSRF 保護
 - Django 內建 CSRF 中間件
 - API 使用 Session 認證（開發環境）
+
+### 權限配置
+- **開發環境**（`DEBUG=True`）:
+  - REST Framework 默認權限：`AllowAny`（允許所有操作，便於測試）
+  - 所有 ViewSet 使用默認權限配置
+  
+- **生產環境**（`DEBUG=False`）:
+  - REST Framework 默認權限：`IsAuthenticatedOrReadOnly`（需要認證才能寫入）
+  - 讀取操作（GET）允許未認證訪問
+  - 寫入操作（POST、PUT、PATCH、DELETE）需要認證
+
+### 環境變數配置
+- `SECRET_KEY`: Django 密鑰（必須在生產環境中設置）
+- `DEBUG`: 調試模式（生產環境必須設為 `False`）
+- `ALLOWED_HOSTS`: 允許的主機列表（用逗號分隔）
+- `CORS_ALLOW_ALL_ORIGINS`: 是否允許所有 CORS 來源（生產環境建議設為 `False`）
+- `CORS_ALLOWED_ORIGINS`: 允許的 CORS 來源列表（用逗號分隔）
+- `SECURE_SSL_REDIRECT`: 是否強制 HTTPS 重定向（生產環境建議設為 `True`）
 
 ## 部署架構
 
@@ -386,13 +452,21 @@ scoring/tests/
 - **伺服器**: Django 開發服務器
 - **資料庫**: SQLite（預設）
 - **靜態文件**: Django 自動處理
+- **權限**: AllowAny（允許所有操作）
+- **日誌**: Console handler
 
-### 生產環境建議
-- **WSGI 伺服器**: Gunicorn 或 uWSGI
+### 生產環境（AWS EC2）
+- **WSGI 伺服器**: Gunicorn
 - **反向代理**: Nginx
-- **資料庫**: MySQL 或 PostgreSQL
-- **靜態文件**: Nginx 或 CDN
-- **媒體文件**: 雲存儲（如 AWS S3）
+- **資料庫**: SQLite（或可選 MySQL/PostgreSQL）
+- **靜態文件**: Nginx 服務 `staticfiles/` 目錄
+- **媒體文件**: Nginx 服務 `media/` 目錄
+- **權限**: IsAuthenticatedOrReadOnly（需要認證才能寫入）
+- **日誌**: Console + File handler（`logs/django.log`）
+- **進程管理**: Systemd
+- **部署路徑**: `/var/www/Climbing_score_counter`
+
+詳細部署指南請參考：`AWS_EC2_DEPLOYMENT.md`
 
 ## 依賴管理
 

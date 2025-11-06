@@ -2,6 +2,7 @@
 權限控制模組
 """
 from rest_framework import permissions
+from django.conf import settings
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
@@ -12,6 +13,10 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         # 讀取權限對所有人開放
         if request.method in permissions.SAFE_METHODS:
+            return True
+        
+        # 開發環境允許所有操作
+        if settings.DEBUG:
             return True
         
         # 寫入權限需要認證
@@ -33,9 +38,14 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
 class IsAuthenticatedOrReadOnlyForCreate(permissions.BasePermission):
     """
     自定義權限：創建操作需要認證，其他操作允許讀取
+    開發環境（DEBUG=True）允許所有操作
     """
     
     def has_permission(self, request, view):
+        # 開發環境允許所有操作（用於測試）
+        if settings.DEBUG:
+            return True
+        
         # 讀取操作對所有人開放
         if request.method in permissions.SAFE_METHODS:
             return True

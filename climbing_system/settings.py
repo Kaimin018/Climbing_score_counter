@@ -170,10 +170,11 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.BasicAuthentication',
     ],
-    # 權限設置：默認需要認證，但可以通過 permission_classes 覆蓋
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
-    ],
+    # 權限設置：開發環境允許所有操作，生產環境需要認證
+    'DEFAULT_PERMISSION_CLASSES': (
+        ['rest_framework.permissions.AllowAny'] if DEBUG 
+        else ['rest_framework.permissions.IsAuthenticatedOrReadOnly']
+    ),
 }
 
 # Logging configuration
@@ -191,25 +192,36 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'django.log',
-            'formatter': 'verbose',
-        },
     },
     'loggers': {
         'scoring': {
-            'handlers': ['console', 'file'] if not DEBUG else ['console'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
         },
         'django': {
-            'handlers': ['console', 'file'] if not DEBUG else ['console'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
         },
     },
 }
+
+# 生產環境添加文件日誌（僅在非 DEBUG 模式下）
+if not DEBUG:
+    # 確保日誌目錄存在
+    logs_dir = BASE_DIR / 'logs'
+    logs_dir.mkdir(exist_ok=True)
+    
+    LOGGING['handlers']['file'] = {
+        'class': 'logging.FileHandler',
+        'filename': logs_dir / 'django.log',
+        'formatter': 'verbose',
+    }
+    
+    # 為生產環境添加文件日誌處理器
+    LOGGING['loggers']['scoring']['handlers'].append('file')
+    LOGGING['loggers']['django']['handlers'].append('file')
 
 # 生產環境安全設置
 if not DEBUG:

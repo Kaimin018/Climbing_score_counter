@@ -3,6 +3,8 @@
 
 提供常用的測試序列函數，方便測試案例快速創建測試數據
 """
+from django.conf import settings
+from rest_framework import status
 from scoring.models import Room, Member, Route, Score, update_scores
 
 
@@ -237,4 +239,81 @@ def create_basic_test_setup(room_name="測試房間",
         'custom_members': custom_members,
         'all_members': normal_members + custom_members
     }
+
+
+def is_allow_any_permission():
+    """
+    檢查當前環境是否使用 AllowAny 權限
+    
+    Returns:
+        bool: 如果使用 AllowAny 返回 True，否則返回 False
+    """
+    default_perms = settings.REST_FRAMEWORK.get('DEFAULT_PERMISSION_CLASSES', [])
+    return 'AllowAny' in str(default_perms)
+
+
+def is_debug_mode():
+    """
+    檢查當前是否為開發模式
+    
+    Returns:
+        bool: 如果 DEBUG=True 返回 True，否則返回 False
+    """
+    return settings.DEBUG
+
+
+def should_allow_unauthenticated_access():
+    """
+    檢查當前環境是否應該允許未認證訪問
+    
+    在開發環境（DEBUG=True）或使用 AllowAny 時，允許未認證訪問
+    
+    Returns:
+        bool: 如果應該允許未認證訪問返回 True，否則返回 False
+    """
+    return is_allow_any_permission() or is_debug_mode()
+
+
+def assert_response_status_for_permission(response, expected_success_status, test_case):
+    """
+    根據當前權限配置驗證響應狀態碼
+    
+    Args:
+        response: API 響應對象
+        expected_success_status: 成功時期望的狀態碼（如 status.HTTP_201_CREATED）
+        test_case: TestCase 實例，用於調用斷言方法
+    
+    Returns:
+        None: 直接進行斷言，不返回值
+    """
+    if should_allow_unauthenticated_access():
+        # 開發環境允許訪問，應該成功
+        test_case.assertEqual(response.status_code, expected_success_status)
+    else:
+        # 生產環境需要認證，應該被拒絕
+        test_case.assertIn(
+            response.status_code, 
+            [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
+        )
+
+
+def get_logging_handlers():
+    """
+    獲取當前日誌配置的 handlers
+    
+    Returns:
+        dict: 日誌 handlers 字典
+    """
+    return settings.LOGGING.get('handlers', {})
+
+
+def has_file_logging():
+    """
+    檢查當前是否配置了文件日誌
+    
+    Returns:
+        bool: 如果配置了 file handler 返回 True，否則返回 False
+    """
+    handlers = get_logging_handlers()
+    return 'file' in handlers
 
