@@ -193,28 +193,64 @@
             guestBtn.textContent = '登入中...';
         }
 
+        // 獲取 CSRF token
+        const csrftoken = getCookie('csrftoken');
+        if (!csrftoken) {
+            console.error('CSRF token 未找到');
+            alert('無法獲取安全令牌，請刷新頁面後重試');
+            if (guestBtn) {
+                guestBtn.disabled = false;
+                guestBtn.textContent = '👤 訪客登入';
+            }
+            return;
+        }
+
         fetch('/api/auth/guest-login/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
+                'X-CSRFToken': csrftoken
             },
             credentials: 'include'
         })
         .then(response => {
+            console.log('訪客登入響應狀態:', response.status);
             if (response.ok) {
                 return response.json();
             } else {
-                return response.json().then(err => Promise.reject(err));
+                // 嘗試解析錯誤響應
+                return response.json().then(err => {
+                    console.error('訪客登入錯誤響應:', err);
+                    return Promise.reject(err);
+                }).catch(() => {
+                    // 如果無法解析 JSON，返回狀態文本
+                    return Promise.reject({
+                        error: `登入失敗 (狀態碼: ${response.status})`,
+                        status: response.status,
+                        statusText: response.statusText
+                    });
+                });
             }
         })
         .then(data => {
+            console.log('訪客登入成功:', data);
             // 訪客登入成功，重新載入頁面
             window.location.reload();
         })
         .catch(error => {
             console.error('訪客登入失敗:', error);
-            const errorMsg = error.error || error.detail || '訪客登入失敗，請重試';
+            let errorMsg = '訪客登入失敗，請重試';
+            
+            if (error.error) {
+                errorMsg = error.error;
+            } else if (error.detail) {
+                errorMsg = error.detail;
+            } else if (error.message) {
+                errorMsg = error.message;
+            } else if (typeof error === 'string') {
+                errorMsg = error;
+            }
+            
             alert(errorMsg);
             if (guestBtn) {
                 guestBtn.disabled = false;

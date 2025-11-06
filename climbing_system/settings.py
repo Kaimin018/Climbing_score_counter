@@ -230,9 +230,15 @@ if not DEBUG:
 
 # 生產環境安全設置
 if not DEBUG:
+    # 是否使用 HTTPS（如果已配置 SSL 證書，設為 True）
+    USE_HTTPS = os.environ.get('USE_HTTPS', 'False') == 'True'
     SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'False') == 'True'
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    
+    # Cookie 安全設置：只有在使用 HTTPS 時才設置為 True
+    # 如果使用 HTTP，設為 False 以確保 Cookie 可以正常設置
+    SESSION_COOKIE_SECURE = USE_HTTPS
+    CSRF_COOKIE_SECURE = USE_HTTPS
+    
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
