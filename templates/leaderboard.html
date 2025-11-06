@@ -902,26 +902,59 @@
             return;
         }
 
+        // 獲取 CSRF token
+        const csrftoken = getCookie('csrftoken');
+        if (!csrftoken) {
+            showToast('無法獲取安全令牌，請刷新頁面後重試', 'error');
+            return;
+        }
+
         fetch(`/api/members/${memberId}/`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
+                'X-CSRFToken': csrftoken
             },
             credentials: 'include'
         })
         .then(response => {
+            console.log('刪除成員響應狀態:', response.status);
             if (response.status === 204 || response.ok) {
                 showToast('成員已刪除', 'success');
                 refreshLeaderboard(true);
                 loadMembersForRouteForm(); // 刷新成員列表供路線表單使用
+            } else if (response.status === 404) {
+                // 成員不存在
+                return response.json().then(err => {
+                    const errorMsg = err.detail || '找不到指定的成員';
+                    showToast('刪除成員時發生錯誤: ' + errorMsg, 'error');
+                    refreshLeaderboard(true); // 刷新列表，可能成員已被刪除
+                });
+            } else if (response.status === 403 || response.status === 401) {
+                // 權限問題
+                return response.json().then(err => {
+                    const errorMsg = err.detail || '沒有權限執行此操作，請確認已登錄';
+                    showToast('刪除成員時發生錯誤: ' + errorMsg, 'error');
+                });
             } else {
+                // 其他錯誤
                 return response.json().then(err => Promise.reject(err));
             }
         })
         .catch(error => {
             console.error('刪除成員失敗:', error);
-            const errorMsg = error.detail || error.message || JSON.stringify(error);
+            let errorMsg = '刪除成員時發生錯誤';
+            
+            if (error.detail) {
+                errorMsg = error.detail;
+            } else if (error.message) {
+                errorMsg = error.message;
+            } else if (typeof error === 'string') {
+                errorMsg = error;
+            } else if (error.error) {
+                errorMsg = error.error;
+            }
+            
             showToast('刪除成員時發生錯誤: ' + errorMsg, 'error');
         });
     }

@@ -274,16 +274,31 @@ class MemberViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         """刪除成員"""
-        member = self.get_object()
+        try:
+            member = self.get_object()
+        except Exception as e:
+            # 如果成員不存在，返回 404
+            return Response(
+                {'detail': '找不到指定的成員', 'error': str(e)},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
         room_id = member.room.id
         
-        # 刪除成員（會級聯刪除相關的 Score 記錄）
-        member.delete()
-        
-        # 觸發計分更新（會自動更新standard_line_score）
-        update_scores(room_id)
-        
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        try:
+            # 刪除成員（會級聯刪除相關的 Score 記錄）
+            member.delete()
+            
+            # 觸發計分更新（會自動更新standard_line_score）
+            update_scores(room_id)
+            
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            # 刪除失敗，返回錯誤信息
+            return Response(
+                {'detail': '刪除成員時發生錯誤', 'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     
     @action(detail=True, methods=['get'], url_path='completed-routes')
     def completed_routes(self, request, pk=None):
