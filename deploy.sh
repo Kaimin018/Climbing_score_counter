@@ -10,8 +10,18 @@ echo "開始部署攀岩計分系統..."
 PROJECT_DIR="/var/www/Climbing_score_counter"
 VENV_DIR="$PROJECT_DIR/venv"
 
+# 檢查項目目錄是否存在
+if [ ! -d "$PROJECT_DIR" ]; then
+    echo "錯誤: 項目目錄不存在: $PROJECT_DIR"
+    echo "請先創建目錄或檢查路徑是否正確"
+    exit 1
+fi
+
 # 進入項目目錄
-cd $PROJECT_DIR
+cd $PROJECT_DIR || {
+    echo "錯誤: 無法進入項目目錄: $PROJECT_DIR"
+    exit 1
+}
 
 # 如果使用 Git，拉取最新代碼
 if [ -d ".git" ]; then
