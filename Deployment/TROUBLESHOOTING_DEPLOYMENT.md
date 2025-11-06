@@ -90,6 +90,37 @@ bash Deployment/deploy.sh
 
 **注意**: `deploy.sh` 腳本會自動檢測並修復 `.git` 目錄權限問題。
 
+#### 問題 2.2: git reset 權限錯誤
+
+**症狀**: `git fetch` 成功，但 `git reset --hard` 時出現：
+```
+warning: unable to unlink 'filename': Permission denied
+error: unable to unlink old 'filename': Permission denied
+fatal: cannot create directory at 'Deployment': Permission denied
+```
+
+**原因**: 項目文件屬於 `www-data` 用戶，而當前以 `ubuntu` 用戶執行 Git 命令，沒有寫入權限。
+
+**解決方案**:
+```bash
+# 方法 1: 添加組權限（推薦）
+cd /var/www/Climbing_score_counter
+sudo usermod -a -G www-data ubuntu
+sudo chmod -R g+w /var/www/Climbing_score_counter
+# 重要：重新登錄以使組變更生效
+exit
+# 重新 SSH 登錄後再執行 git reset
+
+# 方法 2: 修改項目目錄所有者
+sudo chown -R ubuntu:www-data /var/www/Climbing_score_counter
+sudo chmod -R g+rw /var/www/Climbing_score_counter
+
+# 方法 3: 使用部署腳本（會自動處理）
+bash Deployment/deploy.sh
+```
+
+**注意**: `deploy.sh` 腳本會自動檢測並修復項目文件權限問題。
+
 #### 問題 3: Secrets 未配置或配置錯誤
 
 **症狀**: 日誌顯示 "⚠️ 跳過部署：未配置 EC2 secrets"

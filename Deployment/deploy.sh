@@ -118,6 +118,23 @@ if [ -d ".git" ]; then
         }
     fi
     
+    # 檢查並修復項目文件權限（確保當前用戶可以更新文件）
+    CURRENT_USER=$(whoami)
+    if [ ! -w "." ] 2>/dev/null || [ ! -w "Deployment" ] 2>/dev/null 2>/dev/null; then
+        echo "修復項目文件權限..."
+        # 將當前用戶添加到 www-data 組（如果尚未添加）
+        if ! groups | grep -q www-data; then
+            echo "將 $CURRENT_USER 添加到 www-data 組..."
+            sudo usermod -a -G www-data $CURRENT_USER 2>/dev/null || true
+        fi
+        # 給項目目錄添加組寫權限
+        sudo chmod -R g+w "$PROJECT_DIR" 2>/dev/null || {
+            echo "⚠️  警告: 無法修復項目文件權限，可能需要手動執行:"
+            echo "   sudo chmod -R g+w $PROJECT_DIR"
+            echo "   或: sudo chown -R $CURRENT_USER:www-data $PROJECT_DIR"
+        }
+    fi
+    
     git fetch origin
     git reset --hard origin/main || git reset --hard origin/master
     echo "代碼更新完成"
