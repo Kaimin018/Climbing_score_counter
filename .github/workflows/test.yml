@@ -13,29 +13,38 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+      fail-fast: false  # 即使一個版本失敗，繼續測試其他版本
     
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
     
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'  # 緩存 pip 依賴
     
-    - name: Install dependencies
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libjpeg-dev zlib1g-dev
+    
+    - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
     - name: Run migrations
       run: |
-        python manage.py migrate
+        python manage.py migrate --noinput
     
-    - name: Run tests
+    - name: Run all tests
       run: |
-        python manage.py test scoring.tests
+        python manage.py test scoring.tests --verbosity=0
     
-    - name: Test example workflow - Create Room, Add Member, Create Route
+    - name: Test specific workflow - Create Room, Add Member, Create Route
+      continue-on-error: true
       run: |
-        python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_member_create_route
+        python manage.py test scoring.tests.test_case_02_api.APITestCase.test_create_room_add_member_create_route --verbosity=0
 
