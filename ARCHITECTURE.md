@@ -254,30 +254,30 @@ Route (1) ──→ (N) Score
 ```
 scoring/tests/
 ├── __init__.py
-├── test_helpers.py                # 測試輔助工具模組
-│   ├── TestDataFactory            # 測試數據工廠
-│   ├── cleanup_test_data          # 清理測試數據
-│   ├── create_basic_test_setup    # 創建基本測試設置
-│   ├── is_allow_any_permission    # 檢查權限配置
-│   ├── is_debug_mode              # 檢查 DEBUG 模式
-│   ├── should_allow_unauthenticated_access  # 檢查是否允許未認證訪問
-│   ├── assert_response_status_for_permission  # 驗證響應狀態
-│   ├── get_logging_handlers       # 獲取日誌 handlers
-│   └── has_file_logging           # 檢查文件日誌配置
-├── test_api.py                    # API 測試
+├── test_helpers.py                           # 測試輔助工具模組
+│   ├── TestDataFactory                       # 測試數據工廠
+│   ├── cleanup_test_data                     # 清理測試數據
+│   ├── create_basic_test_setup               # 創建基本測試設置
+│   ├── is_allow_any_permission               # 檢查權限配置
+│   ├── is_debug_mode                         # 檢查 DEBUG 模式
+│   ├── should_allow_unauthenticated_access   # 檢查是否允許未認證訪問
+│   ├── assert_response_status_for_permission # 驗證響應狀態
+│   ├── get_logging_handlers                  # 獲取日誌 handlers
+│   └── has_file_logging                      # 檢查文件日誌配置
+├── test_case_01_default_member.py           # 計分邏輯測試
+│   └── TestCase1To10
+│       └── test_case_1_to_10
+├── test_case_02_api.py                       # API 測試
 │   └── APITestCase
 │       ├── test_get_leaderboard
 │       ├── test_create_route
 │       ├── test_update_score
 │       ├── test_create_room_add_member_create_route
 │       └── test_get_member_completed_routes
-├── test_case_01_default_member.py # 計分邏輯測試
-│   └── TestCase1To10
-│       └── test_case_1_to_10
-├── test_case_route_progressive_completion.py  # 路線漸進完成測試
+├── test_case_03_route_progressive_completion.py  # 路線漸進完成測試
 │   └── TestCaseRouteProgressiveCompletion
 │       └── test_route_progressive_completion
-├── test_case_route_name_edit.py   # 路線名稱編輯測試
+├── test_case_04_route_name_edit.py           # 路線名稱編輯測試
 │   └── TestCaseRouteNameEdit
 │       ├── test_edit_route_name_without_change
 │       ├── test_edit_route_name_change_to_number
@@ -285,7 +285,7 @@ scoring/tests/
 │       ├── test_edit_route_name_remove_prefix_in_request
 │       ├── test_retrieve_route_returns_correct_name
 │       └── test_retrieve_route_with_text_name
-├── test_case_route_update_completions.py  # 路線完成狀態更新測試
+├── test_case_05_route_update_completions.py  # 路線完成狀態更新測試
 │   └── TestCaseRouteUpdateCompletions
 │       ├── test_update_route_mark_two_members_completed
 │       ├── test_update_route_unmark_completed_members
@@ -293,13 +293,13 @@ scoring/tests/
 │       ├── test_update_route_with_empty_member_completions
 │       ├── test_update_route_with_json_string_member_completions
 │       └── test_update_route_verify_scores_updated
-├── test_case_route_update_with_formdata.py   # FormData 格式測試
+├── test_case_06_route_update_with_formdata.py   # FormData 格式測試
 │   └── TestCaseRouteUpdateWithFormData
 │       ├── test_update_route_with_formdata_mark_two_members
 │       ├── test_update_route_with_formdata_unmark_members
 │       ├── test_update_route_with_formdata_partial_checkboxes
 │       └── test_update_route_verify_api_response
-├── test_case_route_photo_upload.py           # 路線圖片上傳測試
+├── test_case_07_route_photo_upload.py        # 路線圖片上傳測試
 │   └── TestCaseRoutePhotoUpload
 │       ├── test_create_route_with_photo
 │       ├── test_create_route_without_photo
@@ -307,13 +307,17 @@ scoring/tests/
 │       ├── test_update_route_replace_photo
 │       ├── test_update_route_remove_photo
 │       └── test_get_route_with_photo_url
-├── test_case_route_photo_thumbnail.py        # 路線圖片縮圖顯示測試
+├── test_case_08_route_photo_thumbnail.py     # 路線圖片縮圖顯示測試
 │   └── TestCaseRoutePhotoThumbnail
 │       ├── test_route_list_shows_photo_thumbnail
 │       ├── test_route_list_no_thumbnail_for_route_without_photo
 │       ├── test_route_thumbnail_after_photo_update
 │       └── test_multiple_routes_with_and_without_photos
-├── test_case_mobile_ui.py                    # 手機版界面測試
+├── test_case_09_member_group_conversion.py  # 成員組別轉換測試
+│   └── TestCaseMemberGroupConversion
+├── test_case_10_member_route_operations.py  # 成員路線操作測試
+│   └── TestCaseMemberRouteOperations
+├── test_case_11_mobile_ui.py                # 手機版界面測試
 │   └── TestCaseMobileUI
 │       ├── test_mobile_viewport_meta_tag
 │       ├── test_mobile_leaderboard_page_loads
@@ -329,13 +333,36 @@ scoring/tests/
 │       ├── test_mobile_responsive_layout_elements
 │       ├── test_mobile_css_media_queries_referenced
 │       └── test_mobile_form_input_font_size
-├── test_case_security.py                     # 安全性測試
+├── test_case_12_security.py                 # 安全性測試
 │   ├── TestCaseAuthentication                # 用戶認證測試
+│   │   ├── test_user_registration
+│   │   ├── test_user_login
+│   │   ├── test_user_logout
+│   │   ├── test_current_user
+│   │   ├── test_user_registration_with_xss_in_username
+│   │   └── test_user_login_with_sql_injection
 │   ├── TestCaseAPIPermissions                # API 權限測試
-│   └── TestCaseXSSProtection                 # XSS 防護測試
-└── test_case_settings_config.py              # 設置配置測試
+│   │   ├── test_read_without_authentication
+│   │   ├── test_create_without_authentication
+│   │   ├── test_update_without_authentication
+│   │   ├── test_delete_requires_authentication
+│   │   └── test_route_delete_requires_authentication
+│   ├── TestCaseXSSProtection                 # XSS 防護測試
+│   │   ├── test_xss_in_room_name
+│   │   ├── test_xss_in_member_name
+│   │   ├── test_xss_in_route_name
+│   │   ├── test_xss_in_route_grade
+│   │   ├── test_xss_in_json_member_completions
+│   │   └── test_xss_in_email_field
+│   └── TestCaseSQLInjectionProtection       # SQL 注入防護測試
+│       ├── test_sql_injection_in_room_name
+│       ├── test_sql_injection_in_member_name
+│       ├── test_sql_injection_in_route_name
+│       ├── test_sql_injection_in_room_id_parameter
+│       └── test_sql_injection_in_filter_parameters
+└── test_case_13_settings_config.py          # 設置配置測試
     ├── TestCaseLoggingConfig                 # 日誌配置測試
-    ├── TestCasePermissionConfig              # 權限配置測試
+    ├── TestCasePermissionConfig             # 權限配置測試
     └── TestCaseEnvironmentVariables          # 環境變數測試
 ```
 
@@ -378,7 +405,7 @@ scoring/tests/
 - **安全性測試**: 用戶認證、API 權限控制、XSS 防護
 - **配置測試**: 日誌配置（開發/生產環境）、權限配置（開發/生產環境）、環境變數配置
 
-**總測試數量：83 個測試**
+**總測試數量：94 個測試**
 
 ### CI/CD
 - **GitHub Actions**: 自動運行測試
@@ -486,14 +513,64 @@ scoring/tests/
 - **排行榜頁面** (`/leaderboard/{room_id}/`): 新增成員、創建路線
 - **管理後台** (`/admin/`): 管理所有數據（需創建超級用戶：`python manage.py createsuperuser`）
 
-**注意**：系統不提供命令列初始化數據的功能，所有數據必須通過網頁界面創建。
+
+## 已實現功能
+
+### 1. 用戶認證系統 ✓
+- **註冊功能**: `POST /api/auth/register/` - 用戶註冊，支持密碼強度驗證
+- **登錄功能**: `POST /api/auth/login/` - Session 認證
+- **登出功能**: `POST /api/auth/logout/` - 安全登出
+- **當前用戶**: `GET /api/auth/current-user/` - 獲取當前登錄用戶信息
+- **安全防護**: XSS 和 SQL 注入防護已集成到認證流程中
+- **相關文件**: `scoring/auth_views.py`, `scoring/auth_serializers.py`
+- **測試覆蓋**: `test_case_12_security.py` 包含完整的認證測試
+
+### 2. API 權限控制 ✓
+- **讀取權限**: 未認證用戶可以讀取數據（查看房間、排行榜等）
+- **寫入權限**: 創建、更新、刪除操作需要認證（生產環境）
+- **開發環境**: 使用 `AllowAny` 權限，便於開發和測試
+- **生產環境**: 使用 `IsAuthenticatedOrReadOnly` 權限，確保安全性
+- **相關文件**: `climbing_system/settings.py` (REST_FRAMEWORK 配置)
 
 ## 未來擴展建議
 
-1. **用戶認證**: 添加用戶登入/註冊功能
-2. **權限管理**: 房間創建者權限
-3. **即時更新**: WebSocket 支持
-4. **數據導出**: Excel/PDF 導出功能
-5. **統計分析**: 路線完成率、難度分布等
-6. **多語言支持**: i18n 國際化
+### 1. 權限管理增強
+- **房間創建者權限**: 為 Room 模型添加 `created_by` 字段，實現房間創建者專屬權限
+  - 已有 `IsOwnerOrReadOnly` 權限類（`scoring/permissions.py`），但需要模型支持
+  - 允許房間創建者管理自己創建的房間（編輯、刪除）
+  - 其他用戶只能查看和參與
+
+### 2. 即時更新功能
+- **WebSocket 支持**: 實現實時排行榜更新
+  - 使用 Django Channels 或類似技術
+  - 當路線完成狀態改變時，自動推送更新給所有在線用戶
+  - Nginx 配置中已預留 WebSocket 支持註釋
+
+### 3. 數據導出功能
+- **Excel 導出**: 導出排行榜、路線完成記錄等
+  - 使用 `openpyxl` 或 `xlsxwriter` 庫
+  - 支持自定義格式和樣式
+- **PDF 導出**: 生成比賽報告、統計圖表
+  - 使用 `reportlab` 或 `weasyprint` 庫
+  - 支持包含圖片的完整報告
+
+### 4. 統計分析功能
+- **路線完成率統計**: 計算每條路線的完成率
+- **難度分布分析**: 統計不同難度等級的路線分布
+- **成員表現分析**: 分析成員的完成趨勢和進步情況
+- **時間序列分析**: 追蹤分數變化趨勢
+- **可視化圖表**: 使用 Chart.js 或類似庫生成圖表
+
+### 5. 多語言支持
+- **i18n 國際化**: Django 已配置 `USE_I18N = True`
+  - 需要創建翻譯文件（`.po` 文件）
+  - 支持中文、英文等多種語言
+  - 前端界面也需要支持多語言切換
+
+### 6. 其他擴展建議
+- **移動端應用**: 開發原生移動應用（React Native 或 Flutter）
+- **推送通知**: 實現比賽開始、結果更新等推送通知
+- **社交功能**: 添加評論、分享等功能
+- **歷史記錄**: 保存歷史比賽記錄，支持回放和分析
+- **批量操作**: 支持批量導入成員、批量創建路線等
 

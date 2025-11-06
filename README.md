@@ -334,7 +334,7 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ### 測試案例
 
-系統包含以下測試案例（共 83 個測試）：
+系統包含以下測試案例（共 94 個測試）：
 
 1. **核心計分邏輯測試**（`test_case_01_default_member.py`）：
    - 循序漸進新增路線的計分
@@ -409,12 +409,13 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
    - CSS 文件包含移動端媒體查詢
    - 手機端表單輸入框字體大小（防止 iOS 自動縮放）
 
-11. **安全性測試**（`test_case_security.py`）：
-   - 用戶認證（註冊、登錄、登出）
-   - API 權限控制（開發/生產環境）
-   - XSS 攻擊防護
+11. **安全性測試**（`test_case_12_security.py`）：
+   - 用戶認證（註冊、登錄、登出、當前用戶、XSS/SQL 注入防護）
+   - API 權限控制（讀取/寫入權限、刪除權限）
+   - XSS 攻擊防護（房間名、成員名、路線名、難度等級、JSON 字段、郵箱）
+   - SQL 注入防護（房間名、成員名、路線名、URL 參數、查詢參數）
 
-12. **設置配置測試**（`test_case_settings_config.py`）：
+12. **設置配置測試**（`test_case_13_settings_config.py`）：
    - 日誌配置（開發/生產環境）
    - 權限配置（開發/生產環境）
    - 環境變數配置
