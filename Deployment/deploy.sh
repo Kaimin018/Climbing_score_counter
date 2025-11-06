@@ -207,6 +207,12 @@ echo "安裝依賴..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
+# 創建數據庫遷移（如果有模型變更）
+echo "檢查模型變更..."
+python manage.py makemigrations --noinput || {
+    echo "⚠️  警告: makemigrations 失敗，繼續執行遷移..."
+}
+
 # 運行數據庫遷移
 echo "運行數據庫遷移..."
 # 確保數據庫文件目錄有寫入權限
