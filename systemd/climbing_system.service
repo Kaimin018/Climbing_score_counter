@@ -1,0 +1,32 @@
+[Unit]
+Description=Climbing Score Counting System Gunicorn daemon
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/climbing_score_counting_system
+Environment="PATH=/var/www/climbing_score_counting_system/venv/bin"
+Environment="SECRET_KEY=your-secret-key-here"
+Environment="DEBUG=False"
+Environment="ALLOWED_HOSTS=your-domain.com,www.your-domain.com"
+Environment="CORS_ALLOW_ALL_ORIGINS=False"
+Environment="CORS_ALLOWED_ORIGINS=https://your-domain.com"
+
+# 如果使用虛擬環境，請設置正確的 Python 路徑
+ExecStart=/var/www/climbing_score_counting_system/venv/bin/gunicorn \
+    --config /var/www/climbing_score_counting_system/gunicorn_config.py \
+    climbing_system.wsgi:application
+
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=3
+
+# 日誌設置
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=climbing_system
+
+[Install]
+WantedBy=multi-user.target
+
