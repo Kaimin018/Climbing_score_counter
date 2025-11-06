@@ -5,6 +5,26 @@
 
 {% block content %}
 <div class="leaderboard-layout">
+    <!-- 移動端房間標題（顯示在排行榜上方） -->
+    <div class="room-header-mobile" id="roomHeaderMobile">
+        <div class="header-top">
+            <button class="btn btn-secondary btn-small" onclick="goHome()" style="margin-right: 10px;">
+                ← 返回首頁
+            </button>
+            <h2 id="roomNameMobile" style="flex: 1;">載入中...</h2>
+            <a href="/rules/" class="btn btn-secondary btn-small" style="margin-left: 10px; text-decoration: none; display: inline-block;">
+                規則說明
+            </a>
+            <button class="btn btn-secondary btn-small" onclick="showEditRoomModal()" style="margin-left: 10px;">
+                編輯房間
+            </button>
+        </div>
+        <div class="room-info">
+            <span>房間 ID: <strong id="roomIdDisplayMobile">-</strong></span>
+            <span style="margin-left: 20px;">每一條線總分 (L): <strong id="standardLineScoreMobile">-</strong></span>
+        </div>
+    </div>
+
     <!-- 左側主內容區 -->
     <div class="main-content">
         <div class="leaderboard-container">
@@ -493,6 +513,11 @@
         document.getElementById('roomName').textContent = roomInfo.name;
         document.getElementById('roomIdDisplay').textContent = roomInfo.id;
         document.getElementById('standardLineScore').textContent = roomInfo.standard_line_score;
+        
+        // 同時更新移動端房間標題
+        document.getElementById('roomNameMobile').textContent = roomInfo.name;
+        document.getElementById('roomIdDisplayMobile').textContent = roomInfo.id;
+        document.getElementById('standardLineScoreMobile').textContent = roomInfo.standard_line_score;
         
         // 更新編輯房間表單的預設值
         document.getElementById('editRoomId').value = roomInfo.id;
@@ -1042,6 +1067,10 @@
                 closeEditRoomModal();
                 refreshLeaderboard(true);
                 showToast('房間更新成功！', 'success');
+                // 同步更新移動端標題
+                if (data.name) {
+                    document.getElementById('roomNameMobile').textContent = data.name;
+                }
             } else {
                 showToast('更新失敗: ' + JSON.stringify(data), 'error');
             }
