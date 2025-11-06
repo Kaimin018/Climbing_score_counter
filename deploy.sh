@@ -13,6 +13,16 @@ VENV_DIR="$PROJECT_DIR/venv"
 # 進入項目目錄
 cd $PROJECT_DIR
 
+# 如果使用 Git，拉取最新代碼
+if [ -d ".git" ]; then
+    echo "拉取最新代碼..."
+    git fetch origin
+    git reset --hard origin/main || git reset --hard origin/master
+    echo "代碼更新完成"
+else
+    echo "警告: 未檢測到 Git 倉庫，跳過代碼更新"
+fi
+
 # 激活虛擬環境
 echo "激活虛擬環境..."
 source $VENV_DIR/bin/activate

@@ -2,6 +2,11 @@
 
 本指南說明如何將攀岩計分系統部署到 AWS EC2，使用 SQLite 數據庫、Nginx 反向代理和 Gunicorn WSGI 服務器。
 
+**重要提示**：
+- ✅ 首次部署後，後續更新**不需要重新 clone**，只需使用 `git pull` 或 `deploy.sh` 腳本
+- ✅ 推薦使用 CI/CD 自動部署流程（見 `DEPLOYMENT_CI_CD.md`）
+- ✅ 手動更新時使用 `deploy.sh` 腳本，它會自動處理所有步驟
+
 ## 架構概覽
 
 ```
@@ -70,20 +75,42 @@ cd /var/www/Climbing_score_counter
 
 ## 步驟 4: 上傳項目文件
 
-### 方法 1: 使用 Git（推薦）
+### 方法 1: 使用 Git（強烈推薦）
+
+**首次部署**：
 
 ```bash
-# 克隆項目（如果使用 Git）
+# 克隆項目到項目目錄
+cd /var/www/Climbing_score_counter
 git clone https://github.com/your-username/climbing_score_counting_system.git .
 
-# 或使用 scp 上傳文件
-# 在本地執行：
-# scp -r -i your-key.pem /path/to/project/* ubuntu@your-ec2-ip:/var/www/Climbing_score_counter/
+# 或克隆到臨時目錄後移動文件
+# git clone https://github.com/your-username/climbing_score_counting_system.git /tmp/climbing_system
+# sudo mv /tmp/climbing_system/* /var/www/Climbing_score_counter/
+# sudo mv /tmp/climbing_system/.* /var/www/Climbing_score_counter/ 2>/dev/null || true
 ```
 
-### 方法 2: 使用 SCP
+**後續更新**（不需要重新 clone）：
 
-在本地電腦執行：
+```bash
+cd /var/www/Climbing_score_counter
+
+# 拉取最新代碼
+git fetch origin
+git reset --hard origin/main  # 或 origin/master，取決於您的默認分支
+
+# 或使用部署腳本（推薦）
+bash deploy.sh
+```
+
+**重要提示**：
+- ✅ 使用 `git pull` 或 `git reset --hard` 更新代碼，**不需要重新 clone**
+- ✅ 首次部署後，後續更新只需執行 `git pull` 或使用 `deploy.sh` 腳本
+- ✅ `deploy.sh` 腳本會自動處理代碼更新、依賴安裝、遷移等所有步驟
+
+### 方法 2: 使用 SCP（僅首次部署）
+
+如果不想使用 Git，可以在本地電腦執行：
 
 ```bash
 scp -r -i your-key.pem \
@@ -96,6 +123,8 @@ scp -r -i your-key.pem \
     gunicorn_config.py \
     ubuntu@your-ec2-ip:/var/www/Climbing_score_counter/
 ```
+
+**注意**：使用 SCP 方式後續更新需要手動上傳文件，建議使用 Git 方式。
 
 ## 步驟 5: 設置 Python 虛擬環境
 
@@ -315,20 +344,77 @@ sudo certbot --nginx -d your-domain.com -d www.your-domain.com
 sudo certbot renew --dry-run
 ```
 
+## CI/CD 自動部署
+
+系統已配置 GitHub Actions 自動部署流程。詳細說明請參考 `DEPLOYMENT_CI_CD.md`。
+
+### 快速設置
+
+1. **配置 GitHub Secrets**:
+   - `EC2_HOST`: EC2 IP 或域名
+   - `EC2_USER`: SSH 用戶名（通常是 `ubuntu`）
+   - `EC2_SSH_KEY`: SSH 私鑰內容
+
+2. **自動部署**: 推送到 `main`/`master` 分支時自動觸發
+
+3. **手動部署**: 在 GitHub Actions 界面手動觸發
+
+### 優勢
+
+- ✅ **自動化**: 推送代碼後自動部署，無需手動操作
+- ✅ **測試先行**: 部署前自動運行測試，確保代碼質量
+- ✅ **版本控制**: 每次部署都有完整的 Git 歷史記錄
+- ✅ **快速回滾**: 可以輕鬆回滾到之前的版本
+
 ## 日常維護
 
 ### 更新代碼
 
+**推薦方式：使用部署腳本**
+
 ```bash
 cd /var/www/Climbing_score_counter
-source venv/bin/activate
-
-# 拉取最新代碼（如果使用 Git）
-git pull
-
-# 或使用部署腳本
 bash deploy.sh
 ```
+
+部署腳本會自動執行：
+1. 拉取最新代碼（如果使用 Git）
+2. 更新 Python 依賴
+3. 運行數據庫遷移
+4. 收集靜態文件
+5. 重啟服務
+
+**手動更新方式**：
+
+```bash
+cd /var/www/Climbing_score_counter
+
+# 拉取最新代碼（如果使用 Git）
+git fetch origin
+git reset --hard origin/main  # 或 origin/master
+
+# 激活虛擬環境
+source venv/bin/activate
+
+# 更新依賴
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# 運行遷移
+python manage.py migrate --noinput
+
+# 收集靜態文件
+python manage.py collectstatic --noinput --clear
+
+# 重啟服務
+sudo systemctl restart climbing_system
+sudo systemctl reload nginx
+```
+
+**重要提示**：
+- ✅ **不需要重新 clone**，只需使用 `git pull` 或 `git reset --hard` 更新代碼
+- ✅ 建議使用 `deploy.sh` 腳本，它會自動處理所有更新步驟
+- ✅ 更新前建議先備份數據庫和重要文件
 
 ### 查看日誌
 

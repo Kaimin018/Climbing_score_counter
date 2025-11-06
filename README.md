@@ -36,10 +36,15 @@
 
 詳細部署指南請參考：
 - `AWS_EC2_DEPLOYMENT.md` - 完整部署指南
+- `DEPLOYMENT_CI_CD.md` - CI/CD 自動部署指南
 - `QUICK_START.md` - 快速參考
 - `DEPLOYMENT_CHANGES.md` - 部署修改總結
 
 **部署路徑**: `/var/www/Climbing_score_counter`
+
+**更新方式**：
+- ✅ 使用 Git：`git pull` 或 `deploy.sh` 腳本（**不需要重新 clone**）
+- ✅ 使用 CI/CD：推送到 main/master 分支自動部署
 
 ## 快速開始
 

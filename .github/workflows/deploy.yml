@@ -1,0 +1,76 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:  # 允許手動觸發
+
+env:
+  AWS_REGION: us-east-1  # 根據您的 EC2 區域修改
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Run tests
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        python manage.py migrate
+        python manage.py test scoring.tests --verbosity=0
+    
+    - name: Configure SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: Deploy to EC2
+      env:
+        EC2_USER: ${{ secrets.EC2_USER }}
+        EC2_HOST: ${{ secrets.EC2_HOST }}
+        EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      run: |
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+          ${EC2_USER}@${EC2_HOST} << 'ENDSSH'
+          set -e
+          cd /var/www/Climbing_score_counter
+          
+          echo "=== 開始部署 ==="
+          echo "時間: $(date)"
+          
+          # 拉取最新代碼
+          echo "拉取最新代碼..."
+          git fetch origin
+          git reset --hard origin/main || git reset --hard origin/master
+          
+          # 執行部署腳本
+          echo "執行部署腳本..."
+          bash deploy.sh
+          
+          echo "=== 部署完成 ==="
+          echo "時間: $(date)"
+        ENDSSH
+    
+    - name: Verify deployment
+      run: |
+        sleep 5
+        response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.EC2_HOST }} || echo "000")
+        if [ "$response" != "200" ] && [ "$response" != "000" ]; then
+          echo "警告: 部署後服務響應狀態碼為 $response"
+          exit 1
+        fi
+        echo "部署驗證成功，服務響應正常"
+
