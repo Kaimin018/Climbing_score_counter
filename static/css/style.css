@@ -862,21 +862,138 @@ tbody tr:hover {
     justify-content: center;
     align-items: center;
     min-height: calc(100vh - 200px);
-    padding: 40px 20px;
+    padding: 60px 40px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.login-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255,255,255,0.1) 0%, transparent 50%);
+    pointer-events: none;
 }
 
 .login-card {
     background: white;
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    padding: 50px 40px;
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
     width: 100%;
-    max-width: 480px;
+    max-width: 1000px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
 }
 
+/* 左側品牌區域（桌面版） */
+.login-brand-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 60px 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.login-brand-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse 8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.5;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+.login-brand-section h1 {
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 20px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    position: relative;
+    z-index: 1;
+}
+
+.login-brand-section .brand-subtitle {
+    font-size: 1.3rem;
+    margin-bottom: 40px;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.login-brand-section .brand-features {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+    font-size: 1.1rem;
+    line-height: 2;
+    position: relative;
+    z-index: 1;
+}
+
+.login-brand-section .brand-features li {
+    padding: 12px 0;
+    padding-left: 40px;
+    position: relative;
+}
+
+.login-brand-section .brand-features li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #4ade80;
+}
+
+.login-brand-icon {
+    font-size: 5rem;
+    margin-bottom: 30px;
+    opacity: 0.9;
+    position: relative;
+    z-index: 1;
+}
+
+/* 右側表單區域（桌面版） */
+.login-form-section {
+    padding: 60px 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* 表單區域標題（桌面版，僅在移動版顯示） */
 .login-header {
     text-align: center;
-    margin-bottom: 35px;
+    margin-bottom: 40px;
+    display: none; /* 桌面版隱藏，移動版顯示 */
 }
 
 .login-header h1 {
@@ -891,14 +1008,32 @@ tbody tr:hover {
     font-size: 1.05rem;
 }
 
+/* 桌面版表單區域標題 */
+.login-form-section .form-section-title {
+    text-align: center;
+    margin-bottom: 35px;
+}
+
+.login-form-section .form-section-title h2 {
+    color: #2c3e50;
+    font-size: 2rem;
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+.login-form-section .form-section-title p {
+    color: #7f8c8d;
+    font-size: 1rem;
+}
+
 .login-tabs {
     display: flex;
     gap: 0;
-    margin-bottom: 35px;
+    margin-bottom: 40px;
     border-bottom: 2px solid #ecf0f1;
     background-color: #f8f9fa;
-    border-radius: 8px 8px 0 0;
-    padding: 4px;
+    border-radius: 10px 10px 0 0;
+    padding: 6px;
 }
 
 .tab-btn {
@@ -941,15 +1076,28 @@ tbody tr:hover {
     }
 }
 
+.login-form-section .form-group {
+    margin-bottom: 24px;
+}
+
+.login-form-section .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #2c3e50;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
 .login-card .form-group input[type="email"],
 .login-card .form-group input[type="password"],
 .login-card .form-group input[type="text"] {
     width: 100%;
-    padding: 14px 16px;
+    padding: 16px 20px;
     border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 1rem;
+    border-radius: 10px;
+    font-size: 1.05rem;
     transition: all 0.3s ease;
+    box-sizing: border-box;
 }
 
 .login-card .form-group input[type="email"]:focus,
@@ -961,35 +1109,52 @@ tbody tr:hover {
 }
 
 /* 登入/註冊按鈕樣式優化（桌面版） */
-.login-card .btn-primary {
-    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+.login-form-section .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border: none;
-    border-radius: 8px;
-    padding: 18px 36px;
-    font-size: 1.3rem;
+    border-radius: 12px;
+    padding: 20px 40px;
+    font-size: 1.25rem;
     font-weight: 700;
-    letter-spacing: 1px;
+    letter-spacing: 1.2px;
     text-transform: none;
-    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
     transition: all 0.3s ease;
     cursor: pointer;
     width: 100%;
-    margin-top: 10px;
+    margin-top: 15px;
     color: white;
+    position: relative;
+    overflow: hidden;
 }
 
-.login-card .btn-primary:hover {
-    background: linear-gradient(135deg, #2980b9 0%, #21618c 100%);
-    box-shadow: 0 6px 16px rgba(52, 152, 219, 0.4);
-    transform: translateY(-2px);
+.login-form-section .btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
 }
 
-.login-card .btn-primary:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+.login-form-section .btn-primary:hover::before {
+    left: 100%;
 }
 
-.login-card .btn-primary:disabled {
+.login-form-section .btn-primary:hover {
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+    transform: translateY(-3px);
+}
+
+.login-form-section .btn-primary:active {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.login-form-section .btn-primary:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     transform: none;
@@ -1006,21 +1171,21 @@ tbody tr:hover {
     line-height: 1.5;
 }
 
-/* 密碼規則提示 */
-.password-rules {
+/* 密碼規則提示（桌面版） */
+.login-form-section .password-rules {
     background-color: #f8f9fa;
     border: 2px solid #e9ecef;
-    border-radius: 8px;
-    padding: 16px;
-    margin-top: 10px;
-    margin-bottom: 20px;
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 12px;
+    margin-bottom: 24px;
 }
 
-.password-rules-title {
+.login-form-section .password-rules-title {
     font-weight: 600;
     color: #2c3e50;
-    margin-bottom: 10px;
-    font-size: 0.95rem;
+    margin-bottom: 12px;
+    font-size: 1rem;
 }
 
 .password-rules-list {
@@ -1029,17 +1194,17 @@ tbody tr:hover {
     margin: 0;
 }
 
-.password-rules-list li {
-    padding: 6px 0;
-    padding-left: 24px;
+.login-form-section .password-rules-list li {
+    padding: 8px 0;
+    padding-left: 28px;
     position: relative;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     color: #555;
-    line-height: 1.5;
+    line-height: 1.6;
     transition: color 0.3s ease;
 }
 
-.password-rules-list li::before {
+.login-form-section .password-rules-list li::before {
     content: "•";
     position: absolute;
     left: 8px;
@@ -1049,21 +1214,21 @@ tbody tr:hover {
     transition: all 0.3s ease;
 }
 
-.password-rules-list li.valid {
+.login-form-section .password-rules-list li.valid {
     color: #27ae60;
 }
 
-.password-rules-list li.valid::before {
+.login-form-section .password-rules-list li.valid::before {
     content: "✓";
     color: #27ae60;
     font-size: 1rem;
 }
 
-.password-rules-list li.invalid {
+.login-form-section .password-rules-list li.invalid {
     color: #e74c3c;
 }
 
-.password-rules-list li.invalid::before {
+.login-form-section .password-rules-list li.invalid::before {
     content: "✗";
     color: #e74c3c;
     font-size: 1rem;
@@ -1081,10 +1246,10 @@ tbody tr:hover {
     background-color: rgba(231, 76, 60, 0.1);
 }
 
-/* 訪客登入樣式 */
-.guest-login-section {
-    margin-top: 30px;
-    padding-top: 30px;
+/* 訪客登入樣式（桌面版） */
+.login-form-section .guest-login-section {
+    margin-top: 35px;
+    padding-top: 35px;
     border-top: 2px solid #ecf0f1;
 }
 
@@ -1121,45 +1286,102 @@ tbody tr:hover {
     z-index: 1;
 }
 
-.login-card .btn-secondary {
+.login-form-section .btn-secondary {
     background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
     border: none;
-    border-radius: 8px;
-    padding: 18px 36px;
-    font-size: 1.3rem;
+    border-radius: 12px;
+    padding: 20px 40px;
+    font-size: 1.25rem;
     font-weight: 700;
-    letter-spacing: 1px;
+    letter-spacing: 1.2px;
     text-transform: none;
-    box-shadow: 0 4px 12px rgba(149, 165, 166, 0.3);
+    box-shadow: 0 6px 20px rgba(149, 165, 166, 0.3);
     transition: all 0.3s ease;
     cursor: pointer;
     width: 100%;
     color: white;
+    position: relative;
+    overflow: hidden;
 }
 
-.login-card .btn-secondary:hover {
+.login-form-section .btn-secondary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.login-form-section .btn-secondary:hover::before {
+    left: 100%;
+}
+
+.login-form-section .btn-secondary:hover {
     background: linear-gradient(135deg, #7f8c8d 0%, #6c7a7b 100%);
-    box-shadow: 0 6px 16px rgba(149, 165, 166, 0.4);
-    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(149, 165, 166, 0.4);
+    transform: translateY(-3px);
 }
 
-.login-card .btn-secondary:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 8px rgba(149, 165, 166, 0.3);
+.login-form-section .btn-secondary:active {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(149, 165, 166, 0.3);
 }
 
-.login-card .btn-secondary:disabled {
+.login-form-section .btn-secondary:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     transform: none;
 }
 
-.guest-note {
+.login-form-section .guest-note {
     text-align: center;
     color: #7f8c8d;
-    font-size: 0.85rem;
-    margin-top: 12px;
-    line-height: 1.5;
+    font-size: 0.9rem;
+    margin-top: 15px;
+    line-height: 1.6;
+}
+
+/* 桌面版專用樣式 - 確保表單區域正確顯示 */
+@media (min-width: 1024px) {
+    .login-card {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .login-brand-section {
+        display: flex;
+    }
+    
+    .login-header {
+        display: none;
+    }
+    
+    .login-form-section .form-section-title {
+        display: block;
+    }
+}
+
+/* 平板適配 */
+@media (max-width: 1023px) and (min-width: 769px) {
+    .login-card {
+        grid-template-columns: 1fr;
+        max-width: 600px;
+    }
+    
+    .login-brand-section {
+        padding: 40px 30px;
+    }
+    
+    .login-brand-section h1 {
+        font-size: 2.5rem;
+    }
+    
+    .login-form-section {
+        padding: 40px 30px;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1404,15 +1626,52 @@ tbody tr:hover {
     /* 登入界面樣式（移動版） */
     .login-container {
         padding: 20px 15px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     }
 
     .login-card {
         padding: 35px 25px;
-        border-radius: 12px;
+        border-radius: 16px;
+        display: block;
+        max-width: 100%;
+        grid-template-columns: 1fr; /* 移動版單欄布局 */
+    }
+    
+    .login-brand-section {
+        display: none; /* 移動版隱藏品牌區域 */
+    }
+    
+    .login-form-section {
+        padding: 0;
+    }
+    
+    .login-form-section .form-section-title {
+        display: none; /* 移動版隱藏表單區域標題 */
+    }
+
+    .login-header {
+        display: block; /* 移動版顯示標題 */
     }
 
     .login-header h1 {
         font-size: 1.8rem;
+    }
+    
+    /* 移動版按鈕樣式 */
+    .login-form-section .btn-primary,
+    .login-form-section .btn-secondary {
+        padding: 16px 28px;
+        font-size: 1.15rem;
+        border-radius: 10px;
+    }
+    
+    /* 移動版輸入框樣式 */
+    .login-card .form-group input[type="email"],
+    .login-card .form-group input[type="password"],
+    .login-card .form-group input[type="text"] {
+        padding: 12px 14px;
+        font-size: 16px; /* 防止 iOS 自動縮放 */
+        border-radius: 8px;
     }
 
     .login-tabs {

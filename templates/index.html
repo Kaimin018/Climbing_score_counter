@@ -7,18 +7,40 @@
 <!-- 未登錄時顯示登錄界面 -->
 <div id="loginSection" class="login-container" style="display: none;">
     <div class="login-card">
-        <div class="login-header">
+        <!-- 左側品牌區域（桌面版） -->
+        <div class="login-brand-section">
+            <div class="login-brand-icon">🧗</div>
             <h1>攀岩計分系統</h1>
-            <p class="subtitle">請登入以繼續使用</p>
+            <p class="brand-subtitle">專業的攀岩路線計分與排行榜管理</p>
+            <ul class="brand-features">
+                <li>即時計分與排行榜</li>
+                <li>路線照片管理</li>
+                <li>多房間支援</li>
+                <li>行動裝置優化</li>
+            </ul>
         </div>
+        
+        <!-- 右側表單區域（桌面版） -->
+        <div class="login-form-section">
+            <!-- 移動版標題（桌面版隱藏） -->
+            <div class="login-header">
+                <h1>攀岩計分系統</h1>
+                <p class="subtitle">請登入以繼續使用</p>
+            </div>
+            
+            <!-- 桌面版表單區域標題（移動版隱藏） -->
+            <div class="form-section-title">
+                <h2>歡迎回來</h2>
+                <p>請登入您的帳號以繼續使用</p>
+            </div>
 
-        <div class="login-tabs">
-            <button class="tab-btn active" id="loginTab" onclick="switchTab('login')">登入</button>
-            <button class="tab-btn" id="registerTab" onclick="switchTab('register')">註冊</button>
-        </div>
+            <div class="login-tabs">
+                <button class="tab-btn active" id="loginTab" onclick="switchTab('login')">登入</button>
+                <button class="tab-btn" id="registerTab" onclick="switchTab('register')">註冊</button>
+            </div>
 
-        <!-- 登入表單 -->
-        <div id="loginForm" class="form-container">
+            <!-- 登入表單 -->
+            <div id="loginForm" class="form-container">
             <form id="loginFormElement">
                 <div class="form-group">
                     <label for="loginUsername">用戶名:</label>
@@ -33,10 +55,10 @@
                     🔐 登入
                 </button>
             </form>
-        </div>
+            </div>
 
-        <!-- 註冊表單 -->
-        <div id="registerForm" class="form-container" style="display: none;">
+            <!-- 註冊表單 -->
+            <div id="registerForm" class="form-container" style="display: none;">
             <form id="registerFormElement">
                 <div class="form-group">
                     <label for="registerUsername">用戶名:</label>
@@ -70,17 +92,18 @@
                     ✨ 註冊
                 </button>
             </form>
-        </div>
-        
-        <!-- 訪客登入按鈕（在登入和註冊表單下方） -->
-        <div class="guest-login-section">
-            <div class="guest-divider">
-                <span>或</span>
             </div>
-            <button type="button" class="btn btn-secondary btn-large" id="guestLoginBtn" onclick="handleGuestLogin()" style="width: 100%;">
-                👤 訪客登入
-            </button>
-            <p class="guest-note">訪客模式無需註冊，可直接使用系統功能</p>
+            
+            <!-- 訪客登入按鈕（在登入和註冊表單下方） -->
+            <div class="guest-login-section">
+                <div class="guest-divider">
+                    <span>或</span>
+                </div>
+                <button type="button" class="btn btn-secondary btn-large" id="guestLoginBtn" onclick="handleGuestLogin()" style="width: 100%;">
+                    👤 訪客登入
+                </button>
+                <p class="guest-note">訪客模式無需註冊，可直接使用系統功能</p>
+            </div>
         </div>
     </div>
 </div>
