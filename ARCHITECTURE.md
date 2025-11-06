@@ -25,15 +25,20 @@ climbing_score_counting_system/
 │   └── tests/              # 測試模組
 │       ├── __init__.py
 │       ├── test_helpers.py  # 測試輔助工具模組
-│       ├── test_api.py
 │       ├── test_case_01_default_member.py
-│       ├── test_case_route_progressive_completion.py
-│       ├── test_case_route_name_edit.py
-│       ├── test_case_route_update_completions.py
-│       ├── test_case_route_update_with_formdata.py
-│       ├── test_case_route_photo_upload.py
-│       ├── test_case_route_photo_thumbnail.py
-│       └── test_case_mobile_ui.py
+│       ├── test_case_02_api.py
+│       ├── test_case_03_route_progressive_completion.py
+│       ├── test_case_04_route_name_edit.py
+│       ├── test_case_05_route_update_completions.py
+│       ├── test_case_06_route_update_with_formdata.py
+│       ├── test_case_07_route_photo_upload.py
+│       ├── test_case_08_route_photo_thumbnail.py
+│       ├── test_case_09_member_group_conversion.py
+│       ├── test_case_10_member_route_operations.py
+│       ├── test_case_11_mobile_ui.py
+│       ├── test_case_12_security.py
+│       ├── test_case_13_settings_config.py
+│       └── test_case_14_login_ui.py
 ├── templates/              # HTML 模板
 │   ├── base.html
 │   ├── index.html          # 首頁（房間列表）
@@ -198,10 +203,22 @@ climbing_score_counting_system/
   - 圖片縮圖樣式：40x40px 圓角縮圖，懸停放大效果
   - 自定義滾動條樣式
   - 漸變背景和過渡動畫效果
+  - **桌面版登錄界面**：兩欄布局（左側品牌展示區，右側表單區）
+    - 品牌區域：漸變背景、品牌圖標、功能特點列表
+    - 表單區域：登錄/註冊切換、密碼規則驗證、訪客登錄
+    - 最大寬度 1000px，圓角卡片設計
+  - **移動版登錄界面**：單欄布局，隱藏品牌區域
 - **JavaScript (Vanilla)**: 
   - Fetch API 進行 API 調用
+  - **CSRF Token 處理**：所有 POST/PATCH/DELETE 請求自動包含 CSRF token
   - FormData 處理文件上傳（支持圖片上傳，multipart/form-data）
   - 動態 DOM 操作
+  - **登錄界面功能**：
+    - 登錄/註冊表單切換
+    - 實時密碼強度驗證（8 字符、大小寫、數字、特殊字符）
+    - 密碼匹配驗證
+    - 訪客登錄功能
+    - 用戶認證狀態檢查和導航欄更新
   - 模態框管理（多個模態框：新增/編輯成員、新增/編輯路線、編輯房間、查看完成路線、查看圖片大圖）
   - 移動端檢測和優化（自動檢測設備類型，動態調整表單行為）
   - 圖片縮圖顯示和點擊查看大圖功能
@@ -364,6 +381,32 @@ scoring/tests/
     ├── TestCaseLoggingConfig                 # 日誌配置測試
     ├── TestCasePermissionConfig             # 權限配置測試
     └── TestCaseEnvironmentVariables          # 環境變數測試
+└── test_case_14_login_ui.py                 # 登錄界面功能測試
+    └── TestCaseLoginUI
+        ├── test_index_shows_login_when_not_authenticated
+        ├── test_index_shows_room_list_when_authenticated
+        ├── test_login_form_submission
+        ├── test_login_form_validation
+        ├── test_login_with_wrong_credentials
+        ├── test_login_redirects_to_home_after_success
+        ├── test_register_form_submission
+        ├── test_register_form_validation
+        ├── test_register_auto_login
+        ├── test_register_with_password_mismatch
+        ├── test_duplicate_username_registration
+        ├── test_logout_functionality
+        ├── test_navbar_shows_user_info_when_authenticated
+        ├── test_navbar_hides_user_info_when_not_authenticated
+        ├── test_switch_between_login_and_register_tabs
+        ├── test_guest_login_functionality
+        ├── test_guest_login_creates_unique_username
+        ├── test_guest_login_already_guest_user
+        ├── test_guest_user_can_access_rooms
+        ├── test_guest_user_can_create_room
+        ├── test_guest_user_can_create_member
+        ├── test_guest_user_can_create_member_with_csrf
+        ├── test_guest_login_button_in_template
+        └── test_guest_user_complete_workflow
 ```
 
 ### 測試輔助工具 (`test_helpers.py`)
@@ -397,6 +440,9 @@ scoring/tests/
 - **API 端點測試**: 獲取排行榜、創建路線、更新成績狀態、獲取成員完成的路線列表
 - **計分邏輯測試**: 分數計算、完成狀態更新、成員組別處理
 - **資料驗證測試**: 成員名稱唯一性、路線難度必填、JSON 格式驗證
+- **登錄界面測試**: 登錄/註冊表單、密碼驗證、訪客登錄、CSRF 處理、用戶狀態管理
+- **安全性測試**: 用戶認證、API 權限控制、XSS 防護、SQL 注入防護
+- **總測試用例數**: 118 個測試用例（包含新增的訪客登錄和完整工作流程測試）
 - **完整流程測試**: 創建房間、新增成員、建立路線的完整流程
 - **路線管理測試**: 路線名稱編輯、完成狀態更新、FormData 處理
 - **圖片功能測試**: 圖片上傳、圖片縮圖顯示、圖片格式支持（PNG、JPEG、HEIC）
@@ -518,12 +564,20 @@ scoring/tests/
 
 ### 1. 用戶認證系統 ✓
 - **註冊功能**: `POST /api/auth/register/` - 用戶註冊，支持密碼強度驗證
+  - 密碼規則：至少 8 個字符，包含大寫、小寫、數字和特殊字符
+  - 實時密碼驗證和視覺反饋
 - **登錄功能**: `POST /api/auth/login/` - Session 認證
+- **訪客登錄**: `POST /api/auth/guest-login/` - 無需註冊的訪客模式
+  - 自動創建唯一訪客用戶名（格式：`guest_{timestamp}_{random}`）
+  - 目前權限與普通用戶相同，後續可調整
 - **登出功能**: `POST /api/auth/logout/` - 安全登出
 - **當前用戶**: `GET /api/auth/current-user/` - 獲取當前登錄用戶信息
 - **安全防護**: XSS 和 SQL 注入防護已集成到認證流程中
+- **CSRF 保護**: 所有 POST/PATCH/DELETE 請求都包含 CSRF token
 - **相關文件**: `scoring/auth_views.py`, `scoring/auth_serializers.py`
-- **測試覆蓋**: `test_case_12_security.py` 包含完整的認證測試
+- **測試覆蓋**: 
+  - `test_case_12_security.py` - 安全性測試（XSS、SQL 注入、權限控制）
+  - `test_case_14_login_ui.py` - 登錄界面功能測試（24 個測試用例）
 
 ### 2. API 權限控制 ✓
 - **讀取權限**: 未認證用戶可以讀取數據（查看房間、排行榜等）
