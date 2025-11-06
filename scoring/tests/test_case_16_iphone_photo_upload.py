@@ -42,6 +42,52 @@ class TestCaseIPhonePhotoUpload(TestCase):
             if route.photo and default_storage.exists(route.photo.name):
                 default_storage.delete(route.photo.name)
     
+    def assert_photo_uploaded_correctly(self, response, route_id=None, expected_extensions=None):
+        """
+        驗證照片是否正確上傳的輔助方法
+        
+        Args:
+            response: API 響應對象
+            route_id: 路線 ID（如果為 None，則從 response.data 獲取）
+            expected_extensions: 預期的文件擴展名列表（如 ['.jpg', '.jpeg']），如果為 None 則不驗證擴展名
+        """
+        # 獲取路線 ID
+        if route_id is None:
+            route_id = response.data['id']
+        
+        # 驗證路線存在且有照片
+        route = Route.objects.get(id=route_id)
+        self.assertIsNotNone(route.photo, "路線應該有上傳的圖片")
+        
+        # 驗證照片文件存在於存儲中
+        self.assertTrue(default_storage.exists(route.photo.name),
+                      f"照片文件應該存在於存儲中: {route.photo.name}")
+        
+        # 驗證照片路徑正確（應該在 route_photos/ 目錄下）
+        self.assertTrue(route.photo.name.startswith('route_photos/'),
+                      f"照片應該保存在 route_photos/ 目錄下，實際路徑: {route.photo.name}")
+        
+        # 驗證 API 響應包含照片相關字段
+        self.assertIn('photo', response.data, "API 響應應該包含 'photo' 字段")
+        self.assertIn('photo_url', response.data, "API 響應應該包含 'photo_url' 字段")
+        self.assertNotEqual(response.data['photo_url'], '', "photo_url 不應該為空")
+        self.assertIn('route_photos', response.data['photo_url'],
+                     f"photo_url 應該包含圖片路徑，實際: {response.data['photo_url']}")
+        
+        # 驗證照片文件大小（應該大於 0）
+        if default_storage.exists(route.photo.name):
+            file_size = default_storage.size(route.photo.name)
+            self.assertGreater(file_size, 0, 
+                             f"照片文件大小應該大於 0，實際: {file_size} bytes")
+        
+        # 驗證文件擴展名（如果指定了預期擴展名）
+        if expected_extensions:
+            file_ext = '.' + route.photo.name.rsplit('.', 1)[1] if '.' in route.photo.name else ''
+            self.assertIn(file_ext.lower(), [ext.lower() for ext in expected_extensions],
+                         f"照片文件名應該以以下擴展名之一結尾: {expected_extensions}，實際: {route.photo.name}")
+        
+        return route
+    
     def test_iphone_heic_format_upload(self):
         """測試 iPhone HEIC 格式圖片上傳"""
         # 創建模擬 HEIC 文件（使用 JPEG 內容但標記為 HEIC）
@@ -95,6 +141,9 @@ class TestCaseIPhonePhotoUpload(TestCase):
             route_id = response.data['id']
             route = Route.objects.get(id=route_id)
             self.assertIsNotNone(route.photo, "路線應該有上傳的圖片")
+            
+            # 驗證照片上傳（HEIC 應該被轉換為 JPEG）
+            self.assert_photo_uploaded_correctly(response, expected_extensions=['.jpg', '.jpeg'])
         elif response.status_code == status.HTTP_400_BAD_REQUEST:
             # 驗證失敗，檢查錯誤信息
             self.assertIn('photo', response.data or {}, "應該有 photo 字段的錯誤信息")
@@ -151,9 +200,8 @@ class TestCaseIPhonePhotoUpload(TestCase):
             f"JPEG 格式應該成功上傳，但返回了 {response.status_code}。錯誤: {response.data if hasattr(response, 'data') else response.content}"
         )
         
-        route_id = response.data['id']
-        route = Route.objects.get(id=route_id)
-        self.assertIsNotNone(route.photo, "路線應該有上傳的圖片")
+        # 驗證照片上傳
+        self.assert_photo_uploaded_correctly(response)
     
     def test_iphone_filename_with_special_characters(self):
         """測試 iPhone 文件名包含特殊字符的情況"""
@@ -202,6 +250,9 @@ class TestCaseIPhonePhotoUpload(TestCase):
             status.HTTP_201_CREATED,
             f"應該成功處理特殊字符文件名，但返回了 {response.status_code}。錯誤: {response.data if hasattr(response, 'data') else response.content}"
         )
+        
+        # 驗證照片上傳
+        self.assert_photo_uploaded_correctly(response)
     
     def test_iphone_filename_with_unicode(self):
         """測試 iPhone 文件名包含 Unicode 字符的情況"""
@@ -250,6 +301,9 @@ class TestCaseIPhonePhotoUpload(TestCase):
             status.HTTP_201_CREATED,
             f"應該成功處理 Unicode 文件名，但返回了 {response.status_code}。錯誤: {response.data if hasattr(response, 'data') else response.content}"
         )
+        
+        # 驗證照片上傳
+        self.assert_photo_uploaded_correctly(response)
     
     def test_iphone_live_photo_format(self):
         """測試 iPhone Live Photo 格式（可能包含 .MOV 文件）"""
@@ -294,8 +348,11 @@ class TestCaseIPhonePhotoUpload(TestCase):
             logger.info(f"Response data: {response.data}")
         
         # Live Photo 的 HEIC 部分應該被處理
-        # 如果失敗，記錄詳細錯誤
-        if response.status_code != status.HTTP_201_CREATED:
+        if response.status_code == status.HTTP_201_CREATED:
+            # 驗證照片上傳（HEIC 應該被轉換為 JPEG）
+            self.assert_photo_uploaded_correctly(response, expected_extensions=['.jpg', '.jpeg'])
+        elif response.status_code != status.HTTP_201_CREATED:
+            # 如果失敗，記錄詳細錯誤
             logger.error(f"Detailed error: {response.data if hasattr(response, 'data') else response.content}")
     
     def test_iphone_photo_without_extension(self):
@@ -345,4 +402,7 @@ class TestCaseIPhonePhotoUpload(TestCase):
             status.HTTP_201_CREATED,
             f"應該成功處理無擴展名文件，但返回了 {response.status_code}。錯誤: {response.data if hasattr(response, 'data') else response.content}"
         )
+        
+        # 驗證照片上傳（無擴展名的文件應該根據 content_type 自動添加擴展名）
+        self.assert_photo_uploaded_correctly(response, expected_extensions=['.jpg', '.jpeg'])
 
