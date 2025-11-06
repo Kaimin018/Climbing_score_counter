@@ -1374,30 +1374,86 @@
             body: formData
             // 注意：不要設置 Content-Type，讓瀏覽器自動設置（包含 boundary）
         })
-        .then(response => response.json())
+        .then(response => {
+            // 檢查響應狀態
+            if (!response.ok) {
+                // 如果不是 2xx 狀態，嘗試解析錯誤響應
+                return response.json().then(err => {
+                    console.error('創建路線失敗 - 響應錯誤:', err);
+                    return Promise.reject(err);
+                }).catch(() => {
+                    // 如果無法解析 JSON，返回狀態文本
+                    return Promise.reject({
+                        detail: `創建失敗 (狀態碼: ${response.status})`,
+                        status: response.status,
+                        statusText: response.statusText
+                    });
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.id) {
                 refreshLeaderboard(true); // 只更新排行榜
                 showToast('路線創建成功！', 'success');
             } else {
-                showToast('創建失敗: ' + JSON.stringify(data), 'error');
+                // 如果沒有 id，可能是驗證錯誤
+                console.error('創建路線失敗 - 響應數據:', data);
+                let errorMsg = '創建失敗';
+                if (data.grade && Array.isArray(data.grade) && data.grade.length > 0) {
+                    errorMsg = '難度等級錯誤: ' + data.grade[0];
+                } else if (data.photo && Array.isArray(data.photo) && data.photo.length > 0) {
+                    errorMsg = '圖片錯誤: ' + data.photo[0];
+                } else if (data.name && Array.isArray(data.name) && data.name.length > 0) {
+                    errorMsg = '路線名稱錯誤: ' + data.name[0];
+                } else if (data.member_completions && Array.isArray(data.member_completions) && data.member_completions.length > 0) {
+                    errorMsg = '成員完成狀態錯誤: ' + data.member_completions[0];
+                } else if (data.detail) {
+                    errorMsg = data.detail;
+                } else if (data.non_field_errors && Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
+                    errorMsg = data.non_field_errors[0];
+                } else {
+                    errorMsg = '創建失敗: ' + JSON.stringify(data);
+                }
+                showToast(errorMsg, 'error');
             }
         })
         .catch(error => {
             console.error('創建路線失敗:', error);
             // 處理驗證錯誤
             let errorMsg = '創建路線時發生錯誤';
-            if (error.grade && error.grade.length > 0) {
-                errorMsg = error.grade[0];
+            
+            // 檢查各種可能的錯誤格式
+            if (error.grade && Array.isArray(error.grade) && error.grade.length > 0) {
+                errorMsg = '難度等級錯誤: ' + error.grade[0];
+            } else if (error.photo && Array.isArray(error.photo) && error.photo.length > 0) {
+                errorMsg = '圖片錯誤: ' + error.photo[0];
+            } else if (error.name && Array.isArray(error.name) && error.name.length > 0) {
+                errorMsg = '路線名稱錯誤: ' + error.name[0];
+            } else if (error.member_completions && Array.isArray(error.member_completions) && error.member_completions.length > 0) {
+                errorMsg = '成員完成狀態錯誤: ' + error.member_completions[0];
             } else if (error.detail) {
                 errorMsg = error.detail;
             } else if (error.message) {
                 errorMsg = error.message;
             } else if (typeof error === 'string') {
                 errorMsg = error;
-            } else if (error.non_field_errors) {
+            } else if (error.non_field_errors && Array.isArray(error.non_field_errors) && error.non_field_errors.length > 0) {
                 errorMsg = error.non_field_errors[0];
+            } else {
+                // 嘗試從錯誤對象中提取更多信息
+                const errorKeys = Object.keys(error);
+                if (errorKeys.length > 0) {
+                    const firstKey = errorKeys[0];
+                    const firstValue = error[firstKey];
+                    if (Array.isArray(firstValue) && firstValue.length > 0) {
+                        errorMsg = `${firstKey}: ${firstValue[0]}`;
+                    } else {
+                        errorMsg = `錯誤: ${JSON.stringify(error)}`;
+                    }
+                }
             }
+            
             showToast(errorMsg, 'error');
         })
         .finally(() => {

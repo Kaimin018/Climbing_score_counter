@@ -91,12 +91,57 @@ class Member(models.Model):
         return self.scores.filter(is_completed=True).count()
 
 
+def route_photo_upload_path(instance, filename):
+    """
+    生成路線照片的上傳路徑
+    清理文件名，確保符合文件系統要求（特別是處理 iPhone 的文件名）
+    """
+    import os
+    from django.utils.text import get_valid_filename
+    from datetime import datetime
+    
+    # 獲取文件擴展名
+    ext = os.path.splitext(filename)[1].lower()
+    
+    # 如果沒有擴展名或擴展名不在允許列表中，嘗試從文件名推斷
+    if not ext or ext not in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.heic', '.heif', '.webp']:
+        # 檢查文件名是否包含格式信息
+        filename_lower = filename.lower()
+        if '.heic' in filename_lower or 'heic' in filename_lower:
+            ext = '.heic'
+        elif '.heif' in filename_lower or 'heif' in filename_lower:
+            ext = '.heif'
+        elif '.jpg' in filename_lower or '.jpeg' in filename_lower:
+            ext = '.jpg'
+        elif '.png' in filename_lower:
+            ext = '.png'
+        else:
+            # 默認使用 .jpg
+            ext = '.jpg'
+    
+    # 生成安全的文件名（使用時間戳和路線ID）
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    route_id = instance.id if instance.id else 'new'
+    
+    # 清理文件名，移除特殊字符
+    safe_filename = get_valid_filename(filename)
+    # 如果文件名仍然包含特殊字符，使用默認名稱
+    if not safe_filename or len(safe_filename) > 100:
+        safe_filename = f'route_{route_id}_{timestamp}{ext}'
+    else:
+        # 確保文件名以正確的擴展名結尾
+        base_name = os.path.splitext(safe_filename)[0]
+        safe_filename = f'{base_name}_{timestamp}{ext}'
+    
+    return f'route_photos/{safe_filename}'
+
+
 class Route(models.Model):
     """攀岩路線資訊"""
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='routes', verbose_name='房間')
     name = models.CharField(max_length=200, verbose_name='路線名稱')
     grade = models.CharField(max_length=50, blank=True, verbose_name='難度等級')
-    photo = models.ImageField(upload_to='route_photos/', blank=True, null=True, verbose_name='照片')
+    photo = models.ImageField(upload_to=route_photo_upload_path, blank=True, null=True, verbose_name='照片')
     photo_url = models.URLField(blank=True, verbose_name='照片網址（舊版，已棄用）')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
