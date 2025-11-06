@@ -1464,12 +1464,13 @@ tbody tr:hover {
 /* 平板適配 */
 @media (max-width: 1023px) and (min-width: 769px) {
     .login-card {
-        grid-template-columns: 1fr;
-        max-width: 600px;
+        grid-template-columns: 1fr 1fr; /* 保持兩欄布局 */
+        max-width: 900px;
     }
     
     .login-brand-section {
         padding: 40px 30px;
+        display: flex; /* 確保顯示 */
     }
     
     .login-brand-section h1 {
@@ -1478,6 +1479,14 @@ tbody tr:hover {
     
     .login-form-section {
         padding: 40px 30px;
+    }
+    
+    .login-header {
+        display: none; /* 平板版也隱藏移動版標題 */
+    }
+    
+    .login-form-section .form-section-title {
+        display: block; /* 顯示桌面版標題 */
     }
 }
 

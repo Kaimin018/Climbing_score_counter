@@ -286,7 +286,94 @@ sudo ls -la /var/www/Climbing_score_counter/Deployment/gunicorn_config.py
 sudo chown www-data:www-data /var/www/Climbing_score_counter/Deployment/gunicorn_config.py
 ```
 
-#### 問題 7: 代碼已更新但服務未重啟
+#### 問題 7: 靜態文件（CSS/JS/圖片）不顯示
+
+**症狀**: 網站可以訪問，但樣式、JavaScript 或圖片不顯示（頁面沒有樣式、按鈕無響應等）
+
+**原因**: 靜態文件沒有正確收集或 Nginx 無法服務靜態文件
+
+**診斷步驟**:
+```bash
+# 1. 檢查靜態文件是否已收集
+ls -la /var/www/Climbing_score_counter/staticfiles/
+ls -la /var/www/Climbing_score_counter/staticfiles/css/
+ls -la /var/www/Climbing_score_counter/staticfiles/js/
+
+# 2. 檢查 Nginx 配置中的靜態文件路徑
+sudo cat /etc/nginx/sites-available/climbing_system.conf | grep -A 5 "location /static/"
+
+# 3. 測試靜態文件是否可以訪問
+curl -I http://127.0.0.1/static/css/style.css
+curl -I http://your-domain.com/static/css/style.css
+
+# 4. 檢查 Nginx 錯誤日誌
+sudo tail -n 50 /var/log/nginx/climbing_system_error.log | grep static
+
+# 5. 檢查靜態文件權限
+ls -la /var/www/Climbing_score_counter/staticfiles/ | head -20
+```
+
+**解決方案**:
+
+1. **重新收集靜態文件**:
+```bash
+cd /var/www/Climbing_score_counter
+source venv/bin/activate
+
+# 確保 staticfiles 目錄權限正確
+sudo chown -R ubuntu:ubuntu staticfiles
+sudo chmod -R 755 staticfiles
+
+# 重新收集靜態文件
+python manage.py collectstatic --noinput --clear
+
+# 設置正確的權限（供 Nginx 讀取）
+sudo chown -R www-data:www-data staticfiles
+sudo chmod -R 755 staticfiles
+```
+
+2. **檢查 Nginx 配置**:
+```bash
+# 確認 Nginx 配置中的路徑正確
+sudo cat /etc/nginx/sites-available/climbing_system.conf | grep -A 3 "location /static/"
+
+# 應該顯示：
+# location /static/ {
+#     alias /var/www/Climbing_score_counter/staticfiles/;
+#     ...
+# }
+
+# 如果路徑不正確，修復它：
+sudo nano /etc/nginx/sites-available/climbing_system.conf
+# 確保 alias 路徑是：/var/www/Climbing_score_counter/staticfiles/
+
+# 測試配置
+sudo nginx -t
+
+# 重載 Nginx
+sudo systemctl reload nginx
+```
+
+3. **檢查媒體文件（如果問題是上傳的圖片）**:
+```bash
+# 檢查 media 目錄
+ls -la /var/www/Climbing_score_counter/media/
+
+# 檢查 Nginx 配置中的媒體文件路徑
+sudo cat /etc/nginx/sites-available/climbing_system.conf | grep -A 3 "location /media/"
+
+# 確保 media 目錄權限正確
+sudo chown -R www-data:www-data /var/www/Climbing_score_counter/media
+sudo chmod -R 775 /var/www/Climbing_score_counter/media
+```
+
+4. **使用部署腳本自動修復**:
+```bash
+cd /var/www/Climbing_score_counter
+bash Deployment/deploy.sh
+```
+
+#### 問題 8: 代碼已更新但服務未重啟
 
 **症狀**: 代碼已拉取但網站未反映變化
 
