@@ -178,19 +178,20 @@ python manage.py collectstatic --noinput --clear
 
 # 創建日誌目錄（如果不存在）
 echo "創建日誌目錄..."
-mkdir -p $PROJECT_DIR/logs
-chown -R www-data:www-data $PROJECT_DIR/logs
+sudo mkdir -p $PROJECT_DIR/logs
+sudo chown -R www-data:www-data $PROJECT_DIR/logs
 
 # 設置文件權限
 echo "設置文件權限..."
-chown -R www-data:www-data $PROJECT_DIR
-chmod -R 755 $PROJECT_DIR
-chmod -R 775 $PROJECT_DIR/media
-chmod -R 775 $PROJECT_DIR/logs
+# 只對特定目錄設置權限，避免影響整個項目（特別是 .git 目錄）
+sudo chown -R www-data:www-data $PROJECT_DIR/logs $PROJECT_DIR/media $PROJECT_DIR/staticfiles 2>/dev/null || true
+sudo chmod -R 775 $PROJECT_DIR/logs 2>/dev/null || true
+sudo chmod -R 775 $PROJECT_DIR/media 2>/dev/null || true
+sudo chmod -R 755 $PROJECT_DIR/staticfiles 2>/dev/null || true
 
 # 保護服務器配置文件（如果存在）
 if [ -f "$SERVER_CONFIG" ]; then
-    chmod 600 "$SERVER_CONFIG"
+    sudo chmod 600 "$SERVER_CONFIG" 2>/dev/null || true
     echo "✅ 服務器配置文件權限已設置"
 fi
 
