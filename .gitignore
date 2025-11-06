@@ -46,6 +46,7 @@ Thumbs.db
 
 # Environment variables
 .env
+.server-config
 
 # Test output files
 test_output.txt

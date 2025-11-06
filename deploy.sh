@@ -9,6 +9,78 @@ echo "開始部署攀岩計分系統..."
 # 項目目錄
 PROJECT_DIR="/var/www/Climbing_score_counter"
 VENV_DIR="$PROJECT_DIR/venv"
+SERVER_CONFIG="$PROJECT_DIR/.server-config"
+
+# 配置管理函數
+apply_server_config() {
+    if [ ! -f "$SERVER_CONFIG" ]; then
+        echo "⚠️  警告: 未找到服務器配置文件 $SERVER_CONFIG"
+        echo "   跳過自動配置，請手動配置 systemd 和 nginx"
+        return 0
+    fi
+    
+    echo "讀取服務器配置..."
+    source "$SERVER_CONFIG"
+    
+    # 驗證必要的配置變數
+    if [ -z "$DOMAIN" ] || [ -z "$EC2_IP" ] || [ -z "$SECRET_KEY" ]; then
+        echo "⚠️  警告: 服務器配置文件缺少必要變數（DOMAIN, EC2_IP, SECRET_KEY）"
+        echo "   跳過自動配置"
+        return 0
+    fi
+    
+    WWW_DOMAIN=${WWW_DOMAIN:-www.$DOMAIN}
+    
+    echo "應用配置:"
+    echo "  - 域名: $DOMAIN"
+    echo "  - WWW 域名: $WWW_DOMAIN"
+    echo "  - EC2 IP: $EC2_IP"
+    
+    # 處理 Systemd 服務文件
+    SYSTEMD_SERVICE="/etc/systemd/system/climbing_system.service"
+    if [ ! -f "$SYSTEMD_SERVICE" ]; then
+        echo "首次部署: 複製 systemd 服務文件..."
+        if [ -f "$PROJECT_DIR/systemd/climbing_system.service" ]; then
+            sudo cp "$PROJECT_DIR/systemd/climbing_system.service" "$SYSTEMD_SERVICE"
+        else
+            echo "⚠️  警告: 找不到模板文件 systemd/climbing_system.service"
+        fi
+    fi
+    
+    if [ -f "$SYSTEMD_SERVICE" ]; then
+        echo "更新 systemd 服務配置..."
+        sudo sed -i "s|your-domain.com|$DOMAIN|g" "$SYSTEMD_SERVICE"
+        sudo sed -i "s|www.your-domain.com|$WWW_DOMAIN|g" "$SYSTEMD_SERVICE"
+        sudo sed -i "s|your-ec2-ip|$EC2_IP|g" "$SYSTEMD_SERVICE"
+        sudo sed -i "s|your-secret-key-here|$SECRET_KEY|g" "$SYSTEMD_SERVICE"
+        echo "✅ systemd 配置已更新"
+    fi
+    
+    # 處理 Nginx 配置文件
+    NGINX_AVAILABLE="/etc/nginx/sites-available/climbing_system.conf"
+    NGINX_ENABLED="/etc/nginx/sites-enabled/climbing_system.conf"
+    
+    if [ ! -f "$NGINX_AVAILABLE" ]; then
+        echo "首次部署: 複製 nginx 配置文件..."
+        if [ -f "$PROJECT_DIR/nginx/climbing_system.conf" ]; then
+            sudo cp "$PROJECT_DIR/nginx/climbing_system.conf" "$NGINX_AVAILABLE"
+            # 創建符號連結
+            if [ ! -L "$NGINX_ENABLED" ]; then
+                sudo ln -sf "$NGINX_AVAILABLE" "$NGINX_ENABLED"
+            fi
+        else
+            echo "⚠️  警告: 找不到模板文件 nginx/climbing_system.conf"
+        fi
+    fi
+    
+    if [ -f "$NGINX_AVAILABLE" ]; then
+        echo "更新 nginx 配置..."
+        sudo sed -i "s|your-domain.com|$DOMAIN|g" "$NGINX_AVAILABLE"
+        sudo sed -i "s|www.your-domain.com|$WWW_DOMAIN|g" "$NGINX_AVAILABLE"
+        sudo sed -i "s|your-ec2-ip|$EC2_IP|g" "$NGINX_AVAILABLE"
+        echo "✅ nginx 配置已更新"
+    fi
+}
 
 # 檢查項目目錄是否存在
 if [ ! -d "$PROJECT_DIR" ]; then
@@ -23,12 +95,19 @@ cd $PROJECT_DIR || {
     exit 1
 }
 
+# 應用服務器配置（自動替換占位符）
+apply_server_config
+
 # 如果使用 Git，拉取最新代碼
 if [ -d ".git" ]; then
     echo "拉取最新代碼..."
     git fetch origin
     git reset --hard origin/main || git reset --hard origin/master
     echo "代碼更新完成"
+    
+    # Git pull 後重新應用配置（因為模板文件可能被更新）
+    echo "重新應用服務器配置..."
+    apply_server_config
 else
     echo "警告: 未檢測到 Git 倉庫，跳過代碼更新"
 fi
@@ -75,18 +154,24 @@ chmod -R 755 $PROJECT_DIR
 chmod -R 775 $PROJECT_DIR/media
 chmod -R 775 $PROJECT_DIR/logs
 
+# 保護服務器配置文件（如果存在）
+if [ -f "$SERVER_CONFIG" ]; then
+    chmod 600 "$SERVER_CONFIG"
+    echo "✅ 服務器配置文件權限已設置"
+fi
+
 # 重啟 Gunicorn 服務
 echo "重啟 Gunicorn 服務..."
-systemctl daemon-reload
-systemctl restart climbing_system
+sudo systemctl daemon-reload
+sudo systemctl restart climbing_system
 
 # 檢查服務狀態
 echo "檢查服務狀態..."
-systemctl status climbing_system --no-pager
+sudo systemctl status climbing_system --no-pager
 
 # 重載 Nginx（如果需要）
 echo "重載 Nginx..."
-nginx -t && systemctl reload nginx
+sudo nginx -t && sudo systemctl reload nginx
 
 echo "部署完成！"
 echo "請檢查服務狀態："
