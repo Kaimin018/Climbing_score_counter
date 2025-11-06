@@ -30,10 +30,12 @@ PROJECT_DIR="/var/www/Climbing_score_counter"
 sudo mkdir -p $PROJECT_DIR
 sudo chown -R $USER:$USER $PROJECT_DIR
 
-# 創建日誌目錄
-echo "4. 創建日誌目錄..."
-mkdir -p $PROJECT_DIR/logs
-mkdir -p $PROJECT_DIR/backups
+# 創建必要的目錄
+echo "4. 創建必要的目錄..."
+sudo mkdir -p $PROJECT_DIR/logs
+sudo mkdir -p $PROJECT_DIR/backups
+sudo mkdir -p $PROJECT_DIR/media
+sudo mkdir -p $PROJECT_DIR/staticfiles
 
 # 設置權限
 echo "5. 設置目錄權限..."

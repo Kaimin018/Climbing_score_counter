@@ -149,6 +149,12 @@ fi
 # 檢查並創建虛擬環境（如果不存在）
 if [ ! -d "$VENV_DIR" ]; then
     echo "虛擬環境不存在，正在創建..."
+    # 確保有權限創建虛擬環境目錄
+    if [ ! -w "$PROJECT_DIR" ]; then
+        echo "修復項目目錄權限以創建虛擬環境..."
+        CURRENT_USER=$(whoami)
+        sudo chmod g+w "$PROJECT_DIR" 2>/dev/null || true
+    fi
     python3 -m venv $VENV_DIR
     echo "虛擬環境創建完成"
 fi
@@ -170,24 +176,39 @@ pip install -r requirements.txt
 
 # 運行數據庫遷移
 echo "運行數據庫遷移..."
+# 確保數據庫文件目錄有寫入權限
+if [ -f "db.sqlite3" ] && [ ! -w "db.sqlite3" ]; then
+    echo "修復數據庫文件權限..."
+    sudo chmod 664 db.sqlite3 2>/dev/null || true
+    sudo chown www-data:www-data db.sqlite3 2>/dev/null || true
+fi
 python manage.py migrate --noinput
 
 # 收集靜態文件
 echo "收集靜態文件..."
 python manage.py collectstatic --noinput --clear
 
-# 創建日誌目錄（如果不存在）
-echo "創建日誌目錄..."
+# 創建必要的目錄（如果不存在）
+echo "創建必要的目錄..."
 sudo mkdir -p $PROJECT_DIR/logs
-sudo chown -R www-data:www-data $PROJECT_DIR/logs
+sudo mkdir -p $PROJECT_DIR/media
+sudo mkdir -p $PROJECT_DIR/staticfiles
+sudo mkdir -p $PROJECT_DIR/backups
 
 # 設置文件權限
 echo "設置文件權限..."
 # 只對特定目錄設置權限，避免影響整個項目（特別是 .git 目錄）
-sudo chown -R www-data:www-data $PROJECT_DIR/logs $PROJECT_DIR/media $PROJECT_DIR/staticfiles 2>/dev/null || true
+sudo chown -R www-data:www-data $PROJECT_DIR/logs $PROJECT_DIR/media $PROJECT_DIR/staticfiles $PROJECT_DIR/backups 2>/dev/null || true
 sudo chmod -R 775 $PROJECT_DIR/logs 2>/dev/null || true
 sudo chmod -R 775 $PROJECT_DIR/media 2>/dev/null || true
 sudo chmod -R 755 $PROJECT_DIR/staticfiles 2>/dev/null || true
+sudo chmod -R 775 $PROJECT_DIR/backups 2>/dev/null || true
+
+# 確保數據庫文件權限正確（如果存在）
+if [ -f "$PROJECT_DIR/db.sqlite3" ]; then
+    sudo chown www-data:www-data "$PROJECT_DIR/db.sqlite3" 2>/dev/null || true
+    sudo chmod 664 "$PROJECT_DIR/db.sqlite3" 2>/dev/null || true
+fi
 
 # 保護服務器配置文件（如果存在）
 if [ -f "$SERVER_CONFIG" ]; then
