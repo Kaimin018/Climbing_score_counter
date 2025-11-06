@@ -12,3 +12,4 @@ class ScoringConfig(AppConfig):
 
 
 
+
