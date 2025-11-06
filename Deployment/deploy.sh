@@ -49,10 +49,19 @@ apply_server_config() {
     
     if [ -f "$SYSTEMD_SERVICE" ]; then
         echo "更新 systemd 服務配置..."
+        # 更新環境變數
         sudo sed -i "s|your-domain.com|$DOMAIN|g" "$SYSTEMD_SERVICE"
         sudo sed -i "s|www.your-domain.com|$WWW_DOMAIN|g" "$SYSTEMD_SERVICE"
         sudo sed -i "s|your-ec2-ip|$EC2_IP|g" "$SYSTEMD_SERVICE"
         sudo sed -i "s|your-secret-key-here|$SECRET_KEY|g" "$SYSTEMD_SERVICE"
+        
+        # 修復 gunicorn_config.py 路徑（如果使用舊路徑）
+        if grep -q "/var/www/Climbing_score_counter/gunicorn_config.py" "$SYSTEMD_SERVICE"; then
+            echo "修復 gunicorn_config.py 路徑..."
+            sudo sed -i "s|/var/www/Climbing_score_counter/gunicorn_config.py|/var/www/Climbing_score_counter/Deployment/gunicorn_config.py|g" "$SYSTEMD_SERVICE"
+            echo "✅ gunicorn_config.py 路徑已修復"
+        fi
+        
         echo "✅ systemd 配置已更新"
     fi
     
