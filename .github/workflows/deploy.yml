@@ -70,8 +70,14 @@ jobs:
       run: |
         if [ -z "$EC2_HOST" ] || [ -z "$EC2_USER" ] || [ -z "$EC2_SSH_KEY" ]; then
           echo "⚠️  跳過部署：未配置 EC2 secrets"
+          echo "請檢查 GitHub Secrets 配置："
+          echo "  - EC2_HOST: ${EC2_HOST:-未設置}"
+          echo "  - EC2_USER: ${EC2_USER:-未設置}"
+          echo "  - EC2_SSH_KEY: ${EC2_SSH_KEY:+已設置}${EC2_SSH_KEY:-未設置}"
           exit 0
         fi
+        echo "開始部署到 EC2..."
+        echo "目標: ${EC2_USER}@${EC2_HOST}"
         ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
           ${EC2_USER}@${EC2_HOST} << 'ENDSSH'
           set -e
@@ -87,7 +93,11 @@ jobs:
           echo "拉取最新代碼..."
           if [ -d ".git" ]; then
             git fetch origin
+            CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
+            echo "當前分支: $CURRENT_BRANCH"
             git reset --hard origin/main || git reset --hard origin/master
+            echo "已更新到最新版本: $(git rev-parse --short HEAD)"
+            echo "最新提交: $(git log -1 --oneline)"
           else
             echo "警告: 未檢測到 Git 倉庫，跳過代碼更新"
           fi
@@ -95,14 +105,20 @@ jobs:
           # 執行部署腳本
           echo "執行部署腳本..."
           if [ -f "deploy.sh" ]; then
+            chmod +x deploy.sh
             bash deploy.sh
           else
             echo "錯誤: 找不到 deploy.sh 腳本"
+            echo "當前目錄: $(pwd)"
+            echo "目錄內容:"
+            ls -la
             exit 1
           fi
           
           echo "=== 部署完成 ==="
           echo "時間: $(date)"
+          echo "服務狀態檢查:"
+          sudo systemctl status climbing_system --no-pager -l || true
         ENDSSH
     
     - name: Skip deployment notice
