@@ -20,6 +20,15 @@ apply_server_config() {
     fi
     
     echo "讀取服務器配置..."
+    
+    # 檢查並修復配置文件權限（確保當前用戶可以讀取）
+    if [ ! -r "$SERVER_CONFIG" ]; then
+        echo "修復配置文件權限..."
+        CURRENT_USER=$(whoami)
+        sudo chown $CURRENT_USER:$CURRENT_USER "$SERVER_CONFIG" 2>/dev/null || true
+        sudo chmod 600 "$SERVER_CONFIG" 2>/dev/null || true
+    fi
+    
     source "$SERVER_CONFIG"
     
     # 驗證必要的配置變數
@@ -193,16 +202,25 @@ if [ -f "db.sqlite3" ] && [ ! -w "db.sqlite3" ]; then
 fi
 python manage.py migrate --noinput
 
-# 收集靜態文件
-echo "收集靜態文件..."
-python manage.py collectstatic --noinput --clear
-
 # 創建必要的目錄（如果不存在）
 echo "創建必要的目錄..."
 sudo mkdir -p $PROJECT_DIR/logs
 sudo mkdir -p $PROJECT_DIR/media
 sudo mkdir -p $PROJECT_DIR/staticfiles
 sudo mkdir -p $PROJECT_DIR/backups
+
+# 收集靜態文件前，確保當前用戶可以寫入 staticfiles 目錄
+echo "準備靜態文件目錄..."
+CURRENT_USER=$(whoami)
+if [ -d "$PROJECT_DIR/staticfiles" ]; then
+    # 臨時設置權限，讓當前用戶可以刪除和寫入
+    sudo chown -R $CURRENT_USER:$CURRENT_USER $PROJECT_DIR/staticfiles 2>/dev/null || true
+    sudo chmod -R 755 $PROJECT_DIR/staticfiles 2>/dev/null || true
+fi
+
+# 收集靜態文件
+echo "收集靜態文件..."
+python manage.py collectstatic --noinput --clear
 
 # 設置文件權限
 echo "設置文件權限..."
