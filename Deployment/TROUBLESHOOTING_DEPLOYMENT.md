@@ -69,6 +69,27 @@ bash Deployment/deploy.sh
 
 **注意**: `deploy.sh` 腳本會自動檢測並配置 Git 安全目錄，無需手動處理。
 
+#### 問題 2.1: Git Permission denied 錯誤
+
+**症狀**: 配置安全目錄後，執行 `git fetch` 時出現：
+```
+error: cannot open .git/FETCH_HEAD: Permission denied
+```
+
+**原因**: `.git` 目錄屬於 `www-data` 用戶，而當前以 `ubuntu` 用戶執行 Git 命令，沒有寫入權限。
+
+**解決方案**:
+```bash
+# 方法 1: 修改 .git 目錄所有者（推薦）
+cd /var/www/Climbing_score_counter
+sudo chown -R ubuntu:ubuntu .git
+
+# 方法 2: 使用部署腳本（會自動處理）
+bash Deployment/deploy.sh
+```
+
+**注意**: `deploy.sh` 腳本會自動檢測並修復 `.git` 目錄權限問題。
+
 #### 問題 3: Secrets 未配置或配置錯誤
 
 **症狀**: 日誌顯示 "⚠️ 跳過部署：未配置 EC2 secrets"

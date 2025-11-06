@@ -108,6 +108,16 @@ if [ -d ".git" ]; then
         git config --global --add safe.directory "$PROJECT_DIR"
     fi
     
+    # 檢查並修復 .git 目錄權限（如果當前用戶無法寫入）
+    if [ ! -w ".git/FETCH_HEAD" ] 2>/dev/null; then
+        echo "修復 .git 目錄權限..."
+        CURRENT_USER=$(whoami)
+        sudo chown -R $CURRENT_USER:$CURRENT_USER .git 2>/dev/null || {
+            echo "⚠️  警告: 無法修復 .git 目錄權限，可能需要手動執行:"
+            echo "   sudo chown -R $CURRENT_USER:$CURRENT_USER $PROJECT_DIR/.git"
+        }
+    fi
+    
     git fetch origin
     git reset --hard origin/main || git reset --hard origin/master
     echo "代碼更新完成"

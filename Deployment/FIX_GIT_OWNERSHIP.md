@@ -57,6 +57,59 @@ sudo chown -R ubuntu:ubuntu /var/www/Climbing_score_counter
 bash Deployment/deploy.sh
 ```
 
+## 問題 2: Permission denied 錯誤
+
+如果配置安全目錄後仍然出現以下錯誤：
+
+```
+error: cannot open .git/FETCH_HEAD: Permission denied
+```
+
+**原因**: `.git` 目錄屬於 `www-data` 用戶，而當前以 `ubuntu` 用戶執行 Git 命令，沒有寫入權限。
+
+**解決方案**:
+
+### 方案 1: 修改 .git 目錄所有者（推薦）
+
+將 `.git` 目錄的所有者改為 `ubuntu` 用戶，這樣可以執行 Git 操作，同時不影響項目其他文件：
+
+```bash
+# 在 EC2 服務器上執行
+cd /var/www/Climbing_score_counter
+sudo chown -R ubuntu:ubuntu .git
+```
+
+**優點**:
+- 只修改 `.git` 目錄，不影響項目文件
+- `www-data` 用戶仍可正常訪問項目文件
+- 解決 Git 操作權限問題
+
+### 方案 2: 添加組權限
+
+將 `ubuntu` 用戶添加到 `www-data` 組，並給 `.git` 目錄添加組寫權限：
+
+```bash
+# 將 ubuntu 添加到 www-data 組
+sudo usermod -a -G www-data ubuntu
+
+# 給 .git 目錄添加組寫權限
+sudo chmod -R g+w /var/www/Climbing_score_counter/.git
+
+# 重新登錄以使組變更生效
+exit
+# 重新 SSH 登錄
+```
+
+### 方案 3: 使用 sudo 執行 Git 命令（臨時方案）
+
+如果只是臨時需要，可以使用 `sudo`：
+
+```bash
+sudo -u ubuntu git fetch origin
+```
+
+**注意**: 不推薦長期使用此方案。
+
 ## 驗證修復
 
 執行以下命令驗證問題是否已解決：
