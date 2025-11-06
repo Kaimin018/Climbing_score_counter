@@ -10,12 +10,12 @@ bash setup_ec2.sh
 ### 2. 上傳項目文件
 ```bash
 # 使用 scp 或 git clone
-scp -r -i your-key.pem * ubuntu@your-ec2-ip:/var/www/climbing_score_counting_system/
+scp -r -i your-key.pem * ubuntu@your-ec2-ip:/var/www/Climbing_score_counter/
 ```
 
 ### 3. 設置虛擬環境和依賴
 ```bash
-cd /var/www/climbing_score_counting_system
+cd /var/www/Climbing_score_counter
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -60,10 +60,10 @@ sudo systemctl restart nginx
 
 ### 8. 設置權限
 ```bash
-sudo chown -R www-data:www-data /var/www/climbing_score_counting_system
-sudo chmod -R 755 /var/www/climbing_score_counting_system
-sudo chmod -R 775 /var/www/climbing_score_counting_system/media
-sudo chmod -R 775 /var/www/climbing_score_counting_system/logs
+sudo chown -R www-data:www-data /var/www/Climbing_score_counter
+sudo chmod -R 755 /var/www/Climbing_score_counter
+sudo chmod -R 775 /var/www/Climbing_score_counter/media
+sudo chmod -R 775 /var/www/Climbing_score_counter/logs
 ```
 
 ## 常用命令
@@ -85,11 +85,11 @@ sudo nginx -t  # 測試配置
 ### 查看日誌
 ```bash
 # Gunicorn
-tail -f /var/www/climbing_score_counting_system/logs/gunicorn_error.log
-tail -f /var/www/climbing_score_counting_system/logs/gunicorn_access.log
+tail -f /var/www/Climbing_score_counter/logs/gunicorn_error.log
+tail -f /var/www/Climbing_score_counter/logs/gunicorn_access.log
 
 # Django
-tail -f /var/www/climbing_score_counting_system/logs/django.log
+tail -f /var/www/Climbing_score_counter/logs/django.log
 
 # Nginx
 sudo tail -f /var/log/nginx/climbing_system_error.log
@@ -101,7 +101,7 @@ sudo journalctl -u climbing_system -f
 
 ### 更新代碼
 ```bash
-cd /var/www/climbing_score_counting_system
+cd /var/www/Climbing_score_counter
 source venv/bin/activate
 # 拉取最新代碼或上傳新文件
 bash deploy.sh
@@ -121,10 +121,10 @@ CORS_ALLOWED_ORIGINS=https://your-domain.com
 
 ## 文件路徑
 
-- 項目目錄：`/var/www/climbing_score_counting_system`
-- 靜態文件：`/var/www/climbing_score_counting_system/staticfiles/`
-- 媒體文件：`/var/www/climbing_score_counting_system/media/`
-- 日誌目錄：`/var/www/climbing_score_counting_system/logs/`
+- 項目目錄：`/var/www/Climbing_score_counter`
+- 靜態文件：`/var/www/Climbing_score_counter/staticfiles/`
+- 媒體文件：`/var/www/Climbing_score_counter/media/`
+- 日誌目錄：`/var/www/Climbing_score_counter/logs/`
 - Nginx 配置：`/etc/nginx/sites-available/climbing_system.conf`
 - Systemd 服務：`/etc/systemd/system/climbing_system.service`
 
@@ -139,7 +139,7 @@ sudo systemctl status climbing_system
 sudo netstat -tlnp | grep 8000
 
 # 查看錯誤日誌
-tail -f /var/www/climbing_score_counting_system/logs/gunicorn_error.log
+tail -f /var/www/Climbing_score_counter/logs/gunicorn_error.log
 ```
 
 ### 靜態文件無法加載
@@ -148,14 +148,14 @@ tail -f /var/www/climbing_score_counting_system/logs/gunicorn_error.log
 python manage.py collectstatic --noinput
 
 # 檢查權限
-ls -la /var/www/climbing_score_counting_system/staticfiles/
+ls -la /var/www/Climbing_score_counter/staticfiles/
 ```
 
 ### 媒體文件無法上傳
 ```bash
 # 檢查權限
-sudo chmod -R 775 /var/www/climbing_score_counting_system/media
-sudo chown -R www-data:www-data /var/www/climbing_score_counting_system/media
+sudo chmod -R 775 /var/www/Climbing_score_counter/media
+sudo chown -R www-data:www-data /var/www/Climbing_score_counter/media
 ```
 
 ## 安全檢查清單

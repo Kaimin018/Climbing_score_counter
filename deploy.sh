@@ -7,7 +7,7 @@ set -e  # 遇到錯誤立即退出
 echo "開始部署攀岩計分系統..."
 
 # 項目目錄
-PROJECT_DIR="/var/www/climbing_score_counting_system"
+PROJECT_DIR="/var/www/Climbing_score_counter"
 VENV_DIR="$PROJECT_DIR/venv"
 
 # 進入項目目錄

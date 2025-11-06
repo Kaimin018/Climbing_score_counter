@@ -37,10 +37,10 @@ daemon = False
 # group = "www-data"
 
 # 工作目錄
-chdir = "/var/www/climbing_score_counting_system"
+chdir = "/var/www/Climbing_score_counter"
 
 # Python 路徑
-pythonpath = "/var/www/climbing_score_counting_system"
+pythonpath = "/var/www/Climbing_score_counter"
 
 # 預加載應用（提高性能，但可能導致內存使用增加）
 preload_app = True

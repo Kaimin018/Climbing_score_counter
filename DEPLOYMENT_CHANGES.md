@@ -87,7 +87,7 @@ CORS_ALLOWED_ORIGINS=https://your-domain.com
 ## 部署步驟摘要
 
 1. 在 EC2 上運行 `setup_ec2.sh` 進行初始設置
-2. 上傳項目文件到 `/var/www/climbing_score_counting_system`
+2. 上傳項目文件到 `/var/www/Climbing_score_counter`
 3. 創建虛擬環境並安裝依賴
 4. 配置環境變數
 5. 運行數據庫遷移
@@ -126,9 +126,9 @@ sudo systemctl status nginx
 
 ## 日誌位置
 
-- Gunicorn 訪問日誌：`/var/www/climbing_score_counting_system/logs/gunicorn_access.log`
-- Gunicorn 錯誤日誌：`/var/www/climbing_score_counting_system/logs/gunicorn_error.log`
-- Django 日誌：`/var/www/climbing_score_counting_system/logs/django.log`
+- Gunicorn 訪問日誌：`/var/www/Climbing_score_counter/logs/gunicorn_access.log`
+- Gunicorn 錯誤日誌：`/var/www/Climbing_score_counter/logs/gunicorn_error.log`
+- Django 日誌：`/var/www/Climbing_score_counter/logs/django.log`
 - Nginx 訪問日誌：`/var/log/nginx/climbing_system_access.log`
 - Nginx 錯誤日誌：`/var/log/nginx/climbing_system_error.log`
 - Systemd 日誌：`sudo journalctl -u climbing_system -f`

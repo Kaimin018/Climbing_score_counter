@@ -61,11 +61,11 @@ sudo apt install -y git curl
 
 ```bash
 # 創建項目目錄
-sudo mkdir -p /var/www/climbing_score_counting_system
-sudo chown -R $USER:$USER /var/www/climbing_score_counting_system
+sudo mkdir -p /var/www/Climbing_score_counter
+sudo chown -R $USER:$USER /var/www/Climbing_score_counter
 
 # 進入目錄
-cd /var/www/climbing_score_counting_system
+cd /var/www/Climbing_score_counter
 ```
 
 ## 步驟 4: 上傳項目文件
@@ -78,7 +78,7 @@ git clone https://github.com/your-username/climbing_score_counting_system.git .
 
 # 或使用 scp 上傳文件
 # 在本地執行：
-# scp -r -i your-key.pem /path/to/project/* ubuntu@your-ec2-ip:/var/www/climbing_score_counting_system/
+# scp -r -i your-key.pem /path/to/project/* ubuntu@your-ec2-ip:/var/www/Climbing_score_counter/
 ```
 
 ### 方法 2: 使用 SCP
@@ -94,13 +94,13 @@ scp -r -i your-key.pem \
     manage.py \
     requirements.txt \
     gunicorn_config.py \
-    ubuntu@your-ec2-ip:/var/www/climbing_score_counting_system/
+    ubuntu@your-ec2-ip:/var/www/Climbing_score_counter/
 ```
 
 ## 步驟 5: 設置 Python 虛擬環境
 
 ```bash
-cd /var/www/climbing_score_counting_system
+cd /var/www/Climbing_score_counter
 
 # 創建虛擬環境
 python3 -m venv venv
@@ -123,7 +123,7 @@ python manage.py shell -c "from django.core.management.utils import get_random_s
 
 ### 6.2 創建環境變數文件（可選）
 
-創建 `/var/www/climbing_score_counting_system/.env`：
+創建 `/var/www/Climbing_score_counter/.env`：
 
 ```bash
 SECRET_KEY=your-generated-secret-key-here
@@ -201,7 +201,7 @@ sudo nano /etc/systemd/system/climbing_system.service
 
 確保以下設置正確：
 
-- `WorkingDirectory`: `/var/www/climbing_score_counting_system`
+- `WorkingDirectory`: `/var/www/Climbing_score_counter`
 - `User` 和 `Group`: `www-data`（或您的用戶）
 - `Environment`: 設置所有必要的環境變數
 - `ExecStart`: Gunicorn 命令路徑正確
@@ -229,7 +229,7 @@ sudo systemctl status climbing_system
 sudo journalctl -u climbing_system -f
 
 # 查看應用日誌
-tail -f /var/www/climbing_score_counting_system/logs/gunicorn_error.log
+tail -f /var/www/Climbing_score_counter/logs/gunicorn_error.log
 ```
 
 ## 步驟 11: 配置 Nginx
@@ -278,20 +278,20 @@ sudo systemctl status nginx
 
 ```bash
 # 設置項目目錄權限
-sudo chown -R www-data:www-data /var/www/climbing_score_counting_system
-sudo chmod -R 755 /var/www/climbing_score_counting_system
+sudo chown -R www-data:www-data /var/www/Climbing_score_counter
+sudo chmod -R 755 /var/www/Climbing_score_counter
 
 # 設置媒體和日誌目錄權限（需要寫入權限）
-sudo chmod -R 775 /var/www/climbing_score_counting_system/media
-sudo chmod -R 775 /var/www/climbing_score_counting_system/logs
-sudo chmod -R 775 /var/www/climbing_score_counting_system/staticfiles
+sudo chmod -R 775 /var/www/Climbing_score_counter/media
+sudo chmod -R 775 /var/www/Climbing_score_counter/logs
+sudo chmod -R 775 /var/www/Climbing_score_counter/staticfiles
 ```
 
 ## 步驟 13: 創建日誌目錄
 
 ```bash
-mkdir -p /var/www/climbing_score_counting_system/logs
-sudo chown -R www-data:www-data /var/www/climbing_score_counting_system/logs
+mkdir -p /var/www/Climbing_score_counter/logs
+sudo chown -R www-data:www-data /var/www/Climbing_score_counter/logs
 ```
 
 ## 步驟 14: 測試部署
@@ -320,7 +320,7 @@ sudo certbot renew --dry-run
 ### 更新代碼
 
 ```bash
-cd /var/www/climbing_score_counting_system
+cd /var/www/Climbing_score_counter
 source venv/bin/activate
 
 # 拉取最新代碼（如果使用 Git）
@@ -334,11 +334,11 @@ bash deploy.sh
 
 ```bash
 # Gunicorn 日誌
-tail -f /var/www/climbing_score_counting_system/logs/gunicorn_error.log
-tail -f /var/www/climbing_score_counting_system/logs/gunicorn_access.log
+tail -f /var/www/Climbing_score_counter/logs/gunicorn_error.log
+tail -f /var/www/Climbing_score_counter/logs/gunicorn_access.log
 
 # Django 日誌
-tail -f /var/www/climbing_score_counting_system/logs/django.log
+tail -f /var/www/Climbing_score_counter/logs/django.log
 
 # Nginx 日誌
 sudo tail -f /var/log/nginx/climbing_system_error.log
@@ -365,12 +365,12 @@ sudo systemctl reload nginx
 
 ```bash
 # 備份 SQLite 數據庫
-cp /var/www/climbing_score_counting_system/db.sqlite3 \
-   /var/www/climbing_score_counting_system/backups/db_$(date +%Y%m%d_%H%M%S).sqlite3
+cp /var/www/Climbing_score_counter/db.sqlite3 \
+   /var/www/Climbing_score_counter/backups/db_$(date +%Y%m%d_%H%M%S).sqlite3
 
 # 備份媒體文件
-tar -czf /var/www/climbing_score_counting_system/backups/media_$(date +%Y%m%d_%H%M%S).tar.gz \
-    /var/www/climbing_score_counting_system/media/
+tar -czf /var/www/Climbing_score_counter/backups/media_$(date +%Y%m%d_%H%M%S).tar.gz \
+    /var/www/Climbing_score_counter/media/
 ```
 
 ## 故障排除
@@ -396,8 +396,8 @@ tar -czf /var/www/climbing_score_counting_system/backups/media_$(date +%Y%m%d_%H
 
 ### 媒體文件無法上傳
 
-1. 檢查 `media` 目錄權限：`ls -la /var/www/climbing_score_counting_system/media`
-2. 確認目錄有寫入權限：`sudo chmod -R 775 /var/www/climbing_score_counting_system/media`
+1. 檢查 `media` 目錄權限：`ls -la /var/www/Climbing_score_counter/media`
+2. 確認目錄有寫入權限：`sudo chmod -R 775 /var/www/Climbing_score_counter/media`
 3. 檢查磁盤空間：`df -h`
 
 ## 安全建議
