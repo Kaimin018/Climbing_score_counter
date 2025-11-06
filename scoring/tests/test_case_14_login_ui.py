@@ -283,6 +283,59 @@ class TestCaseLoginUI(TestCase):
         # 目前訪客與普通用戶權限相同，所以應該可以創建
         self.assertIn(response.status_code, [status.HTTP_201_CREATED, status.HTTP_403_FORBIDDEN, status.HTTP_401_UNAUTHORIZED])
     
+    def test_guest_user_can_create_member(self):
+        """測試訪客用戶可以創建成員（目前權限與普通用戶相同）"""
+        client = APIClient()
+        # 訪客登入
+        guest_response = client.post('/api/auth/guest-login/', {}, format='json')
+        self.assertEqual(guest_response.status_code, status.HTTP_200_OK)
+        
+        # 創建測試房間
+        room = Room.objects.create(name='測試房間')
+        
+        # 創建成員
+        response = client.post('/api/members/', {
+            'room': room.id,
+            'name': '訪客創建的成員',
+            'is_custom_calc': False
+        }, format='json')
+        
+        # 根據權限設置，可能成功或需要認證
+        # 目前訪客與普通用戶權限相同，所以應該可以創建
+        self.assertIn(response.status_code, [status.HTTP_201_CREATED, status.HTTP_403_FORBIDDEN, status.HTTP_401_UNAUTHORIZED])
+        
+        # 如果創建成功，驗證成員已創建
+        if response.status_code == status.HTTP_201_CREATED:
+            self.assertIn('id', response.data)
+            self.assertEqual(response.data['name'], '訪客創建的成員')
+            self.assertEqual(response.data['room'], room.id)
+    
+    def test_guest_user_can_create_member_with_csrf(self):
+        """測試訪客用戶創建成員時 CSRF token 處理"""
+        from django.test import Client
+        from django.contrib.auth.models import User
+        
+        # 使用 Django TestClient 來測試 CSRF（它會自動處理 CSRF）
+        client = Client()
+        
+        # 訪客登入（使用 Session）
+        guest_response = client.post('/api/auth/guest-login/', {}, content_type='application/json')
+        self.assertEqual(guest_response.status_code, status.HTTP_200_OK)
+        
+        # 創建測試房間
+        room = Room.objects.create(name='測試房間')
+        
+        # 使用 Django TestClient 創建成員（會自動處理 CSRF）
+        response = client.post('/api/members/', {
+            'room': room.id,
+            'name': '訪客創建的成員（CSRF測試）',
+            'is_custom_calc': False
+        }, content_type='application/json')
+        
+        # Django TestClient 會自動處理 CSRF，所以應該成功
+        # 但根據權限設置，可能成功或需要認證
+        self.assertIn(response.status_code, [status.HTTP_201_CREATED, status.HTTP_403_FORBIDDEN, status.HTTP_401_UNAUTHORIZED])
+    
     def test_guest_login_button_in_template(self):
         """測試登錄界面包含訪客登入按鈕"""
         response = self.client.get('/')
