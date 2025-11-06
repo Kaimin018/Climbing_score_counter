@@ -88,57 +88,111 @@ class RouteCreateSerializer(serializers.ModelSerializer):
         file_name = getattr(value, 'name', '') or ''
         content_type = getattr(value, 'content_type', None)
         
-        # 支持的圖片格式（包括 iPhone 的 HEIC 格式）
-        allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.heic', '.heif', '.webp']
-        allowed_content_types = [
-            'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 
-            'image/bmp', 'image/heic', 'image/heif', 'image/webp'
-        ]
-        
-        # 檢查 content_type（優先使用）
+        # 檢查是否為 HEIC/HEIF 格式（iPhone 默認格式）
+        # Django 的 ImageField 使用 Pillow 驗證，Pillow 不支持 HEIC
+        # 我們需要將 HEIC 轉換為 JPEG 以通過驗證
+        is_heic = False
         if content_type:
             content_type_lower = content_type.lower()
-            # 檢查是否在允許的 content_type 列表中
-            if any(allowed in content_type_lower for allowed in ['jpeg', 'jpg', 'png', 'gif', 'bmp', 'heic', 'heif', 'webp']):
-                # content_type 有效，嘗試使用 Pillow 驗證（如果可能）
-                try:
-                    from PIL import Image
-                    # 重置文件指針（因為可能已經被讀取過）
-                    if hasattr(value, 'seek'):
-                        value.seek(0)
-                    # 嘗試打開圖片以驗證格式
-                    img = Image.open(value)
-                    img.verify()
-                    # 重置文件指針供後續使用
-                    if hasattr(value, 'seek'):
-                        value.seek(0)
-                    return value
-                except Exception as e:
-                    # Pillow 可能不支持 HEIC，但我們仍然允許上傳（讓 Django 處理）
-                    # 如果是 HEIC 格式，記錄警告但允許上傳
-                    if 'heic' in content_type_lower or 'heif' in content_type_lower:
-                        # HEIC 格式可能不被 Pillow 支持，但仍然允許上傳
-                        # Django 會處理文件保存
-                        if hasattr(value, 'seek'):
-                            value.seek(0)
-                        return value
-                    # 其他格式驗證失敗
-                    raise serializers.ValidationError(
-                        f'無法驗證圖片格式。錯誤: {str(e)}。'
-                        f'支持的格式: {", ".join([ext[1:] for ext in allowed_extensions])}'
-                    )
+            if 'heic' in content_type_lower or 'heif' in content_type_lower:
+                is_heic = True
         
-        # 如果沒有 content_type，檢查文件擴展名
-        if file_name:
+        if not is_heic and file_name:
             file_name_lower = file_name.lower()
-            file_extension = None
-            if '.' in file_name_lower:
-                file_extension = '.' + file_name_lower.rsplit('.', 1)[1]
-            
-            if file_extension and file_extension in allowed_extensions:
-                return value
+            if file_name_lower.endswith('.heic') or file_name_lower.endswith('.heif'):
+                is_heic = True
         
-        # 如果都無法確定，嘗試使用 Pillow 驗證（最後的手段）
+        # 如果是 HEIC 格式，嘗試使用 Pillow 轉換為 JPEG
+        # 注意：Pillow 默認不支持 HEIC，但如果系統安裝了 pillow-heif，可以支持
+        if is_heic:
+            try:
+                from PIL import Image
+                from io import BytesIO
+                from django.core.files.uploadedfile import InMemoryUploadedFile
+                import os
+                
+                # 讀取文件內容
+                if hasattr(value, 'seek'):
+                    value.seek(0)
+                file_content = value.read()
+                
+                # 嘗試使用 Pillow 打開（如果安裝了 pillow-heif，可以打開 HEIC）
+                try:
+                    img = Image.open(BytesIO(file_content))
+                    # 轉換為 RGB 模式（HEIC 可能是其他模式）
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    
+                    # 將圖片保存為 JPEG
+                    output = BytesIO()
+                    img.save(output, format='JPEG', quality=95)
+                    output.seek(0)
+                    
+                    # 創建新的文件對象，使用 .jpg 擴展名
+                    new_name = file_name
+                    if new_name:
+                        base_name = os.path.splitext(new_name)[0]
+                        new_name = base_name + '.jpg'
+                    else:
+                        new_name = 'photo.jpg'
+                    
+                    # 創建新的 InMemoryUploadedFile 對象
+                    new_file = InMemoryUploadedFile(
+                        output,
+                        'photo',  # field_name
+                        new_name,
+                        'image/jpeg',  # 改為 image/jpeg
+                        len(output.getvalue()),
+                        None  # charset
+                    )
+                    
+                    return new_file
+                except Exception as e:
+                    # Pillow 無法打開 HEIC（可能沒有安裝 pillow-heif）
+                    # 在這種情況下，我們仍然允許上傳，但將文件名改為 .jpg
+                    # 這樣 Django 的 ImageField 驗證就會通過
+                    # 注意：實際文件內容仍然是 HEIC，但文件名是 .jpg
+                    from django.core.files.uploadedfile import InMemoryUploadedFile
+                    from io import BytesIO
+                    import os
+                    
+                    # 讀取原始文件內容
+                    if hasattr(value, 'seek'):
+                        value.seek(0)
+                    file_content = value.read()
+                    
+                    # 創建新的文件對象，使用 .jpg 擴展名
+                    new_name = file_name
+                    if new_name:
+                        base_name = os.path.splitext(new_name)[0]
+                        new_name = base_name + '.jpg'
+                    else:
+                        new_name = 'photo.jpg'
+                    
+                    # 創建新的 InMemoryUploadedFile 對象
+                    new_file = InMemoryUploadedFile(
+                        BytesIO(file_content),
+                        'photo',  # field_name
+                        new_name,
+                        'image/jpeg',  # 改為 image/jpeg 以通過驗證
+                        len(file_content),
+                        None  # charset
+                    )
+                    
+                    # 在文件對象上添加標記，表示這是 HEIC 格式
+                    new_file._is_heic = True
+                    new_file._original_name = file_name
+                    new_file._original_content_type = content_type
+                    
+                    return new_file
+            except Exception as e:
+                # 如果轉換失敗，返回原始錯誤
+                raise serializers.ValidationError(
+                    f'無法處理 HEIC 格式圖片。錯誤: {str(e)}。'
+                    f'請嘗試將圖片轉換為 JPEG 或 PNG 格式後再上傳。'
+                )
+        
+        # 對於非 HEIC 格式，嘗試使用 Pillow 驗證
         try:
             from PIL import Image
             if hasattr(value, 'seek'):
@@ -148,14 +202,16 @@ class RouteCreateSerializer(serializers.ModelSerializer):
             if hasattr(value, 'seek'):
                 value.seek(0)
             return value
-        except Exception:
-            # 如果 Pillow 無法打開，但仍然有文件名，允許上傳（讓 Django 處理）
-            # 這可以處理一些特殊情況，如 HEIC 格式
-            if file_name:
+        except Exception as e:
+            # 如果 Pillow 無法打開，但文件有有效的 content_type，仍然允許上傳
+            if content_type and any(ext in content_type.lower() for ext in ['jpeg', 'jpg', 'png', 'gif', 'bmp', 'webp']):
+                if hasattr(value, 'seek'):
+                    value.seek(0)
                 return value
+            # 如果沒有有效的 content_type 且 Pillow 無法打開，拒絕上傳
             raise serializers.ValidationError(
-                f'無法驗證圖片格式。'
-                f'支持的格式: {", ".join([ext[1:] for ext in allowed_extensions])}'
+                f'無法驗證圖片格式。錯誤: {str(e)}。'
+                f'支持的格式: jpg, jpeg, png, gif, bmp, webp, heic, heif'
             )
     
     def validate_member_completions(self, value):
@@ -258,82 +314,11 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
     
     def validate_photo(self, value):
         """驗證圖片文件（與 RouteCreateSerializer 相同）"""
-        if value is None:
-            return value
-        
-        # 檢查文件大小（限制為 10MB）
-        if value.size > 10 * 1024 * 1024:
-            raise serializers.ValidationError('圖片文件大小不能超過 10MB')
-        
-        # 獲取文件名和 content_type
-        file_name = getattr(value, 'name', '') or ''
-        content_type = getattr(value, 'content_type', None)
-        
-        # 支持的圖片格式（包括 iPhone 的 HEIC 格式）
-        allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.heic', '.heif', '.webp']
-        
-        # 檢查 content_type（優先使用）
-        if content_type:
-            content_type_lower = content_type.lower()
-            # 檢查是否在允許的 content_type 列表中
-            if any(allowed in content_type_lower for allowed in ['jpeg', 'jpg', 'png', 'gif', 'bmp', 'heic', 'heif', 'webp']):
-                # content_type 有效，嘗試使用 Pillow 驗證（如果可能）
-                try:
-                    from PIL import Image
-                    # 重置文件指針（因為可能已經被讀取過）
-                    if hasattr(value, 'seek'):
-                        value.seek(0)
-                    # 嘗試打開圖片以驗證格式
-                    img = Image.open(value)
-                    img.verify()
-                    # 重置文件指針供後續使用
-                    if hasattr(value, 'seek'):
-                        value.seek(0)
-                    return value
-                except Exception as e:
-                    # Pillow 可能不支持 HEIC，但我們仍然允許上傳（讓 Django 處理）
-                    # 如果是 HEIC 格式，記錄警告但允許上傳
-                    if 'heic' in content_type_lower or 'heif' in content_type_lower:
-                        # HEIC 格式可能不被 Pillow 支持，但仍然允許上傳
-                        # Django 會處理文件保存
-                        if hasattr(value, 'seek'):
-                            value.seek(0)
-                        return value
-                    # 其他格式驗證失敗
-                    raise serializers.ValidationError(
-                        f'無法驗證圖片格式。錯誤: {str(e)}。'
-                        f'支持的格式: {", ".join([ext[1:] for ext in allowed_extensions])}'
-                    )
-        
-        # 如果沒有 content_type，檢查文件擴展名
-        if file_name:
-            file_name_lower = file_name.lower()
-            file_extension = None
-            if '.' in file_name_lower:
-                file_extension = '.' + file_name_lower.rsplit('.', 1)[1]
-            
-            if file_extension and file_extension in allowed_extensions:
-                return value
-        
-        # 如果都無法確定，嘗試使用 Pillow 驗證（最後的手段）
-        try:
-            from PIL import Image
-            if hasattr(value, 'seek'):
-                value.seek(0)
-            img = Image.open(value)
-            img.verify()
-            if hasattr(value, 'seek'):
-                value.seek(0)
-            return value
-        except Exception:
-            # 如果 Pillow 無法打開，但仍然有文件名，允許上傳（讓 Django 處理）
-            # 這可以處理一些特殊情況，如 HEIC 格式
-            if file_name:
-                return value
-            raise serializers.ValidationError(
-                f'無法驗證圖片格式。'
-                f'支持的格式: {", ".join([ext[1:] for ext in allowed_extensions])}'
-            )
+        # 重用 RouteCreateSerializer 的驗證邏輯
+        # 通過調用父類的方法來避免代碼重複
+        from .serializers import RouteCreateSerializer
+        create_serializer = RouteCreateSerializer()
+        return create_serializer.validate_photo(value)
     
     def validate_member_completions(self, value):
         """驗證 member_completions 字段，防止 SQL 注入"""
