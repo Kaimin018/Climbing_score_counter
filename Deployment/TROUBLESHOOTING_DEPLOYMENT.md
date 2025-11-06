@@ -190,7 +190,103 @@ chmod +x deploy.sh
 sudo chown -R www-data:www-data /var/www/Climbing_score_counter
 ```
 
-#### 問題 6: 代碼已更新但服務未重啟
+#### 問題 6: 502 Bad Gateway 錯誤
+
+**症狀**: 訪問網站時顯示 "502 Bad Gateway" 錯誤
+
+**原因**: Nginx 無法連接到 Gunicorn 服務，可能的原因：
+- Gunicorn 服務未運行或崩潰
+- Gunicorn 配置文件路徑錯誤
+- 端口衝突或綁定地址錯誤
+- 權限問題
+
+**診斷步驟**:
+```bash
+# 1. 檢查 Gunicorn 服務狀態
+sudo systemctl status climbing_system
+
+# 2. 查看 Gunicorn 服務日誌
+sudo journalctl -u climbing_system -n 50 --no-pager
+
+# 3. 檢查 Gunicorn 是否在監聽 8000 端口
+sudo netstat -tlnp | grep 8000
+# 或使用
+sudo ss -tlnp | grep 8000
+
+# 4. 檢查 Gunicorn 配置文件是否存在
+ls -la /var/www/Climbing_score_counter/Deployment/gunicorn_config.py
+
+# 5. 檢查 Nginx 錯誤日誌
+sudo tail -n 50 /var/log/nginx/climbing_system_error.log
+
+# 6. 測試 Gunicorn 是否正常運行
+cd /var/www/Climbing_score_counter
+source venv/bin/activate
+gunicorn --config Deployment/gunicorn_config.py climbing_system.wsgi:application
+# 如果成功，按 Ctrl+C 停止，然後檢查 systemd 配置
+```
+
+**解決方案**:
+
+1. **檢查 Gunicorn 配置文件路徑**:
+```bash
+# 確認 systemd 服務文件中的路徑正確
+sudo cat /etc/systemd/system/climbing_system.service | grep gunicorn_config
+
+# 應該顯示：
+# --config /var/www/Climbing_score_counter/Deployment/gunicorn_config.py
+
+# 如果路徑錯誤，修復它：
+sudo nano /etc/systemd/system/climbing_system.service
+# 將路徑改為：/var/www/Climbing_score_counter/Deployment/gunicorn_config.py
+sudo systemctl daemon-reload
+sudo systemctl restart climbing_system
+```
+
+2. **檢查 Gunicorn 是否正常啟動**:
+```bash
+# 查看詳細日誌
+sudo journalctl -u climbing_system -f
+
+# 如果看到配置文件找不到的錯誤，確認文件存在：
+ls -la /var/www/Climbing_score_counter/Deployment/gunicorn_config.py
+
+# 如果文件不存在，從 Git 倉庫拉取：
+cd /var/www/Climbing_score_counter
+git pull origin main
+```
+
+3. **手動測試 Gunicorn**:
+```bash
+cd /var/www/Climbing_score_counter
+source venv/bin/activate
+export SECRET_KEY="your-secret-key"
+export DEBUG="False"
+export ALLOWED_HOSTS="countclimbingscore.online,www.countclimbingscore.online,3.26.6.19,127.0.0.1,localhost"
+gunicorn --config Deployment/gunicorn_config.py climbing_system.wsgi:application
+# 如果成功啟動，說明配置正確，問題可能在 systemd 服務配置
+```
+
+4. **檢查端口和進程**:
+```bash
+# 檢查是否有其他進程佔用 8000 端口
+sudo lsof -i :8000
+
+# 檢查 Gunicorn 進程
+ps aux | grep gunicorn
+
+# 如果沒有運行，重啟服務
+sudo systemctl restart climbing_system
+```
+
+5. **檢查權限**:
+```bash
+# 確保 www-data 用戶可以訪問配置文件
+sudo ls -la /var/www/Climbing_score_counter/Deployment/gunicorn_config.py
+sudo chown www-data:www-data /var/www/Climbing_score_counter/Deployment/gunicorn_config.py
+```
+
+#### 問題 7: 代碼已更新但服務未重啟
 
 **症狀**: 代碼已拉取但網站未反映變化
 
