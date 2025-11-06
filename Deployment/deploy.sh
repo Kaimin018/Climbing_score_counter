@@ -154,7 +154,22 @@ if [ -d ".git" ]; then
     fi
     
     git fetch origin
-    git reset --hard origin/main || git reset --hard origin/master
+    
+    # 處理本地數據庫文件的衝突（如果存在）
+    if git diff --quiet db.sqlite3 2>/dev/null; then
+        # 沒有本地更改，直接重置
+        git reset --hard origin/main || git reset --hard origin/master
+    else
+        # 有本地更改，先備份數據庫（如果存在）
+        if [ -f "db.sqlite3" ]; then
+            echo "備份本地數據庫文件..."
+            cp db.sqlite3 db.sqlite3.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
+        fi
+        # 強制重置，忽略本地更改
+        git checkout -- db.sqlite3 2>/dev/null || true
+        git reset --hard origin/main || git reset --hard origin/master
+    fi
+    
     echo "代碼更新完成"
     
     # Git pull 後重新應用配置（因為模板文件可能被更新）

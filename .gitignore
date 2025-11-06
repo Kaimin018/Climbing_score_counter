@@ -23,8 +23,10 @@ wheels/
 # Django
 *.log
 local_settings.py
-# db.sqlite3  # 保留 SQLite 數據庫用於測試（如果需要）
+db.sqlite3  # 數據庫文件不應提交到版本控制
 db.sqlite3-journal
+*.sqlite3
+*.sqlite
 /media
 /staticfiles
 
