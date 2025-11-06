@@ -44,7 +44,32 @@ git push origin main
 # 在 GitHub 上查看 Actions 標籤是否有錯誤提示
 ```
 
-#### 問題 2: Secrets 未配置或配置錯誤
+#### 問題 2: Git 安全目錄錯誤
+
+**症狀**: 執行 `git fetch` 或 `git pull` 時出現以下錯誤：
+```
+fatal: detected dubious ownership in repository at '/var/www/Climbing_score_counter'
+To add an exception for this directory, call:
+        git config --global --add safe.directory /var/www/Climbing_score_counter
+```
+
+**原因**: Git 檢測到倉庫的所有者與當前用戶不匹配（例如：目錄屬於 `www-data`，但以 `ubuntu` 用戶運行）
+
+**解決方案**:
+```bash
+# 方法 1: 添加安全目錄例外（推薦）
+git config --global --add safe.directory /var/www/Climbing_score_counter
+
+# 方法 2: 修改目錄所有者（如果需要）
+sudo chown -R ubuntu:ubuntu /var/www/Climbing_score_counter
+
+# 方法 3: 使用部署腳本（會自動處理）
+bash Deployment/deploy.sh
+```
+
+**注意**: `deploy.sh` 腳本會自動檢測並配置 Git 安全目錄，無需手動處理。
+
+#### 問題 3: Secrets 未配置或配置錯誤
 
 **症狀**: 日誌顯示 "⚠️ 跳過部署：未配置 EC2 secrets"
 

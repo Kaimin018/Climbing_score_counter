@@ -124,11 +124,14 @@ git clone https://github.com/your-username/repository-name.git .
 ```bash
 cd /var/www/Climbing_score_counter
 
+# 如果遇到 "dubious ownership" 錯誤，先配置 Git 安全目錄
+git config --global --add safe.directory /var/www/Climbing_score_counter
+
 # 拉取最新代碼
 git fetch origin
 git reset --hard origin/main  # 或 origin/master，取決於您的默認分支
 
-# 或使用部署腳本（推薦）
+# 或使用部署腳本（推薦，會自動處理 Git 安全目錄問題）
 bash Deployment/deploy.sh
 ```
 

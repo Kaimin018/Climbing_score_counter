@@ -101,6 +101,13 @@ apply_server_config
 # 如果使用 Git，拉取最新代碼
 if [ -d ".git" ]; then
     echo "拉取最新代碼..."
+    
+    # 解決 Git 安全目錄問題（如果項目目錄所有者與當前用戶不匹配）
+    if ! git config --global --get safe.directory | grep -q "$PROJECT_DIR"; then
+        echo "配置 Git 安全目錄..."
+        git config --global --add safe.directory "$PROJECT_DIR"
+    fi
+    
     git fetch origin
     git reset --hard origin/main || git reset --hard origin/master
     echo "代碼更新完成"
