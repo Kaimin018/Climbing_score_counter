@@ -165,9 +165,18 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                     new_name = file_name
                     if new_name:
                         base_name = os.path.splitext(new_name)[0]
+                        if not base_name:
+                            base_name = 'photo'
                         new_name = base_name + '.jpg'
                     else:
                         new_name = 'photo.jpg'
+                    
+                    # 確保文件名以 .jpg 結尾
+                    if not new_name.lower().endswith(('.jpg', '.jpeg')):
+                        base_name = os.path.splitext(new_name)[0]
+                        if not base_name:
+                            base_name = 'photo'
+                        new_name = base_name + '.jpg'
                     
                     # 創建新的 InMemoryUploadedFile 對象
                     new_file = InMemoryUploadedFile(
@@ -226,8 +235,11 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                     file_content = value.read()
                     
                     new_name = file_name if file_name else 'photo'
-                    if not new_name.endswith(ext):
-                        new_name = new_name + ext
+                    # 確保文件名以正確的擴展名結尾
+                    base_name = os.path.splitext(new_name)[0]
+                    if not base_name:
+                        base_name = 'photo'
+                    new_name = base_name + ext
                     
                     new_file = InMemoryUploadedFile(
                         BytesIO(file_content),
@@ -268,8 +280,11 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                     file_content = value.read()
                     
                     new_name = file_name if file_name else 'photo'
-                    if not new_name.endswith(ext):
-                        new_name = new_name + ext
+                    # 確保文件名以正確的擴展名結尾
+                    base_name = os.path.splitext(new_name)[0]
+                    if not base_name:
+                        base_name = 'photo'
+                    new_name = base_name + ext
                     
                     new_file = InMemoryUploadedFile(
                         BytesIO(file_content),
