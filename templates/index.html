@@ -196,6 +196,29 @@
         });
     }
 
+    // 獲取 CSRF token（如果 cookie 中沒有，嘗試從 meta 標籤或重新獲取）
+    function getCSRFToken() {
+        // 方法 1: 從 cookie 獲取
+        let csrftoken = getCookie('csrftoken');
+        if (csrftoken) {
+            return csrftoken;
+        }
+        
+        // 方法 2: 從 meta 標籤獲取（如果模板中有）
+        const metaToken = document.querySelector('meta[name="csrf-token"]');
+        if (metaToken) {
+            return metaToken.getAttribute('content');
+        }
+        
+        // 方法 3: 從表單隱藏字段獲取（如果模板中有）
+        const formToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (formToken) {
+            return formToken.value;
+        }
+        
+        return null;
+    }
+
     // 訪客登入處理
     function handleGuestLogin() {
         const guestBtn = document.getElementById('guestLoginBtn');
@@ -205,15 +228,24 @@
         }
 
         // 獲取 CSRF token
-        const csrftoken = getCookie('csrftoken');
+        let csrftoken = getCSRFToken();
         if (!csrftoken) {
-            console.error('CSRF token 未找到');
-            alert('無法獲取安全令牌，請刷新頁面後重試');
-            if (guestBtn) {
-                guestBtn.disabled = false;
-                guestBtn.textContent = '👤 訪客登入';
+            console.error('CSRF token 未找到，嘗試刷新頁面...');
+            // 如果沒有 token，可能是頁面剛加載，嘗試刷新一次
+            if (!sessionStorage.getItem('csrf_retry')) {
+                sessionStorage.setItem('csrf_retry', 'true');
+                alert('正在獲取安全令牌，頁面將自動刷新...');
+                window.location.reload();
+                return;
+            } else {
+                sessionStorage.removeItem('csrf_retry');
+                alert('無法獲取安全令牌，請檢查瀏覽器設置或聯繫管理員');
+                if (guestBtn) {
+                    guestBtn.disabled = false;
+                    guestBtn.textContent = '👤 訪客登入';
+                }
+                return;
             }
-            return;
         }
 
         fetch('/api/auth/guest-login/', {

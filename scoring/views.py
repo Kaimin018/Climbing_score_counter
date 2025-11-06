@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticate
 from django.shortcuts import get_object_or_404, render
 from django.utils.html import escape
 from django.conf import settings
+from django.views.decorators.csrf import ensure_csrf_cookie
 from .models import Room, Member, Route, Score, update_scores
 from .serializers import (
     RoomSerializer, MemberSerializer, RouteSerializer,
@@ -305,6 +306,7 @@ class MemberViewSet(viewsets.ModelViewSet):
         })
 
 
+@ensure_csrf_cookie
 def index_view(request):
     """首頁視圖 - 未登錄顯示登錄界面，已登錄顯示房間列表"""
     return render(request, 'index.html', {
@@ -312,11 +314,13 @@ def index_view(request):
     })
 
 
+@ensure_csrf_cookie
 def leaderboard_view(request, room_id):
     """排行榜頁面視圖"""
     return render(request, 'leaderboard.html', {'room_id': room_id})
 
 
+@ensure_csrf_cookie
 def rules_view(request):
     """說明頁面視圖"""
     return render(request, 'rules.html')

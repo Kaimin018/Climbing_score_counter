@@ -6,6 +6,7 @@
     <title>{% block title %}攀岩計分系統{% endblock %}</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% csrf_token %}
 </head>
 <body>
     <nav class="navbar">
