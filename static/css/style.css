@@ -856,6 +856,312 @@ tbody tr:hover {
     }
 }
 
+/* 登入界面樣式（桌面版） */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 200px);
+    padding: 40px 20px;
+}
+
+.login-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    padding: 50px 40px;
+    width: 100%;
+    max-width: 480px;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 35px;
+}
+
+.login-header h1 {
+    color: #2c3e50;
+    font-size: 2.2rem;
+    margin-bottom: 12px;
+    font-weight: 700;
+}
+
+.login-header .subtitle {
+    color: #7f8c8d;
+    font-size: 1.05rem;
+}
+
+.login-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 35px;
+    border-bottom: 2px solid #ecf0f1;
+    background-color: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+    padding: 4px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 14px 24px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: #7f8c8d;
+    font-size: 1.1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+    color: #2c3e50;
+    background-color: rgba(52, 152, 219, 0.1);
+}
+
+.tab-btn.active {
+    color: #3498db;
+    background-color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-container {
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.login-card .form-group input[type="email"],
+.login-card .form-group input[type="password"],
+.login-card .form-group input[type="text"] {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.login-card .form-group input[type="email"]:focus,
+.login-card .form-group input[type="password"]:focus,
+.login-card .form-group input[type="text"]:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+}
+
+/* 登入/註冊按鈕樣式優化（桌面版） */
+.login-card .btn-primary {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    border: none;
+    border-radius: 8px;
+    padding: 18px 36px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: none;
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 10px;
+    color: white;
+}
+
+.login-card .btn-primary:hover {
+    background: linear-gradient(135deg, #2980b9 0%, #21618c 100%);
+    box-shadow: 0 6px 16px rgba(52, 152, 219, 0.4);
+    transform: translateY(-2px);
+}
+
+.login-card .btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+}
+
+.login-card .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.error-message {
+    background-color: #fee;
+    color: #c33;
+    padding: 14px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 2px solid #fcc;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+/* 密碼規則提示 */
+.password-rules {
+    background-color: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+.password-rules-title {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+}
+
+.password-rules-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.password-rules-list li {
+    padding: 6px 0;
+    padding-left: 24px;
+    position: relative;
+    font-size: 0.9rem;
+    color: #555;
+    line-height: 1.5;
+    transition: color 0.3s ease;
+}
+
+.password-rules-list li::before {
+    content: "•";
+    position: absolute;
+    left: 8px;
+    color: #3498db;
+    font-weight: bold;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+}
+
+.password-rules-list li.valid {
+    color: #27ae60;
+}
+
+.password-rules-list li.valid::before {
+    content: "✓";
+    color: #27ae60;
+    font-size: 1rem;
+}
+
+.password-rules-list li.invalid {
+    color: #e74c3c;
+}
+
+.password-rules-list li.invalid::before {
+    content: "✗";
+    color: #e74c3c;
+    font-size: 1rem;
+}
+
+/* 密碼匹配提示 */
+#passwordMatchMessage {
+    font-weight: 500;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background-color: rgba(39, 174, 96, 0.1);
+}
+
+#passwordMatchMessage[style*="color: #e74c3c"] {
+    background-color: rgba(231, 76, 60, 0.1);
+}
+
+/* 訪客登入樣式 */
+.guest-login-section {
+    margin-top: 30px;
+    padding-top: 30px;
+    border-top: 2px solid #ecf0f1;
+}
+
+.guest-divider {
+    text-align: center;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.guest-divider::before,
+.guest-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background-color: #e0e0e0;
+}
+
+.guest-divider::before {
+    left: 0;
+}
+
+.guest-divider::after {
+    right: 0;
+}
+
+.guest-divider span {
+    background-color: white;
+    padding: 0 15px;
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    position: relative;
+    z-index: 1;
+}
+
+.login-card .btn-secondary {
+    background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+    border: none;
+    border-radius: 8px;
+    padding: 18px 36px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: none;
+    box-shadow: 0 4px 12px rgba(149, 165, 166, 0.3);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    width: 100%;
+    color: white;
+}
+
+.login-card .btn-secondary:hover {
+    background: linear-gradient(135deg, #7f8c8d 0%, #6c7a7b 100%);
+    box-shadow: 0 6px 16px rgba(149, 165, 166, 0.4);
+    transform: translateY(-2px);
+}
+
+.login-card .btn-secondary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(149, 165, 166, 0.3);
+}
+
+.login-card .btn-secondary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.guest-note {
+    text-align: center;
+    color: #7f8c8d;
+    font-size: 0.85rem;
+    margin-top: 12px;
+    line-height: 1.5;
+}
+
 @media (max-width: 768px) {
     .container {
         padding: 10px;
@@ -1093,6 +1399,71 @@ tbody tr:hover {
     .form-actions .btn {
         width: 100%;
         padding: 12px;
+    }
+
+    /* 登入界面樣式（移動版） */
+    .login-container {
+        padding: 20px 15px;
+    }
+
+    .login-card {
+        padding: 35px 25px;
+        border-radius: 12px;
+    }
+
+    .login-header h1 {
+        font-size: 1.8rem;
+    }
+
+    .login-tabs {
+        margin-bottom: 25px;
+    }
+
+    .tab-btn {
+        padding: 12px 16px;
+        font-size: 1rem;
+    }
+
+    .login-card .form-group input[type="email"],
+    .login-card .form-group input[type="password"],
+    .login-card .form-group input[type="text"] {
+        padding: 12px 14px;
+        font-size: 16px; /* 防止 iOS 自動縮放 */
+    }
+
+    /* 登入/註冊按鈕樣式（移動版） */
+    .login-card .btn-primary {
+        padding: 16px 28px;
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+    }
+
+    .password-rules {
+        padding: 12px;
+        font-size: 0.85rem;
+    }
+
+    .password-rules-list li {
+        font-size: 0.85rem;
+        padding: 5px 0;
+    }
+
+    /* 訪客登入樣式（移動版） */
+    .guest-login-section {
+        margin-top: 25px;
+        padding-top: 25px;
+    }
+
+    .login-card .btn-secondary {
+        padding: 16px 28px;
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+    }
+
+    .guest-note {
+        font-size: 0.8rem;
     }
 
     .member-completions {

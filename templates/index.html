@@ -4,7 +4,89 @@
 {% block title %}首頁 - 攀岩計分系統{% endblock %}
 
 {% block content %}
-<div class="home-container">
+<!-- 未登錄時顯示登錄界面 -->
+<div id="loginSection" class="login-container" style="display: none;">
+    <div class="login-card">
+        <div class="login-header">
+            <h1>攀岩計分系統</h1>
+            <p class="subtitle">請登入以繼續使用</p>
+        </div>
+
+        <div class="login-tabs">
+            <button class="tab-btn active" id="loginTab" onclick="switchTab('login')">登入</button>
+            <button class="tab-btn" id="registerTab" onclick="switchTab('register')">註冊</button>
+        </div>
+
+        <!-- 登入表單 -->
+        <div id="loginForm" class="form-container">
+            <form id="loginFormElement">
+                <div class="form-group">
+                    <label for="loginUsername">用戶名:</label>
+                    <input type="text" id="loginUsername" name="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">密碼:</label>
+                    <input type="password" id="loginPassword" name="password" required autocomplete="current-password">
+                </div>
+                <div id="loginError" class="error-message" style="display: none;"></div>
+                <button type="submit" class="btn btn-primary btn-large" style="width: 100%;">
+                    🔐 登入
+                </button>
+            </form>
+        </div>
+
+        <!-- 註冊表單 -->
+        <div id="registerForm" class="form-container" style="display: none;">
+            <form id="registerFormElement">
+                <div class="form-group">
+                    <label for="registerUsername">用戶名:</label>
+                    <input type="text" id="registerUsername" name="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="registerEmail">電子郵件 (選填):</label>
+                    <input type="email" id="registerEmail" name="email" autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">密碼:</label>
+                    <input type="password" id="registerPassword" name="password" required autocomplete="new-password" oninput="validatePassword()">
+                    <div class="password-rules" id="passwordRules">
+                        <div class="password-rules-title">密碼規則：</div>
+                        <ul class="password-rules-list" id="passwordRulesList">
+                            <li id="rule-length">至少 8 個字符</li>
+                            <li id="rule-uppercase">至少包含一個大寫字母 (A-Z)</li>
+                            <li id="rule-lowercase">至少包含一個小寫字母 (a-z)</li>
+                            <li id="rule-number">至少包含一個數字 (0-9)</li>
+                            <li id="rule-special">至少包含一個特殊字符 (!@#$%^&*等)</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="registerPasswordConfirm">確認密碼:</label>
+                    <input type="password" id="registerPasswordConfirm" name="password_confirm" required autocomplete="new-password" oninput="validatePasswordConfirm()">
+                    <div id="passwordMatchMessage" style="margin-top: 8px; font-size: 0.9rem; display: none;"></div>
+                </div>
+                <div id="registerError" class="error-message" style="display: none;"></div>
+                <button type="submit" class="btn btn-primary btn-large" style="width: 100%;" id="registerSubmitBtn">
+                    ✨ 註冊
+                </button>
+            </form>
+        </div>
+        
+        <!-- 訪客登入按鈕（在登入和註冊表單下方） -->
+        <div class="guest-login-section">
+            <div class="guest-divider">
+                <span>或</span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-large" id="guestLoginBtn" onclick="handleGuestLogin()" style="width: 100%;">
+                👤 訪客登入
+            </button>
+            <p class="guest-note">訪客模式無需註冊，可直接使用系統功能</p>
+        </div>
+    </div>
+</div>
+
+<!-- 已登錄時顯示房間列表 -->
+<div id="homeSection" class="home-container" style="display: none;">
     <div class="welcome-header">
         <h1>攀岩計分系統</h1>
         <p class="subtitle">選擇房間或創建新房間開始使用</p>
@@ -55,10 +137,324 @@
 
 {% block scripts %}
 <script>
-    // 頁面載入時獲取房間列表
+    // 檢查用戶登錄狀態
+    function checkAuthStatus() {
+        fetch('/api/auth/current-user/', {
+            credentials: 'include'
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error('未登錄');
+            }
+        })
+        .then(user => {
+            // 已登錄，顯示房間列表
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('homeSection').style.display = 'block';
+            loadRooms();
+        })
+        .catch(error => {
+            // 未登錄，顯示登錄界面
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('homeSection').style.display = 'none';
+        });
+    }
+
+    // 訪客登入處理
+    function handleGuestLogin() {
+        const guestBtn = document.getElementById('guestLoginBtn');
+        if (guestBtn) {
+            guestBtn.disabled = true;
+            guestBtn.textContent = '登入中...';
+        }
+
+        fetch('/api/auth/guest-login/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            credentials: 'include'
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                return response.json().then(err => Promise.reject(err));
+            }
+        })
+        .then(data => {
+            // 訪客登入成功，重新載入頁面
+            window.location.reload();
+        })
+        .catch(error => {
+            console.error('訪客登入失敗:', error);
+            const errorMsg = error.error || error.detail || '訪客登入失敗，請重試';
+            alert(errorMsg);
+            if (guestBtn) {
+                guestBtn.disabled = false;
+                guestBtn.textContent = '👤 訪客登入';
+            }
+        });
+    }
+
+    // 頁面載入時檢查登錄狀態
     document.addEventListener('DOMContentLoaded', function() {
-        loadRooms();
+        checkAuthStatus();
     });
+
+    // 切換登入/註冊標籤
+    function switchTab(tab) {
+        if (tab === 'login') {
+            document.getElementById('loginTab').classList.add('active');
+            document.getElementById('registerTab').classList.remove('active');
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('registerForm').style.display = 'none';
+        } else {
+            document.getElementById('loginTab').classList.remove('active');
+            document.getElementById('registerTab').classList.add('active');
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+        }
+        // 清除錯誤訊息
+        document.getElementById('loginError').style.display = 'none';
+        document.getElementById('registerError').style.display = 'none';
+        // 重置密碼驗證顯示
+        if (tab === 'register') {
+            const passwordRules = document.querySelectorAll('.password-rules-list li');
+            passwordRules.forEach(rule => {
+                rule.classList.remove('valid', 'invalid');
+            });
+            const passwordMatchMessage = document.getElementById('passwordMatchMessage');
+            if (passwordMatchMessage) {
+                passwordMatchMessage.style.display = 'none';
+            }
+            // 重置註冊按鈕狀態
+            const registerBtn = document.getElementById('registerSubmitBtn');
+            if (registerBtn) {
+                registerBtn.disabled = false;
+                registerBtn.style.opacity = '1';
+                registerBtn.style.cursor = 'pointer';
+            }
+        }
+    }
+
+    // 登入表單提交
+    document.getElementById('loginFormElement').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const errorDiv = document.getElementById('loginError');
+        errorDiv.style.display = 'none';
+
+        const formData = new FormData(e.target);
+        const data = {
+            username: formData.get('username'),
+            password: formData.get('password')
+        };
+
+        fetch('/api/auth/login/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            credentials: 'include',
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                return response.json().then(err => Promise.reject(err));
+            }
+        })
+        .then(data => {
+            // 登入成功，重新載入頁面
+            window.location.reload();
+        })
+        .catch(error => {
+            console.error('登入失敗:', error);
+            const errorMsg = error.error || error.detail || '登入失敗，請檢查用戶名和密碼';
+            errorDiv.textContent = errorMsg;
+            errorDiv.style.display = 'block';
+        });
+    });
+
+    // 註冊表單提交
+    document.getElementById('registerFormElement').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const errorDiv = document.getElementById('registerError');
+        errorDiv.style.display = 'none';
+
+        const formData = new FormData(e.target);
+        const password = formData.get('password');
+        const passwordConfirm = formData.get('password_confirm');
+
+        // 檢查密碼規則
+        const rules = {
+            length: password.length >= 8,
+            uppercase: /[A-Z]/.test(password),
+            lowercase: /[a-z]/.test(password),
+            number: /[0-9]/.test(password),
+            special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+        };
+
+        const allValid = Object.values(rules).every(rule => rule === true);
+        if (!allValid) {
+            errorDiv.textContent = '密碼不符合規則，請檢查密碼規則提示';
+            errorDiv.style.display = 'block';
+            // 觸發前端驗證顯示
+            validatePassword();
+            return;
+        }
+
+        // 檢查密碼是否一致
+        if (password !== passwordConfirm) {
+            errorDiv.textContent = '兩次輸入的密碼不一致';
+            errorDiv.style.display = 'block';
+            validatePasswordConfirm();
+            return;
+        }
+
+        const data = {
+            username: formData.get('username'),
+            email: formData.get('email') || '',
+            password: password,
+            password_confirm: passwordConfirm
+        };
+
+        fetch('/api/auth/register/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            credentials: 'include',
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                return response.json().then(err => Promise.reject(err));
+            }
+        })
+        .then(data => {
+            // 註冊成功，重新載入頁面
+            window.location.reload();
+        })
+        .catch(error => {
+            console.error('註冊失敗:', error);
+            let errorMsg = '註冊失敗';
+            if (error.error) {
+                errorMsg = error.error;
+            } else if (error.username) {
+                errorMsg = error.username[0];
+            } else if (error.password) {
+                errorMsg = error.password[0];
+            } else if (error.password_confirm) {
+                errorMsg = error.password_confirm[0];
+            } else if (error.detail) {
+                errorMsg = error.detail;
+            }
+            errorDiv.textContent = errorMsg;
+            errorDiv.style.display = 'block';
+        });
+    });
+
+    // 獲取 CSRF Token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // 密碼驗證函數
+    function validatePassword() {
+        const password = document.getElementById('registerPassword').value;
+        const rules = {
+            length: password.length >= 8,
+            uppercase: /[A-Z]/.test(password),
+            lowercase: /[a-z]/.test(password),
+            number: /[0-9]/.test(password),
+            special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+        };
+
+        // 更新規則顯示
+        updateRuleStatus('rule-length', rules.length);
+        updateRuleStatus('rule-uppercase', rules.uppercase);
+        updateRuleStatus('rule-lowercase', rules.lowercase);
+        updateRuleStatus('rule-number', rules.number);
+        updateRuleStatus('rule-special', rules.special);
+
+        // 檢查所有規則是否滿足
+        const allValid = Object.values(rules).every(rule => rule === true);
+        
+        // 更新註冊按鈕狀態
+        const registerBtn = document.getElementById('registerSubmitBtn');
+        if (registerBtn) {
+            if (allValid && password.length > 0) {
+                registerBtn.disabled = false;
+                registerBtn.style.opacity = '1';
+                registerBtn.style.cursor = 'pointer';
+            } else {
+                registerBtn.disabled = true;
+                registerBtn.style.opacity = '0.6';
+                registerBtn.style.cursor = 'not-allowed';
+            }
+        }
+
+        // 如果密碼確認欄位有值，也驗證確認密碼
+        const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+        if (passwordConfirm) {
+            validatePasswordConfirm();
+        }
+    }
+
+    // 更新規則狀態顯示
+    function updateRuleStatus(ruleId, isValid) {
+        const ruleElement = document.getElementById(ruleId);
+        if (ruleElement) {
+            ruleElement.classList.remove('valid', 'invalid');
+            if (isValid) {
+                ruleElement.classList.add('valid');
+            } else {
+                ruleElement.classList.add('invalid');
+            }
+        }
+    }
+
+    // 驗證確認密碼
+    function validatePasswordConfirm() {
+        const password = document.getElementById('registerPassword').value;
+        const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+        const messageDiv = document.getElementById('passwordMatchMessage');
+
+        if (passwordConfirm.length === 0) {
+            messageDiv.style.display = 'none';
+            return;
+        }
+
+        if (password === passwordConfirm) {
+            messageDiv.style.display = 'block';
+            messageDiv.style.color = '#27ae60';
+            messageDiv.textContent = '✓ 密碼一致';
+        } else {
+            messageDiv.style.display = 'block';
+            messageDiv.style.color = '#e74c3c';
+            messageDiv.textContent = '✗ 密碼不一致';
+        }
+    }
 
     function setupRoomNameExample() {
         // 獲取當前日期，格式為 YYYYMMDD

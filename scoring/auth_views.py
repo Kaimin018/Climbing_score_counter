@@ -109,3 +109,54 @@ def current_user_view(request):
         'is_authenticated': request.user.is_authenticated
     })
 
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def guest_login_view(request):
+    """
+    訪客登錄
+    創建或獲取訪客用戶，並自動登錄
+    目前訪客用戶與普通用戶權限相同，後續可調整
+    """
+    from django.utils import timezone
+    import random
+    import string
+    
+    # 生成唯一的訪客用戶名（使用時間戳和隨機字符串）
+    timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
+    random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+    guest_username = f'guest_{timestamp}_{random_str}'
+    
+    # 檢查是否已存在訪客用戶（如果已登錄且是訪客，直接返回）
+    if request.user.is_authenticated and request.user.username.startswith('guest_'):
+        return Response({
+            'message': '訪客登錄成功',
+            'user': {
+                'id': request.user.id,
+                'username': request.user.username,
+                'email': request.user.email,
+                'is_guest': True
+            }
+        }, status=status.HTTP_200_OK)
+    
+    # 創建訪客用戶（使用隨機密碼，因為訪客不需要密碼登錄）
+    random_password = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+    guest_user = User.objects.create_user(
+        username=guest_username,
+        email='',
+        password=random_password,
+        is_active=True
+    )
+    
+    # 自動登錄
+    login(request, guest_user)
+    
+    return Response({
+        'message': '訪客登錄成功',
+        'user': {
+            'id': guest_user.id,
+            'username': guest_user.username,
+            'email': guest_user.email,
+            'is_guest': True
+        }
+    }, status=status.HTTP_200_OK)

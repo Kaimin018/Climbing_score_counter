@@ -306,8 +306,10 @@ class MemberViewSet(viewsets.ModelViewSet):
 
 
 def index_view(request):
-    """首頁視圖"""
-    return render(request, 'index.html')
+    """首頁視圖 - 未登錄顯示登錄界面，已登錄顯示房間列表"""
+    return render(request, 'index.html', {
+        'user': request.user if request.user.is_authenticated else None
+    })
 
 
 def leaderboard_view(request, room_id):
