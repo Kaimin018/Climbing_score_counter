@@ -8,6 +8,7 @@
 - ✅ 手動更新時使用 `deploy.sh` 腳本，它會自動處理所有步驟
 - ✅ 首次部署可以使用 `setup_ec2.sh` 腳本簡化環境設置
 - ✅ 如果遇到虛擬環境路徑問題，使用 `fix_venv_path.sh` 腳本修復
+- ✅ **域名配置**：已配置域名 `countclimbingscore.online`，詳細說明見 `DOMAIN_SETUP.md`
 
 ## 架構概覽
 
@@ -205,9 +206,9 @@ python manage.py shell -c "from django.core.management.utils import get_random_s
 
 - `SECRET_KEY`: Django 密鑰（必須更改）
 - `DEBUG`: 設置為 `False`（生產環境）
-- `ALLOWED_HOSTS`: 您的域名或 IP 地址（逗號分隔）
+- `ALLOWED_HOSTS`: 已配置為 `countclimbingscore.online,www.countclimbingscore.online,3.26.6.19,127.0.0.1,localhost`
 - `CORS_ALLOW_ALL_ORIGINS`: 設置為 `False`（生產環境）
-- `CORS_ALLOWED_ORIGINS`: 允許的 CORS 來源（如果使用前端）
+- `CORS_ALLOWED_ORIGINS`: 已配置為 `https://countclimbingscore.online,https://www.countclimbingscore.online`
 
 **重要**：不要將 `SECRET_KEY` 提交到 Git 倉庫。使用環境變數或 secrets 管理。
 
@@ -270,7 +271,7 @@ source venv/bin/activate
 # 設置環境變數
 export SECRET_KEY="your-secret-key"
 export DEBUG="False"
-export ALLOWED_HOSTS="your-domain.com,your-ec2-ip"
+export ALLOWED_HOSTS="countclimbingscore.online,www.countclimbingscore.online,3.26.6.19"
 
 # 測試運行 Gunicorn
 gunicorn --config gunicorn_config.py climbing_system.wsgi:application
@@ -348,8 +349,10 @@ sudo nano /etc/nginx/sites-available/climbing_system.conf
 
 修改以下內容：
 
-- `server_name`: 替換為您的域名或 IP 地址
+- `server_name`: 已配置為 `countclimbingscore.online www.countclimbingscore.online 3.26.6.19`
 - 確保所有路徑正確
+
+**注意**：如果使用域名，需要先配置 DNS 記錄（見 `DOMAIN_SETUP.md`）
 
 ### 11.3 測試和重載 Nginx
 
@@ -396,11 +399,13 @@ sudo chown -R www-data:www-data /var/www/Climbing_score_counter/backups
 
 ## 步驟 14: 測試部署
 
-1. 在瀏覽器中訪問 `http://your-ec2-ip` 或 `http://your-domain.com`
+1. 在瀏覽器中訪問 `http://3.26.6.19` 或 `http://countclimbingscore.online`
 2. 檢查是否能看到首頁
 3. 測試創建房間、上傳圖片等功能
 
 ## 步驟 15: 配置 SSL（可選但強烈推薦）
+
+**重要**：配置 SSL 前，請先完成 DNS 配置（見 `DOMAIN_SETUP.md`），確保域名已指向 EC2 IP。
 
 ### 使用 Let's Encrypt
 
@@ -408,12 +413,19 @@ sudo chown -R www-data:www-data /var/www/Climbing_score_counter/backups
 # 安裝 Certbot
 sudo apt install -y certbot python3-certbot-nginx
 
-# 獲取 SSL 證書
-sudo certbot --nginx -d your-domain.com -d www.your-domain.com
+# 獲取 SSL 證書（Certbot 會自動配置 Nginx）
+sudo certbot --nginx -d countclimbingscore.online -d www.countclimbingscore.online
 
 # 自動續期測試
 sudo certbot renew --dry-run
 ```
+
+**注意**：
+- 確保 DNS 記錄已生效（`nslookup countclimbingscore.online` 應返回 `3.26.6.19`）
+- 確保 AWS 安全組已開放 80 和 443 端口
+- Certbot 會自動配置 Nginx 使用 HTTPS 並設置 HTTP 重定向
+
+詳細說明請參考 `DOMAIN_SETUP.md`。
 
 ## CI/CD 自動部署
 
@@ -664,7 +676,7 @@ chmod +x /var/www/Climbing_score_counter/backup.sh
 
 1. **更改 SECRET_KEY**: 使用強隨機密鑰
 2. **設置 DEBUG=False**: 生產環境必須關閉調試模式
-3. **配置 ALLOWED_HOSTS**: 只允許您的域名
+3. **配置 ALLOWED_HOSTS**: 已配置為 `countclimbingscore.online,www.countclimbingscore.online,3.26.6.19,127.0.0.1,localhost`
 4. **使用 HTTPS**: 配置 SSL 證書
 5. **定期更新**: 保持系統和依賴包更新
 6. **防火牆**: 只開放必要端口
