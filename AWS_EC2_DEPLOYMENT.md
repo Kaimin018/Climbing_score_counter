@@ -6,6 +6,8 @@
 - ✅ 首次部署後，後續更新**不需要重新 clone**，只需使用 `git pull` 或 `deploy.sh` 腳本
 - ✅ 推薦使用 CI/CD 自動部署流程（見 `DEPLOYMENT_CI_CD.md`）
 - ✅ 手動更新時使用 `deploy.sh` 腳本，它會自動處理所有步驟
+- ✅ 首次部署可以使用 `setup_ec2.sh` 腳本簡化環境設置
+- ✅ 如果遇到虛擬環境路徑問題，使用 `fix_venv_path.sh` 腳本修復
 
 ## 架構概覽
 
@@ -33,14 +35,15 @@ SQLite Database
 
 1. 登入 AWS Console
 2. 啟動新的 EC2 實例
-3. 選擇 Ubuntu 22.04 LTS AMI
+3. 選擇 Ubuntu 22.04 LTS AMI（推薦）或 Ubuntu 20.04 LTS
 4. 建議最小配置：
-   - Instance Type: t3.micro 或 t3.small
-   - Storage: 20GB 或更多（用於存儲媒體文件）
+   - **Instance Type**: t3.micro（免費層）或 t3.small（生產環境）
+   - **Storage**: 20GB 或更多（用於存儲媒體文件和日誌）
+   - **Key Pair**: 創建或選擇現有的 SSH 密鑰對
 5. 配置安全組：
-   - 開放端口 22 (SSH)
-   - 開放端口 80 (HTTP)
-   - 開放端口 443 (HTTPS，如果使用 SSL)
+   - **端口 22 (SSH)**: 僅允許您的 IP 地址訪問（提高安全性）
+   - **端口 80 (HTTP)**: 允許所有流量（0.0.0.0/0）
+   - **端口 443 (HTTPS)**: 允許所有流量（如果使用 SSL）
 
 ### 1.2 連接到 EC2 實例
 
@@ -49,6 +52,22 @@ ssh -i your-key.pem ubuntu@your-ec2-ip
 ```
 
 ## 步驟 2: 安裝系統依賴
+
+### 方法 1: 使用自動設置腳本（推薦）
+
+```bash
+# 下載並運行初始設置腳本
+cd /var/www/Climbing_score_counter
+bash setup_ec2.sh
+```
+
+`setup_ec2.sh` 腳本會自動執行：
+- 更新系統套件
+- 安裝 Python、pip、venv、Nginx、Git 等必要工具
+- 創建項目目錄和日誌目錄
+- 設置基本權限
+
+### 方法 2: 手動安裝
 
 ```bash
 # 更新系統
@@ -64,10 +83,18 @@ sudo apt install -y git curl
 
 ## 步驟 3: 設置項目目錄
 
+**注意**：如果使用 `setup_ec2.sh` 腳本，此步驟會自動執行。
+
 ```bash
 # 創建項目目錄
 sudo mkdir -p /var/www/Climbing_score_counter
 sudo chown -R $USER:$USER /var/www/Climbing_score_counter
+
+# 創建必要的子目錄
+mkdir -p /var/www/Climbing_score_counter/logs
+mkdir -p /var/www/Climbing_score_counter/backups
+mkdir -p /var/www/Climbing_score_counter/media
+mkdir -p /var/www/Climbing_score_counter/staticfiles
 
 # 進入目錄
 cd /var/www/Climbing_score_counter
@@ -81,11 +108,12 @@ cd /var/www/Climbing_score_counter
 
 ```bash
 # 克隆項目到項目目錄
+# 注意：請將 your-username 和 repository-name 替換為您的實際 GitHub 用戶名和倉庫名稱
 cd /var/www/Climbing_score_counter
-git clone https://github.com/your-username/climbing_score_counting_system.git .
+git clone https://github.com/your-username/repository-name.git .
 
 # 或克隆到臨時目錄後移動文件
-# git clone https://github.com/your-username/climbing_score_counting_system.git /tmp/climbing_system
+# git clone https://github.com/your-username/repository-name.git /tmp/climbing_system
 # sudo mv /tmp/climbing_system/* /var/www/Climbing_score_counter/
 # sudo mv /tmp/climbing_system/.* /var/www/Climbing_score_counter/ 2>/dev/null || true
 ```
@@ -128,6 +156,10 @@ scp -r -i your-key.pem \
 
 ## 步驟 5: 設置 Python 虛擬環境
 
+**注意**：如果使用 `deploy.sh` 腳本，虛擬環境會自動創建，此步驟可跳過。
+
+### 手動設置虛擬環境
+
 ```bash
 cd /var/www/Climbing_score_counter
 
@@ -142,27 +174,42 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+### 虛擬環境路徑問題修復
+
+如果遇到虛擬環境路徑錯誤（例如：`-bash: /var/www/climbing_score_counting_system/venv/bin/pip: No such file or directory`），可以使用修復腳本：
+
+```bash
+cd /var/www/Climbing_score_counter
+bash fix_venv_path.sh
+```
+
+詳細說明見「故障排除」章節。
+
 ## 步驟 6: 配置 Django 設置
 
 ### 6.1 生成新的 SECRET_KEY
 
 ```bash
+# 確保在虛擬環境中
+source venv/bin/activate
+
+# 生成新的 SECRET_KEY
 python manage.py shell -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
-### 6.2 創建環境變數文件（可選）
+複製生成的 SECRET_KEY，稍後在 systemd 服務文件中使用。
 
-創建 `/var/www/Climbing_score_counter/.env`：
+### 6.2 設置環境變數
 
-```bash
-SECRET_KEY=your-generated-secret-key-here
-DEBUG=False
-ALLOWED_HOSTS=your-domain.com,www.your-domain.com,your-ec2-ip
-CORS_ALLOW_ALL_ORIGINS=False
-CORS_ALLOWED_ORIGINS=https://your-domain.com
-```
+環境變數需要在 systemd 服務文件中設置（見步驟 10）。主要環境變數包括：
 
-或者直接在 systemd 服務文件中設置環境變數（見步驟 8）。
+- `SECRET_KEY`: Django 密鑰（必須更改）
+- `DEBUG`: 設置為 `False`（生產環境）
+- `ALLOWED_HOSTS`: 您的域名或 IP 地址（逗號分隔）
+- `CORS_ALLOW_ALL_ORIGINS`: 設置為 `False`（生產環境）
+- `CORS_ALLOWED_ORIGINS`: 允許的 CORS 來源（如果使用前端）
+
+**重要**：不要將 `SECRET_KEY` 提交到 Git 倉庫。使用環境變數或 secrets 管理。
 
 ## 步驟 7: 初始化數據庫
 
@@ -180,22 +227,39 @@ python manage.py createsuperuser
 ## 步驟 8: 收集靜態文件
 
 ```bash
-# 創建靜態文件目錄
+# 確保在虛擬環境中
+source venv/bin/activate
+
+# 創建靜態文件目錄（如果不存在）
 mkdir -p staticfiles
 
 # 收集靜態文件
 python manage.py collectstatic --noinput
+
+# 或使用 --clear 選項清除舊文件
+python manage.py collectstatic --noinput --clear
 ```
+
+**注意**：`deploy.sh` 腳本會自動執行此步驟。
 
 ## 步驟 9: 配置 Gunicorn
 
-### 9.1 複製 Gunicorn 配置文件
+### 9.1 檢查 Gunicorn 配置文件
 
 ```bash
 # 確保 gunicorn_config.py 在項目根目錄
-# 檢查配置文件路徑
+cd /var/www/Climbing_score_counter
 ls -la gunicorn_config.py
 ```
+
+配置文件 `gunicorn_config.py` 包含以下主要設置：
+- `bind`: 綁定地址（`127.0.0.1:8000`）
+- `workers`: Worker 進程數（自動根據 CPU 核心數計算）
+- `timeout`: 請求超時時間（30 秒）
+- `accesslog` 和 `errorlog`: 日誌文件路徑
+- `chdir`: 工作目錄（`/var/www/Climbing_score_counter`）
+
+**注意**：通常不需要修改此配置文件，除非有特殊需求。
 
 ### 9.2 測試 Gunicorn
 
@@ -316,12 +380,19 @@ sudo chmod -R 775 /var/www/Climbing_score_counter/logs
 sudo chmod -R 775 /var/www/Climbing_score_counter/staticfiles
 ```
 
-## 步驟 13: 創建日誌目錄
+## 步驟 13: 創建日誌和備份目錄
 
 ```bash
+# 創建日誌目錄
 mkdir -p /var/www/Climbing_score_counter/logs
 sudo chown -R www-data:www-data /var/www/Climbing_score_counter/logs
+
+# 創建備份目錄（用於數據庫和媒體文件備份）
+mkdir -p /var/www/Climbing_score_counter/backups
+sudo chown -R www-data:www-data /var/www/Climbing_score_counter/backups
 ```
+
+**注意**：`deploy.sh` 腳本會自動創建日誌目錄。
 
 ## 步驟 14: 測試部署
 
@@ -449,7 +520,12 @@ sudo systemctl reload nginx
 
 ### 備份數據庫
 
+**重要**：定期備份數據庫和媒體文件，建議設置自動備份任務。
+
 ```bash
+# 確保備份目錄存在
+mkdir -p /var/www/Climbing_score_counter/backups
+
 # 備份 SQLite 數據庫
 cp /var/www/Climbing_score_counter/db.sqlite3 \
    /var/www/Climbing_score_counter/backups/db_$(date +%Y%m%d_%H%M%S).sqlite3
@@ -457,6 +533,46 @@ cp /var/www/Climbing_score_counter/db.sqlite3 \
 # 備份媒體文件
 tar -czf /var/www/Climbing_score_counter/backups/media_$(date +%Y%m%d_%H%M%S).tar.gz \
     /var/www/Climbing_score_counter/media/
+
+# 清理舊備份（保留最近 7 天的備份）
+find /var/www/Climbing_score_counter/backups -name "db_*.sqlite3" -mtime +7 -delete
+find /var/www/Climbing_score_counter/backups -name "media_*.tar.gz" -mtime +7 -delete
+```
+
+### 設置自動備份（可選）
+
+創建 cron 任務自動備份：
+
+```bash
+# 編輯 crontab
+crontab -e
+
+# 添加以下行（每天凌晨 2 點備份）
+0 2 * * * /var/www/Climbing_score_counter/backup.sh
+```
+
+創建備份腳本 `/var/www/Climbing_score_counter/backup.sh`：
+
+```bash
+#!/bin/bash
+BACKUP_DIR="/var/www/Climbing_score_counter/backups"
+DATE=$(date +%Y%m%d_%H%M%S)
+
+# 備份數據庫
+cp $BACKUP_DIR/../db.sqlite3 $BACKUP_DIR/db_$DATE.sqlite3
+
+# 備份媒體文件
+tar -czf $BACKUP_DIR/media_$DATE.tar.gz $BACKUP_DIR/../media/
+
+# 清理舊備份（保留 7 天）
+find $BACKUP_DIR -name "db_*.sqlite3" -mtime +7 -delete
+find $BACKUP_DIR -name "media_*.tar.gz" -mtime +7 -delete
+```
+
+設置執行權限：
+
+```bash
+chmod +x /var/www/Climbing_score_counter/backup.sh
 ```
 
 ## 故障排除
@@ -534,9 +650,15 @@ tar -czf /var/www/Climbing_score_counter/backups/media_$(date +%Y%m%d_%H%M%S).ta
 
 ### 媒體文件無法上傳
 
-1. 檢查 `media` 目錄權限：`ls -la /var/www/Climbing_score_counter/media`
-2. 確認目錄有寫入權限：`sudo chmod -R 775 /var/www/Climbing_score_counter/media`
+1. 檢查 `media` 目錄是否存在：`ls -la /var/www/Climbing_score_counter/media`
+2. 確認目錄有寫入權限：
+   ```bash
+   sudo chown -R www-data:www-data /var/www/Climbing_score_counter/media
+   sudo chmod -R 775 /var/www/Climbing_score_counter/media
+   ```
 3. 檢查磁盤空間：`df -h`
+4. 檢查 Nginx 配置中的 `client_max_body_size` 設置（應該至少 20M）
+5. 查看 Django 日誌：`tail -f /var/www/Climbing_score_counter/logs/django.log`
 
 ## 安全建議
 
