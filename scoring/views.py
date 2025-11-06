@@ -1,17 +1,21 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 from django.shortcuts import get_object_or_404, render
+from django.utils.html import escape
 from .models import Room, Member, Route, Score, update_scores
 from .serializers import (
     RoomSerializer, MemberSerializer, RouteSerializer,
     RouteCreateSerializer, RouteUpdateSerializer, LeaderboardSerializer, ScoreUpdateSerializer
 )
+from .permissions import IsAuthenticatedOrReadOnlyForCreate
 
 
 class RoomViewSet(viewsets.ModelViewSet):
     queryset = Room.objects.all()
     serializer_class = RoomSerializer
+    permission_classes = [IsAuthenticatedOrReadOnlyForCreate]
     
     def get_queryset(self):
         """確保查詢時預加載相關數據"""
@@ -41,6 +45,10 @@ class RoomViewSet(viewsets.ModelViewSet):
         if 'standard_line_score' in data:
             del data['standard_line_score']
         
+        # 清理用戶輸入，防止 XSS
+        if 'name' in data:
+            data['name'] = escape(data['name'])
+        
         serializer = self.get_serializer(data=data)
         if serializer.is_valid():
             room = serializer.save()
@@ -57,6 +65,10 @@ class RoomViewSet(viewsets.ModelViewSet):
         data = request.data.copy()
         if 'standard_line_score' in data:
             del data['standard_line_score']
+        
+        # 清理用戶輸入，防止 XSS
+        if 'name' in data:
+            data['name'] = escape(data['name'])
         
         serializer = self.get_serializer(room, data=data, partial=True)
         
@@ -101,6 +113,12 @@ class RoomViewSet(viewsets.ModelViewSet):
             import json
             data['member_completions'] = json.dumps(data['member_completions'])
         
+        # 清理用戶輸入，防止 XSS
+        if 'name' in data:
+            data['name'] = escape(data['name'])
+        if 'grade' in data:
+            data['grade'] = escape(data['grade'])
+        
         serializer = RouteCreateSerializer(data=data, context={'room': room, 'request': request})
         if serializer.is_valid():
             route = serializer.save()
@@ -118,6 +136,7 @@ class RoomViewSet(viewsets.ModelViewSet):
 class ScoreViewSet(viewsets.ModelViewSet):
     queryset = Score.objects.all()
     serializer_class = ScoreUpdateSerializer
+    permission_classes = [IsAuthenticated]
 
     def update(self, request, *args, **kwargs):
         """更新成績狀態（標記完成/未完成）"""
@@ -137,6 +156,7 @@ class ScoreViewSet(viewsets.ModelViewSet):
 
 class RouteViewSet(viewsets.ModelViewSet):
     queryset = Route.objects.all()
+    permission_classes = [IsAuthenticatedOrReadOnlyForCreate]
     
     def get_serializer_class(self):
         """根據操作選擇不同的序列化器"""
@@ -171,6 +191,12 @@ class RouteViewSet(viewsets.ModelViewSet):
         """更新路線"""
         route = self.get_object()
         data = request.data.copy()
+        
+        # 清理用戶輸入，防止 XSS
+        if 'name' in data:
+            data['name'] = escape(data['name'])
+        if 'grade' in data:
+            data['grade'] = escape(data['grade'])
         
         # 處理 member_completions：FormData 可能將值作為列表傳遞（QueryDict），取第一個元素
         # 如果已經是字典，轉換為 JSON 字符串（因為 serializer 期望字符串）
@@ -213,11 +239,28 @@ class RouteViewSet(viewsets.ModelViewSet):
 class MemberViewSet(viewsets.ModelViewSet):
     queryset = Member.objects.all()
     serializer_class = MemberSerializer
+    permission_classes = [IsAuthenticatedOrReadOnlyForCreate]
 
+    def create(self, request, *args, **kwargs):
+        """創建成員"""
+        data = request.data.copy()
+        # 清理用戶輸入，防止 XSS
+        if 'name' in data:
+            data['name'] = escape(data['name'])
+        serializer = self.get_serializer(data=data)
+        if serializer.is_valid():
+            member = serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
     def update(self, request, *args, **kwargs):
         """更新成員"""
         member = self.get_object()
-        serializer = self.get_serializer(member, data=request.data, partial=True)
+        data = request.data.copy()
+        # 清理用戶輸入，防止 XSS
+        if 'name' in data:
+            data['name'] = escape(data['name'])
+        serializer = self.get_serializer(member, data=data, partial=True)
         
         if serializer.is_valid():
             serializer.save()

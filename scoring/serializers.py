@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.utils.html import escape
 from .models import Room, Member, Route, Score
 
 
@@ -61,8 +62,20 @@ class RouteCreateSerializer(serializers.ModelSerializer):
         model = Route
         fields = ['name', 'grade', 'photo', 'photo_url', 'member_completions']
 
+    def validate_name(self, value):
+        """驗證並清理路線名稱，防止 XSS"""
+        if value:
+            return escape(value.strip())
+        return value
+    
+    def validate_grade(self, value):
+        """驗證並清理難度等級，防止 XSS"""
+        if value:
+            return escape(value.strip())
+        return value
+    
     def validate_member_completions(self, value):
-        """驗證並解析 member_completions"""
+        """驗證並解析 member_completions，防止 SQL 注入"""
         import json
         
         # 如果值為 None 或空字符串，返回空字典
@@ -71,12 +84,27 @@ class RouteCreateSerializer(serializers.ModelSerializer):
         
         # 如果值是字符串，嘗試解析 JSON
         if isinstance(value, str):
+            # 限制 JSON 字符串長度，防止過大的輸入
+            if len(value) > 10000:
+                raise serializers.ValidationError('member_completions 數據過大')
             try:
                 parsed = json.loads(value)
                 # 確保解析後是字典
-                return parsed if isinstance(parsed, dict) else {}
+                if not isinstance(parsed, dict):
+                    raise serializers.ValidationError('member_completions 必須是 JSON 對象')
+                # 驗證字典中的值都是布林值或可轉換為布林值
+                for key, val in parsed.items():
+                    if not isinstance(key, (str, int)):
+                        raise serializers.ValidationError('member_completions 的鍵必須是字符串或整數')
+                    if not isinstance(val, bool):
+                        # 嘗試轉換為布林值
+                        if isinstance(val, str):
+                            parsed[key] = val.lower() in ('true', '1', 'yes')
+                        else:
+                            parsed[key] = bool(val)
+                return parsed
             except json.JSONDecodeError:
-                return {}
+                raise serializers.ValidationError('member_completions 必須是有效的 JSON 格式')
         
         # 如果已經是字典，直接返回
         return value if isinstance(value, dict) else {}
@@ -132,8 +160,20 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
         model = Route
         fields = ['name', 'grade', 'photo', 'photo_url', 'member_completions']
     
+    def validate_name(self, value):
+        """驗證並清理路線名稱，防止 XSS"""
+        if value:
+            return escape(value.strip())
+        return value
+    
+    def validate_grade(self, value):
+        """驗證並清理難度等級，防止 XSS"""
+        if value:
+            return escape(value.strip())
+        return value
+    
     def validate_member_completions(self, value):
-        """驗證 member_completions 字段"""
+        """驗證 member_completions 字段，防止 SQL 注入"""
         import json
         
         # 如果值為 None 或空字符串，返回 None
@@ -142,6 +182,9 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
         
         # 如果值是字符串，嘗試解析 JSON
         if isinstance(value, str):
+            # 限制 JSON 字符串長度，防止過大的輸入
+            if len(value) > 10000:
+                raise serializers.ValidationError('member_completions 數據過大')
             try:
                 parsed = json.loads(value)
                 # 確保解析後是字典
@@ -292,6 +335,16 @@ class RoomSerializer(serializers.ModelSerializer):
     class Meta:
         model = Room
         fields = ['id', 'name', 'standard_line_score', 'members', 'routes', 'created_at']
+    
+    def validate_name(self, value):
+        """驗證並清理房間名稱，防止 XSS"""
+        if value:
+            cleaned_name = escape(value.strip())
+            # 限制名稱長度
+            if len(cleaned_name) > 200:
+                raise serializers.ValidationError('房間名稱不能超過200個字符')
+            return cleaned_name
+        return value
     
     def to_representation(self, instance):
         """確保嵌套的 RouteSerializer 能正確獲取 context"""

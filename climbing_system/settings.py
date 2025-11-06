@@ -156,6 +156,15 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.MultiPartParser',  # 支持文件上傳
         'rest_framework.parsers.FormParser',
     ],
+    # 認證設置
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+    ],
+    # 權限設置：默認需要認證，但可以通過 permission_classes 覆蓋
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
 }
 
 # Logging configuration

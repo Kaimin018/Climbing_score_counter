@@ -165,6 +165,9 @@ python manage.py test scoring.tests.test_case_member_group_conversion.TestCaseMe
 
 # 測試成員和路線操作
 python manage.py test scoring.tests.test_case_member_route_operations.TestCaseMemberRouteOperations
+
+# 測試安全性功能
+python manage.py test scoring.tests.test_case_security
 ```
 
 ## 開發注意事項
@@ -220,9 +223,49 @@ class MyTestCase(TestCase):
 - `issue_01_create_route_completion_count_zero_flow_analysis.md` - 問題 01 的流程分析
 - `issue_01_create_route_completion_count_zero_fix_report.md` - 問題 01 的修復報告
 
+## 安全性功能
+
+### 用戶認證
+
+系統已實現用戶認證功能：
+
+- **註冊**: `POST /api/auth/register/`
+  ```json
+  {
+    "username": "用戶名",
+    "email": "email@example.com",
+    "password": "密碼",
+    "password_confirm": "確認密碼"
+  }
+  ```
+
+- **登錄**: `POST /api/auth/login/`
+  ```json
+  {
+    "username": "用戶名",
+    "password": "密碼"
+  }
+  ```
+
+- **登出**: `POST /api/auth/logout/`
+
+- **當前用戶**: `GET /api/auth/current-user/`
+
+### 權限控制
+
+- **讀取操作**: 無需認證（查看房間、排行榜等）
+- **寫入操作**: 需要認證（創建、更新、刪除）
+
+### 安全防護
+
+- **XSS 防護**: 所有用戶輸入自動轉義
+- **SQL 注入防護**: 使用 Django ORM，自動防止 SQL 注入
+- **輸入驗證**: 長度限制和格式驗證
+
 ## 下一步
 
-1. 通過管理後台創建房間和成員
-2. 使用前端界面或 API 添加路線和成績
-3. 查看即時更新的排行榜
+1. 註冊用戶帳號（可選，創建和更新操作需要認證）
+2. 通過管理後台創建房間和成員
+3. 使用前端界面或 API 添加路線和成績
+4. 查看即時更新的排行榜
 
