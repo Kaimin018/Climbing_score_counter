@@ -228,6 +228,13 @@ if not DEBUG:
         import warnings
         warnings.warn(f"無法創建日誌目錄 {logs_dir}: {e}。將只使用控制台日誌。")
 
+# Session 配置（適用於所有環境）
+# 確保 session cookie 可以正常工作
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'  # 允許跨站請求時發送 cookie
+SESSION_COOKIE_AGE = 86400  # 24 小時
+SESSION_SAVE_EVERY_REQUEST = False
+
 # 生產環境安全設置
 if not DEBUG:
     # 是否使用 HTTPS（如果已配置 SSL 證書，設為 True）
@@ -238,6 +245,7 @@ if not DEBUG:
     # 如果使用 HTTP，設為 False 以確保 Cookie 可以正常設置
     SESSION_COOKIE_SECURE = USE_HTTPS
     CSRF_COOKIE_SECURE = USE_HTTPS
+    CSRF_COOKIE_SAMESITE = 'Lax'  # 確保 CSRF cookie 可以正常發送
     
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True

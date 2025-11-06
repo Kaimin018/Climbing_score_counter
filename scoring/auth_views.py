@@ -41,6 +41,9 @@ def register_view(request):
         # 自動登錄
         login(request, user)
         
+        # 確保 session 已保存
+        request.session.save()
+        
         return Response({
             'message': '註冊成功',
             'user': {
@@ -69,6 +72,10 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
+            
+            # 確保 session 已保存
+            request.session.save()
+            
             return Response({
                 'message': '登錄成功',
                 'user': {
@@ -151,6 +158,9 @@ def guest_login_view(request):
     # 自動登錄
     login(request, guest_user)
     
+    # 確保 session 已保存
+    request.session.save()
+    
     return Response({
         'message': '訪客登錄成功',
         'user': {
@@ -158,5 +168,6 @@ def guest_login_view(request):
             'username': guest_user.username,
             'email': guest_user.email,
             'is_guest': True
-        }
+        },
+        'session_key': request.session.session_key  # 用於調試
     }, status=status.HTTP_200_OK)
