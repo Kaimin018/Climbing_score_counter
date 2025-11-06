@@ -461,6 +461,58 @@ tar -czf /var/www/Climbing_score_counter/backups/media_$(date +%Y%m%d_%H%M%S).ta
 
 ## 故障排除
 
+### 虛擬環境路徑錯誤
+
+**問題**: 安裝依賴時出現 `-bash: /var/www/climbing_score_counting_system/venv/bin/pip: No such file or directory`
+
+**原因**: 虛擬環境仍指向舊路徑，但項目已移動到新路徑。
+
+**解決方法**:
+
+1. **使用修復腳本（推薦）**:
+   ```bash
+   cd /var/www/Climbing_score_counter
+   bash fix_venv_path.sh
+   ```
+
+2. **手動修復**:
+   ```bash
+   # 退出當前虛擬環境
+   deactivate
+   
+   # 進入項目目錄
+   cd /var/www/Climbing_score_counter
+   
+   # 如果舊虛擬環境存在，可以刪除或遷移
+   # 選項 1: 刪除舊虛擬環境並創建新的
+   rm -rf /var/www/climbing_score_counting_system/venv
+   python3 -m venv venv
+   
+   # 選項 2: 遷移舊虛擬環境
+   # cp -r /var/www/climbing_score_counting_system/venv venv
+   # python3 -m venv --upgrade venv
+   
+   # 激活新虛擬環境
+   source venv/bin/activate
+   
+   # 驗證路徑
+   which python  # 應該顯示 /var/www/Climbing_score_counter/venv/bin/python
+   which pip     # 應該顯示 /var/www/Climbing_score_counter/venv/bin/pip
+   
+   # 安裝依賴
+   pip install --upgrade pip
+   pip install -r requirements.txt
+   ```
+
+3. **更新 shell 配置**（如果問題持續）:
+   ```bash
+   # 檢查 ~/.bashrc 或 ~/.bash_profile 中是否有舊路徑的虛擬環境激活
+   grep -n "climbing_score_counting_system" ~/.bashrc ~/.bash_profile
+   
+   # 如果有，請編輯並更新路徑
+   nano ~/.bashrc
+   ```
+
 ### Gunicorn 無法啟動
 
 1. 檢查服務狀態：`sudo systemctl status climbing_system`

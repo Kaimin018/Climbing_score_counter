@@ -33,9 +33,22 @@ else
     echo "警告: 未檢測到 Git 倉庫，跳過代碼更新"
 fi
 
+# 檢查並創建虛擬環境（如果不存在）
+if [ ! -d "$VENV_DIR" ]; then
+    echo "虛擬環境不存在，正在創建..."
+    python3 -m venv $VENV_DIR
+    echo "虛擬環境創建完成"
+fi
+
 # 激活虛擬環境
 echo "激活虛擬環境..."
 source $VENV_DIR/bin/activate
+
+# 確保使用正確的 pip 和 python
+if ! command -v pip &> /dev/null; then
+    echo "錯誤: 無法找到 pip，請檢查虛擬環境"
+    exit 1
+fi
 
 # 安裝/更新依賴
 echo "安裝依賴..."
