@@ -49,7 +49,7 @@ echo "1. 將項目文件上傳到: $PROJECT_DIR"
 echo "2. 創建虛擬環境: python3 -m venv $PROJECT_DIR/venv"
 echo "3. 安裝依賴: source $PROJECT_DIR/venv/bin/activate && pip install -r requirements.txt"
 echo "4. 配置環境變數和服務文件"
-echo "5. 運行部署腳本: bash deploy.sh"
+echo "5. 運行部署腳本: bash Deployment/deploy.sh"
 echo ""
 echo "詳細說明請參考: AWS_EC2_DEPLOYMENT.md"
 

@@ -35,10 +35,11 @@
 系統已配置支持 AWS EC2 部署，使用 Gunicorn + Nginx + SQLite 架構。
 
 詳細部署指南請參考：
-- `AWS_EC2_DEPLOYMENT.md` - 完整部署指南
-- `DEPLOYMENT_CI_CD.md` - CI/CD 自動部署指南
+- `Deployment/AWS_EC2_DEPLOYMENT.md` - 完整部署指南
+- `Deployment/DEPLOYMENT_CI_CD.md` - CI/CD 自動部署指南
+- `Deployment/TROUBLESHOOTING_DEPLOYMENT.md` - 故障排除指南
 - `QUICK_START.md` - 快速參考
-- `DEPLOYMENT_CHANGES.md` - 部署修改總結
+- `Deployment/DEPLOYMENT_CHANGES.md` - 部署修改總結
 
 **部署路徑**: `/var/www/Climbing_score_counter`
 

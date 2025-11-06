@@ -40,10 +40,10 @@ apply_server_config() {
     SYSTEMD_SERVICE="/etc/systemd/system/climbing_system.service"
     if [ ! -f "$SYSTEMD_SERVICE" ]; then
         echo "首次部署: 複製 systemd 服務文件..."
-        if [ -f "$PROJECT_DIR/systemd/climbing_system.service" ]; then
-            sudo cp "$PROJECT_DIR/systemd/climbing_system.service" "$SYSTEMD_SERVICE"
+        if [ -f "$PROJECT_DIR/Deployment/systemd/climbing_system.service" ]; then
+            sudo cp "$PROJECT_DIR/Deployment/systemd/climbing_system.service" "$SYSTEMD_SERVICE"
         else
-            echo "⚠️  警告: 找不到模板文件 systemd/climbing_system.service"
+            echo "⚠️  警告: 找不到模板文件 Deployment/systemd/climbing_system.service"
         fi
     fi
     
@@ -62,14 +62,14 @@ apply_server_config() {
     
     if [ ! -f "$NGINX_AVAILABLE" ]; then
         echo "首次部署: 複製 nginx 配置文件..."
-        if [ -f "$PROJECT_DIR/nginx/climbing_system.conf" ]; then
-            sudo cp "$PROJECT_DIR/nginx/climbing_system.conf" "$NGINX_AVAILABLE"
+        if [ -f "$PROJECT_DIR/Deployment/nginx/climbing_system.conf" ]; then
+            sudo cp "$PROJECT_DIR/Deployment/nginx/climbing_system.conf" "$NGINX_AVAILABLE"
             # 創建符號連結
             if [ ! -L "$NGINX_ENABLED" ]; then
                 sudo ln -sf "$NGINX_AVAILABLE" "$NGINX_ENABLED"
             fi
         else
-            echo "⚠️  警告: 找不到模板文件 nginx/climbing_system.conf"
+            echo "⚠️  警告: 找不到模板文件 Deployment/nginx/climbing_system.conf"
         fi
     fi
     

@@ -145,7 +145,7 @@ ls -la /var/www/Climbing_score_counter/staticfiles/
 2. **在 EC2 上手動執行部署**:
    ```bash
    cd /var/www/Climbing_score_counter
-   bash deploy.sh
+   bash Deployment/deploy.sh
    ```
 
 ### 驗證部署

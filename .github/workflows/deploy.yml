@@ -104,14 +104,16 @@ jobs:
           
           # 執行部署腳本
           echo "執行部署腳本..."
-          if [ -f "deploy.sh" ]; then
-            chmod +x deploy.sh
-            bash deploy.sh
+          if [ -f "Deployment/deploy.sh" ]; then
+            chmod +x Deployment/deploy.sh
+            bash Deployment/deploy.sh
           else
-            echo "錯誤: 找不到 deploy.sh 腳本"
+            echo "錯誤: 找不到 Deployment/deploy.sh 腳本"
             echo "當前目錄: $(pwd)"
             echo "目錄內容:"
             ls -la
+            echo "Deployment 目錄內容:"
+            ls -la Deployment/ || echo "Deployment 目錄不存在"
             exit 1
           fi
           

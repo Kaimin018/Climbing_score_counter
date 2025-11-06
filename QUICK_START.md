@@ -4,7 +4,7 @@
 
 ### 1. 在 EC2 上初始設置
 ```bash
-bash setup_ec2.sh
+bash Deployment/setup_ec2.sh
 ```
 
 ### 2. 上傳項目文件
@@ -41,8 +41,8 @@ python manage.py collectstatic --noinput
 ### 7. 配置並啟動服務
 ```bash
 # 複製配置文件
-sudo cp nginx/climbing_system.conf /etc/nginx/sites-available/
-sudo cp systemd/climbing_system.service /etc/systemd/system/
+sudo cp Deployment/nginx/climbing_system.conf /etc/nginx/sites-available/
+sudo cp Deployment/systemd/climbing_system.service /etc/systemd/system/
 
 # 編輯配置文件（設置域名、路徑等）
 sudo nano /etc/nginx/sites-available/climbing_system.conf
@@ -104,7 +104,7 @@ sudo journalctl -u climbing_system -f
 cd /var/www/Climbing_score_counter
 source venv/bin/activate
 # 拉取最新代碼或上傳新文件
-bash deploy.sh
+bash Deployment/deploy.sh
 ```
 
 ## 環境變數清單
@@ -169,7 +169,7 @@ sudo chown -R www-data:www-data /var/www/Climbing_score_counter/media
 
 ## 詳細文檔
 
-- 完整部署指南：`AWS_EC2_DEPLOYMENT.md`
-- 修改總結：`DEPLOYMENT_CHANGES.md`
+- 完整部署指南：`Deployment/AWS_EC2_DEPLOYMENT.md`
+- 修改總結：`Deployment/DEPLOYMENT_CHANGES.md`
 - 環境變數範例：`env.example`
 

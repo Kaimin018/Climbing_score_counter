@@ -105,6 +105,6 @@ echo "現在可以運行以下命令安裝依賴："
 echo "  pip install -r requirements.txt"
 echo ""
 echo "或者運行部署腳本："
-echo "  bash deploy.sh"
+echo "  bash Deployment/deploy.sh"
 echo ""
 

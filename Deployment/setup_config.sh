@@ -83,6 +83,6 @@ echo "✅ 配置完成！"
 echo ""
 echo "下一步："
 echo "1. 檢查配置文件: cat $CONFIG_FILE"
-echo "2. 運行部署腳本: bash deploy.sh"
+echo "2. 運行部署腳本: bash Deployment/deploy.sh"
 echo "   部署腳本會自動讀取此配置並應用到 systemd 和 nginx"
 

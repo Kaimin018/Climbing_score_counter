@@ -13,7 +13,7 @@
 1. GitHub 倉庫
 2. AWS EC2 實例已設置並運行
 3. EC2 實例已配置 SSH 訪問
-4. 項目已通過 Git 部署到 EC2（見 `AWS_EC2_DEPLOYMENT.md`）
+4. 項目已通過 Git 部署到 EC2（見 `Deployment/AWS_EC2_DEPLOYMENT.md`）
 
 ## 步驟 1: 配置 GitHub Secrets
 
@@ -242,7 +242,7 @@ bash deploy.sh
 
 ## 相關文檔
 
-- `AWS_EC2_DEPLOYMENT.md` - 初始部署指南
+- `Deployment/AWS_EC2_DEPLOYMENT.md` - 初始部署指南
 - `deploy.sh` - 部署腳本詳情
 - `QUICK_START.md` - 快速參考
 

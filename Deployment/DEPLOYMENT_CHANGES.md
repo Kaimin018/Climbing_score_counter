@@ -48,11 +48,11 @@
 5. **`setup_ec2.sh`**
    - EC2 初始設置腳本
    - 安裝系統依賴、創建目錄等
-   - 使用方法：`bash setup_ec2.sh`
+   - 使用方法：`bash Deployment/setup_ec2.sh`
 
 ### 文檔
 
-6. **`AWS_EC2_DEPLOYMENT.md`**
+6. **`Deployment/AWS_EC2_DEPLOYMENT.md`**
    - 完整的部署指南
    - 包含所有部署步驟和故障排除
 
@@ -98,7 +98,7 @@ CORS_ALLOWED_ORIGINS=https://your-domain.com
 8. 配置並啟動 Nginx
 9. 測試部署
 
-詳細步驟請參考 `AWS_EC2_DEPLOYMENT.md`。
+詳細步驟請參考 `Deployment/AWS_EC2_DEPLOYMENT.md`。
 
 ## 注意事項
 

@@ -539,7 +539,7 @@ scoring/tests/
 - **進程管理**: Systemd
 - **部署路徑**: `/var/www/Climbing_score_counter`
 
-詳細部署指南請參考：`AWS_EC2_DEPLOYMENT.md`
+詳細部署指南請參考：`Deployment/AWS_EC2_DEPLOYMENT.md`
 
 ## 依賴管理
 

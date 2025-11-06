@@ -26,7 +26,7 @@
 cd /var/www/Climbing_score_counter
 
 # 方法 1: 使用交互式脚本（推荐）
-bash setup_config.sh
+bash Deployment/setup_config.sh
 
 # 方法 2: 手动创建
 nano .server-config
@@ -47,7 +47,7 @@ SECRET_KEY=your-actual-secret-key-here
 ### 步骤 2: 运行部署脚本
 
 ```bash
-bash deploy.sh
+bash Deployment/deploy.sh
 ```
 
 部署脚本会自动：
@@ -62,7 +62,7 @@ bash deploy.sh
 
 ```bash
 # 只需运行部署脚本
-bash deploy.sh
+bash Deployment/deploy.sh
 ```
 
 脚本会自动：
@@ -80,7 +80,7 @@ bash deploy.sh
 nano /var/www/Climbing_score_counter/.server-config
 
 # 运行部署脚本应用新配置
-bash deploy.sh
+bash Deployment/deploy.sh
 ```
 
 ## 配置文件格式
@@ -114,7 +114,7 @@ SECRET_KEY=your-secret-key          # 必需：Django SECRET_KEY
 解决方法：
 ```bash
 # 运行配置初始化脚本
-bash setup_config.sh
+bash Deployment/setup_config.sh
 ```
 
 ### 配置未应用

@@ -3,12 +3,12 @@
 本指南說明如何將攀岩計分系統部署到 AWS EC2，使用 SQLite 數據庫、Nginx 反向代理和 Gunicorn WSGI 服務器。
 
 **重要提示**：
-- ✅ 首次部署後，後續更新**不需要重新 clone**，只需使用 `git pull` 或 `deploy.sh` 腳本
-- ✅ 推薦使用 CI/CD 自動部署流程（見 `DEPLOYMENT_CI_CD.md`）
-- ✅ 手動更新時使用 `deploy.sh` 腳本，它會自動處理所有步驟
-- ✅ 首次部署可以使用 `setup_ec2.sh` 腳本簡化環境設置
-- ✅ 如果遇到虛擬環境路徑問題，使用 `fix_venv_path.sh` 腳本修復
-- ✅ **域名配置**：已配置域名 `countclimbingscore.online`，詳細說明見 `DOMAIN_SETUP.md`
+- ✅ 首次部署後，後續更新**不需要重新 clone**，只需使用 `git pull` 或 `Deployment/deploy.sh` 腳本
+- ✅ 推薦使用 CI/CD 自動部署流程（見 `Deployment/DEPLOYMENT_CI_CD.md`）
+- ✅ 手動更新時使用 `Deployment/deploy.sh` 腳本，它會自動處理所有步驟
+- ✅ 首次部署可以使用 `Deployment/setup_ec2.sh` 腳本簡化環境設置
+- ✅ 如果遇到虛擬環境路徑問題，使用 `Deployment/fix_venv_path.sh` 腳本修復
+- ✅ **域名配置**：已配置域名 `countclimbingscore.online`，詳細說明見 `Deployment/DOMAIN_SETUP.md`
 
 ## 架構概覽
 
@@ -59,7 +59,7 @@ ssh -i your-key.pem ubuntu@your-ec2-ip
 ```bash
 # 下載並運行初始設置腳本
 cd /var/www/Climbing_score_counter
-bash setup_ec2.sh
+bash Deployment/setup_ec2.sh
 ```
 
 `setup_ec2.sh` 腳本會自動執行：
@@ -129,7 +129,7 @@ git fetch origin
 git reset --hard origin/main  # 或 origin/master，取決於您的默認分支
 
 # 或使用部署腳本（推薦）
-bash deploy.sh
+bash Deployment/deploy.sh
 ```
 
 **重要提示**：
@@ -181,7 +181,7 @@ pip install -r requirements.txt
 
 ```bash
 cd /var/www/Climbing_score_counter
-bash fix_venv_path.sh
+bash Deployment/fix_venv_path.sh
 ```
 
 詳細說明見「故障排除」章節。
@@ -285,7 +285,7 @@ gunicorn --config gunicorn_config.py climbing_system.wsgi:application
 
 ```bash
 # 複製 systemd 服務文件
-sudo cp systemd/climbing_system.service /etc/systemd/system/
+sudo cp Deployment/systemd/climbing_system.service /etc/systemd/system/
 
 # 編輯服務文件，設置正確的路徑和環境變數
 sudo nano /etc/systemd/system/climbing_system.service
@@ -352,7 +352,7 @@ sudo nano /etc/nginx/sites-available/climbing_system.conf
 - `server_name`: 已配置為 `countclimbingscore.online www.countclimbingscore.online 3.26.6.19`
 - 確保所有路徑正確
 
-**注意**：如果使用域名，需要先配置 DNS 記錄（見 `DOMAIN_SETUP.md`）
+**注意**：如果使用域名，需要先配置 DNS 記錄（見 `Deployment/DOMAIN_SETUP.md`）
 
 ### 11.3 測試和重載 Nginx
 
@@ -405,7 +405,7 @@ sudo chown -R www-data:www-data /var/www/Climbing_score_counter/backups
 
 ## 步驟 15: 配置 SSL（可選但強烈推薦）
 
-**重要**：配置 SSL 前，請先完成 DNS 配置（見 `DOMAIN_SETUP.md`），確保域名已指向 EC2 IP。
+**重要**：配置 SSL 前，請先完成 DNS 配置（見 `Deployment/DOMAIN_SETUP.md`），確保域名已指向 EC2 IP。
 
 ### 使用 Let's Encrypt
 
@@ -425,11 +425,11 @@ sudo certbot renew --dry-run
 - 確保 AWS 安全組已開放 80 和 443 端口
 - Certbot 會自動配置 Nginx 使用 HTTPS 並設置 HTTP 重定向
 
-詳細說明請參考 `DOMAIN_SETUP.md`。
+詳細說明請參考 `Deployment/DOMAIN_SETUP.md`。
 
 ## CI/CD 自動部署
 
-系統已配置 GitHub Actions 自動部署流程。詳細說明請參考 `DEPLOYMENT_CI_CD.md`。
+系統已配置 GitHub Actions 自動部署流程。詳細說明請參考 `Deployment/DEPLOYMENT_CI_CD.md`。
 
 ### 快速設置
 
@@ -457,7 +457,7 @@ sudo certbot renew --dry-run
 
 ```bash
 cd /var/www/Climbing_score_counter
-bash deploy.sh
+bash Deployment/deploy.sh
 ```
 
 部署腳本會自動執行：
@@ -600,7 +600,7 @@ chmod +x /var/www/Climbing_score_counter/backup.sh
 1. **使用修復腳本（推薦）**:
    ```bash
    cd /var/www/Climbing_score_counter
-   bash fix_venv_path.sh
+   bash Deployment/fix_venv_path.sh
    ```
 
 2. **手動修復**:
