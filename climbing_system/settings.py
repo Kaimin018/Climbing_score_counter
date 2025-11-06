@@ -211,17 +211,22 @@ LOGGING = {
 if not DEBUG:
     # 確保日誌目錄存在
     logs_dir = BASE_DIR / 'logs'
-    logs_dir.mkdir(exist_ok=True)
-    
-    LOGGING['handlers']['file'] = {
-        'class': 'logging.FileHandler',
-        'filename': logs_dir / 'django.log',
-        'formatter': 'verbose',
-    }
-    
-    # 為生產環境添加文件日誌處理器
-    LOGGING['loggers']['scoring']['handlers'].append('file')
-    LOGGING['loggers']['django']['handlers'].append('file')
+    try:
+        logs_dir.mkdir(exist_ok=True)
+        # 只有在目錄成功創建或已存在時才添加文件日誌處理器
+        LOGGING['handlers']['file'] = {
+            'class': 'logging.FileHandler',
+            'filename': logs_dir / 'django.log',
+            'formatter': 'verbose',
+        }
+        
+        # 為生產環境添加文件日誌處理器
+        LOGGING['loggers']['scoring']['handlers'].append('file')
+        LOGGING['loggers']['django']['handlers'].append('file')
+    except (OSError, PermissionError) as e:
+        # 如果無法創建目錄，只使用控制台日誌
+        import warnings
+        warnings.warn(f"無法創建日誌目錄 {logs_dir}: {e}。將只使用控制台日誌。")
 
 # 生產環境安全設置
 if not DEBUG:
