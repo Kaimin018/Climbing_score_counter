@@ -389,6 +389,73 @@
     }
     
     // 點擊頁面其他地方時關閉所有下拉菜單
+    // Toast 通知函数（替代 alert）
+    function showToast(message, type = 'info', duration = 3000) {
+        // 移除现有的 toast
+        const existingToast = document.querySelector('.toast');
+        if (existingToast) {
+            existingToast.remove();
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    }
+
+    // 按钮加载状态管理
+    function setButtonLoading(button, isLoading) {
+        if (!button) return;
+        
+        if (isLoading) {
+            button.disabled = true;
+            button.dataset.originalText = button.textContent;
+            button.classList.add('loading');
+            button.style.opacity = '0.6';
+            button.style.cursor = 'not-allowed';
+        } else {
+            button.disabled = false;
+            button.classList.remove('loading');
+            button.textContent = button.dataset.originalText || button.textContent;
+            button.style.opacity = '1';
+            button.style.cursor = 'pointer';
+        }
+    }
+
+    // 乐观更新：添加成员到排行榜（临时显示）
+    function addMemberToLeaderboardOptimistic(member) {
+        const tbody = document.getElementById('leaderboardBody');
+        const tempId = 'temp-' + Date.now();
+        const row = document.createElement('tr');
+        row.id = 'member-' + tempId;
+        row.dataset.tempId = tempId;
+        row.style.opacity = '0.7';
+        row.innerHTML = `
+            <td>-</td>
+            <td><strong>${member.name}</strong>${member.is_custom_calc ? ' <span style="color: #95a5a6; font-size: 0.75rem;">(客)</span>' : ''}</td>
+            <td class="score">${parseFloat(member.total_score || 0).toFixed(2)}</td>
+            <td>${member.completed_routes_count || 0}</td>
+            <td>
+                <button class="btn btn-primary btn-small" disabled>編輯</button>
+            </td>
+        `;
+        tbody.appendChild(row);
+        return tempId;
+    }
+
+    // 移除临时成员
+    function removeTempMember(tempId) {
+        const row = document.querySelector(`tr[data-temp-id="${tempId}"]`);
+        if (row) {
+            row.remove();
+        }
+    }
+
     document.addEventListener('click', function(event) {
         if (!event.target.closest('.dropdown')) {
             document.querySelectorAll('.dropdown-content').forEach(function(dropdown) {
@@ -463,11 +530,16 @@
         }).join('');
     }
 
-    function refreshLeaderboard() {
-        // 先重新載入路線列表，確保數據同步
-        loadRoutes();
-        // 然後載入排行榜
-        loadLeaderboard();
+    function refreshLeaderboard(updateOnly = false) {
+        if (updateOnly) {
+            // 只更新排行榜，不重新加载路线列表（更快）
+            loadLeaderboard();
+        } else {
+            // 完整刷新：先重新載入路線列表，確保數據同步
+            loadRoutes();
+            // 然後載入排行榜
+            loadLeaderboard();
+        }
     }
 
     function showCompletedRoutes(memberId, memberName) {
@@ -610,7 +682,7 @@
             })
             .catch(error => {
                 console.error('載入路線詳情失敗:', error);
-                alert('載入路線詳情時發生錯誤');
+                showToast('載入路線詳情時發生錯誤', 'error');
             });
     }
 
@@ -692,7 +764,7 @@
         const routeName = document.getElementById('editRouteName').value || '此路線';
         
         if (!routeId) {
-            alert('錯誤：無法獲取路線資訊');
+            showToast('錯誤：無法獲取路線資訊', 'error');
             return;
         }
         
@@ -714,8 +786,8 @@
         })
         .then(response => {
             if (response.status === 204 || response.ok) {
-                alert('路線已刪除');
-                refreshLeaderboard();
+                showToast('路線已刪除', 'success');
+                refreshLeaderboard(true);
             } else {
                 return response.json().then(err => Promise.reject(err));
             }
@@ -723,7 +795,7 @@
         .catch(error => {
             console.error('刪除路線失敗:', error);
             const errorMsg = error.detail || error.message || JSON.stringify(error);
-            alert('刪除路線時發生錯誤: ' + errorMsg);
+            showToast('刪除路線時發生錯誤: ' + errorMsg, 'error');
         });
     }
 
@@ -814,7 +886,7 @@
 
     function deleteMemberFromEditModal() {
         if (!currentEditingMemberId || !currentEditingMemberName) {
-            alert('錯誤：無法獲取成員資訊');
+            showToast('錯誤：無法獲取成員資訊', 'error');
             return;
         }
         
@@ -840,8 +912,8 @@
         })
         .then(response => {
             if (response.status === 204 || response.ok) {
-                alert('成員已刪除');
-                refreshLeaderboard();
+                showToast('成員已刪除', 'success');
+                refreshLeaderboard(true);
                 loadMembersForRouteForm(); // 刷新成員列表供路線表單使用
             } else {
                 return response.json().then(err => Promise.reject(err));
@@ -850,7 +922,7 @@
         .catch(error => {
             console.error('刪除成員失敗:', error);
             const errorMsg = error.detail || error.message || JSON.stringify(error);
-            alert('刪除成員時發生錯誤: ' + errorMsg);
+            showToast('刪除成員時發生錯誤: ' + errorMsg, 'error');
         });
     }
 
@@ -935,16 +1007,16 @@
         .then(data => {
             if (data.id) {
                 closeEditRoomModal();
-                refreshLeaderboard();
-                alert('房間更新成功！');
+                refreshLeaderboard(true);
+                showToast('房間更新成功！', 'success');
             } else {
-                alert('更新失敗: ' + JSON.stringify(data));
+                showToast('更新失敗: ' + JSON.stringify(data), 'error');
             }
         })
         .catch(error => {
             console.error('更新房間失敗:', error);
             const errorMsg = error.detail || error.message || JSON.stringify(error);
-            alert('更新房間時發生錯誤: ' + errorMsg);
+            showToast('更新房間時發生錯誤: ' + errorMsg, 'error');
         });
     });
 
@@ -1047,19 +1119,16 @@
         .then(data => {
             if (data.id) {
                 closeEditRouteModal();
-                // 強制刷新排行榜和路線列表
-                setTimeout(function() {
-                    refreshLeaderboard();
-                }, 100);
-                alert('路線更新成功！');
+                refreshLeaderboard(true);
+                showToast('路線更新成功！', 'success');
             } else {
-                alert('更新失敗: ' + JSON.stringify(data));
+                showToast('更新失敗: ' + JSON.stringify(data), 'error');
             }
         })
         .catch(error => {
             console.error('更新路線失敗:', error);
             const errorMsg = error.detail || error.message || JSON.stringify(error);
-            alert('更新路線時發生錯誤: ' + errorMsg);
+            showToast('更新路線時發生錯誤: ' + errorMsg, 'error');
         });
     });
 
@@ -1068,20 +1137,35 @@
         e.preventDefault();
         
         const formData = new FormData(e.target);
+        const submitButton = e.target.querySelector('button[type="submit"]');
+        
         // 驗證房間 ID
         const roomId = parseInt(ROOM_ID);
         if (isNaN(roomId) || roomId <= 0) {
-            alert('錯誤：無效的房間 ID。請刷新頁面重試。');
+            showToast('錯誤：無效的房間 ID。請刷新頁面重試。', 'error');
             return;
         }
 
         const data = {
-            room: roomId, // 確保是整數類型
+            room: roomId,
             name: formData.get('name'),
             is_custom_calc: document.getElementById('isCustomCalc').checked
         };
 
-        console.log('Creating member with data:', data); // 調試信息
+        // 立即关闭模态框，提供即时反馈
+        closeAddMemberModal();
+        
+        // 设置按钮加载状态
+        setButtonLoading(submitButton, true);
+
+        // 乐观更新：立即添加到 UI（临时显示）
+        const tempMember = {
+            name: data.name,
+            is_custom_calc: data.is_custom_calc,
+            total_score: 0,
+            completed_routes_count: 0
+        };
+        const tempId = addMemberToLeaderboardOptimistic(tempMember);
 
         fetch('/api/members/', {
             method: 'POST',
@@ -1099,21 +1183,30 @@
             return response.json();
         })
         .then(data => {
+            // 移除临时成员
+            removeTempMember(tempId);
+            
             if (data.id) {
-                closeAddMemberModal();
-                refreshLeaderboard();
-                loadMembersForRouteForm(); // 刷新成員列表供路線表單使用
-                alert('成員創建成功！');
+                // 刷新排行榜（使用真实数据）
+                refreshLeaderboard(true); // 只更新排行榜，不重新加载路线
+                loadMembersForRouteForm();
+                showToast('成員創建成功！', 'success');
             } else {
-                alert('創建失敗: ' + JSON.stringify(data));
+                showToast('創建失敗: ' + JSON.stringify(data), 'error');
             }
         })
         .catch(error => {
             console.error('創建成員失敗:', error);
+            
+            // 移除临时成员
+            removeTempMember(tempId);
+            
+            // 回滚：刷新排行榜
+            refreshLeaderboard(true);
+            
             // 處理驗證錯誤
             let errorMsg = '創建成員時發生錯誤';
             if (error.name && error.name.length > 0) {
-                // 如果有 name 欄位的錯誤（重複名稱）
                 errorMsg = error.name[0];
             } else if (error.detail) {
                 errorMsg = error.detail;
@@ -1124,7 +1217,10 @@
             } else if (error.non_field_errors) {
                 errorMsg = error.non_field_errors[0];
             }
-            alert(errorMsg);
+            showToast(errorMsg, 'error');
+        })
+        .finally(() => {
+            setButtonLoading(submitButton, false);
         });
     });
 
@@ -1133,12 +1229,16 @@
         e.preventDefault();
         
         const formData = new FormData(e.target);
+        const submitButton = e.target.querySelector('button[type="submit"]');
         const memberId = document.getElementById('editMemberId').value;
 
         const data = {
             name: formData.get('name'),
             is_custom_calc: document.getElementById('editIsCustomCalc').checked
         };
+
+        // 设置按钮加载状态
+        setButtonLoading(submitButton, true);
 
         fetch(`/api/members/${memberId}/`, {
             method: 'PATCH',
@@ -1158,11 +1258,11 @@
         .then(data => {
             if (data.id) {
                 closeEditMemberModal();
-                refreshLeaderboard();
-                loadMembersForRouteForm(); // 刷新成員列表供路線表單使用
-                alert('成員更新成功！');
+                refreshLeaderboard(true); // 只更新排行榜
+                loadMembersForRouteForm();
+                showToast('成員更新成功！', 'success');
             } else {
-                alert('更新失敗: ' + JSON.stringify(data));
+                showToast('更新失敗: ' + JSON.stringify(data), 'error');
             }
         })
         .catch(error => {
@@ -1170,7 +1270,6 @@
             // 處理驗證錯誤
             let errorMsg = '更新成員時發生錯誤';
             if (error.name && error.name.length > 0) {
-                // 如果有 name 欄位的錯誤（重複名稱）
                 errorMsg = error.name[0];
             } else if (error.detail) {
                 errorMsg = error.detail;
@@ -1181,17 +1280,22 @@
             } else if (error.non_field_errors) {
                 errorMsg = error.non_field_errors[0];
             }
-            alert(errorMsg);
+            showToast(errorMsg, 'error');
+        })
+        .finally(() => {
+            setButtonLoading(submitButton, false);
         });
     });
 
     document.getElementById('addRouteForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
+        const submitButton = e.target.querySelector('button[type="submit"]');
+        
         // 驗證難度等級是否已選擇
         const gradeValue = document.getElementById('routeGrade').value;
         if (!gradeValue || gradeValue.trim() === '') {
-            alert('請選擇難度等級');
+            showToast('請選擇難度等級', 'warning');
             document.getElementById('routeGrade').focus();
             return;
         }
@@ -1222,6 +1326,12 @@
         // 添加 CSRF token 到 FormData
         formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
 
+        // 立即关闭模态框，提供即时反馈
+        closeAddRouteModal();
+        
+        // 设置按钮加载状态
+        setButtonLoading(submitButton, true);
+
         fetch(`/api/rooms/${ROOM_ID}/routes/`, {
             method: 'POST',
             headers: {
@@ -1234,11 +1344,10 @@
         .then(response => response.json())
         .then(data => {
             if (data.id) {
-                closeAddRouteModal();
-                refreshLeaderboard();
-                alert('路線創建成功！');
+                refreshLeaderboard(true); // 只更新排行榜
+                showToast('路線創建成功！', 'success');
             } else {
-                alert('創建失敗: ' + JSON.stringify(data));
+                showToast('創建失敗: ' + JSON.stringify(data), 'error');
             }
         })
         .catch(error => {
@@ -1246,7 +1355,6 @@
             // 處理驗證錯誤
             let errorMsg = '創建路線時發生錯誤';
             if (error.grade && error.grade.length > 0) {
-                // 如果有 grade 欄位的錯誤（必填驗證）
                 errorMsg = error.grade[0];
             } else if (error.detail) {
                 errorMsg = error.detail;
@@ -1257,7 +1365,10 @@
             } else if (error.non_field_errors) {
                 errorMsg = error.non_field_errors[0];
             }
-            alert(errorMsg);
+            showToast(errorMsg, 'error');
+        })
+        .finally(() => {
+            setButtonLoading(submitButton, false);
         });
     });
 </script>
