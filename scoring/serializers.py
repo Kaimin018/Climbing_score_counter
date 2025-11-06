@@ -57,7 +57,7 @@ class RouteCreateSerializer(serializers.ModelSerializer):
         'required': '難度等級為必填項目',
         'blank': '難度等級不能為空'
     })
-    photo = serializers.ImageField(required=False, allow_null=True)
+    photo = serializers.FileField(required=False, allow_null=True)
 
     class Meta:
         model = Route
@@ -201,12 +201,86 @@ class RouteCreateSerializer(serializers.ModelSerializer):
             img.verify()
             if hasattr(value, 'seek'):
                 value.seek(0)
+            
+            # 如果文件沒有擴展名但 content_type 有效，添加擴展名
+            if not file_name or '.' not in file_name:
+                if content_type:
+                    content_type_lower = content_type.lower()
+                    ext = '.jpg'  # 默認使用 .jpg
+                    if 'png' in content_type_lower:
+                        ext = '.png'
+                    elif 'gif' in content_type_lower:
+                        ext = '.gif'
+                    elif 'bmp' in content_type_lower:
+                        ext = '.bmp'
+                    elif 'webp' in content_type_lower:
+                        ext = '.webp'
+                    
+                    # 創建新的文件對象，添加擴展名
+                    from django.core.files.uploadedfile import InMemoryUploadedFile
+                    from io import BytesIO
+                    import os
+                    
+                    if hasattr(value, 'seek'):
+                        value.seek(0)
+                    file_content = value.read()
+                    
+                    new_name = file_name if file_name else 'photo'
+                    if not new_name.endswith(ext):
+                        new_name = new_name + ext
+                    
+                    new_file = InMemoryUploadedFile(
+                        BytesIO(file_content),
+                        'photo',
+                        new_name,
+                        content_type or 'image/jpeg',
+                        len(file_content),
+                        None
+                    )
+                    return new_file
+            
             return value
         except Exception as e:
             # 如果 Pillow 無法打開，但文件有有效的 content_type，仍然允許上傳
             if content_type and any(ext in content_type.lower() for ext in ['jpeg', 'jpg', 'png', 'gif', 'bmp', 'webp']):
                 if hasattr(value, 'seek'):
                     value.seek(0)
+                
+                # 如果沒有擴展名，根據 content_type 添加
+                if not file_name or '.' not in file_name:
+                    from django.core.files.uploadedfile import InMemoryUploadedFile
+                    from io import BytesIO
+                    import os
+                    
+                    content_type_lower = content_type.lower()
+                    ext = '.jpg'  # 默認使用 .jpg
+                    if 'png' in content_type_lower:
+                        ext = '.png'
+                    elif 'gif' in content_type_lower:
+                        ext = '.gif'
+                    elif 'bmp' in content_type_lower:
+                        ext = '.bmp'
+                    elif 'webp' in content_type_lower:
+                        ext = '.webp'
+                    
+                    if hasattr(value, 'seek'):
+                        value.seek(0)
+                    file_content = value.read()
+                    
+                    new_name = file_name if file_name else 'photo'
+                    if not new_name.endswith(ext):
+                        new_name = new_name + ext
+                    
+                    new_file = InMemoryUploadedFile(
+                        BytesIO(file_content),
+                        'photo',
+                        new_name,
+                        content_type,
+                        len(file_content),
+                        None
+                    )
+                    return new_file
+                
                 return value
             # 如果沒有有效的 content_type 且 Pillow 無法打開，拒絕上傳
             raise serializers.ValidationError(
