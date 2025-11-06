@@ -200,7 +200,6 @@ member_completions: {"1":true,"2":false}
 
 **注意**：
 - 難度等級（grade）為必填項目，範圍：V1-V8+
-- 路線名稱會自動加上【路線】前綴
 - 支持照片上傳（手機可直接拍照）
 
 ### 更新路線
@@ -442,8 +441,6 @@ python manage.py createsuperuser
 
 ### 代碼規範
 
-- 已移除所有 debug logging 代碼
-- 代碼已簡化，只保留核心邏輯和必要註釋
 - 測試代碼使用輔助工具模組提高可維護性
 - 臨時文件和測試輸出文件已加入 `.gitignore`
 
