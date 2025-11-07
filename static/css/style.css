@@ -2016,8 +2016,10 @@ tbody tr:hover {
     }
     
     .routes-list {
-        display: flex;
-        flex-direction: column;
+        display: flex !important;
+        -webkit-display: flex !important;
+        flex-direction: column !important;
+        -webkit-flex-direction: column !important;
         gap: 10px;
         flex: 1;
         overflow-y: auto;
@@ -2031,6 +2033,11 @@ tbody tr:hover {
         /* 优化：移动端一次显示 5 条路线 */
         /* 移动端路线项是垂直布局，每条约 110px，5条 + 间距 + padding = 约 600px */
         height: 600px; /* 使用固定高度而不是 max-height，确保显示5条 */
+        width: 100% !important;
+        box-sizing: border-box;
+        text-align: left !important;
+        -webkit-text-align: left !important;
+        direction: ltr !important;
     }
     
     /* 移動端標籤頁中的路線列表 - 已移除 routes-section-full */
@@ -2055,12 +2062,21 @@ tbody tr:hover {
     }
 
     .route-item {
-        flex-direction: row; /* 改为水平布局，让按钮和内容在同一行 */
-        align-items: center; /* 垂直居中对齐 */
+        flex-direction: row !important; /* 改为水平布局，让按钮和内容在同一行 */
+        -webkit-flex-direction: row !important;
+        align-items: center !important; /* 垂直居中对齐 */
+        -webkit-align-items: center !important;
         gap: 10px; /* 内容区域和按钮之间的间距 */
         padding: 10px 12px; /* 减少 padding，使路线更紧凑 */
         min-height: auto; /* 移除固定最小高度，让内容决定高度 */
         box-sizing: border-box;
+        text-align: left !important;
+        -webkit-text-align: left !important;
+        direction: ltr !important;
+        display: flex !important;
+        -webkit-display: flex !important;
+        justify-content: space-between !important;
+        -webkit-justify-content: space-between !important;
     }
 
     .route-info {
@@ -2071,19 +2087,34 @@ tbody tr:hover {
     /* 移动端路线项内容优化 */
     .route-name-grade {
         margin-bottom: 4px; /* 减少底部间距 */
-        flex-wrap: nowrap; /* 防止路線名稱意外換行（Safari 修復） */
-        -webkit-flex-wrap: nowrap; /* iOS Safari 特定修復 */
-        align-items: center;
+        flex-wrap: nowrap !important; /* 防止路線名稱意外換行（Safari 修復） */
+        -webkit-flex-wrap: nowrap !important; /* iOS Safari 特定修復 */
+        align-items: center !important;
+        -webkit-align-items: center !important;
+        text-align: left !important;
+        -webkit-text-align: left !important;
+        direction: ltr !important;
+        display: flex !important;
+        -webkit-display: flex !important;
+        justify-content: flex-start !important;
+        -webkit-justify-content: flex-start !important;
     }
     
     .route-name-grade strong {
         font-size: 0.95rem; /* 稍微减小字体 */
         line-height: 1.3;
-        white-space: nowrap; /* 防止路線名稱換行（Safari 修復） */
-        display: inline-block; /* 確保作為內聯塊元素，不會被意外分割 */
+        white-space: nowrap !important; /* 防止路線名稱換行（Safari 修復） */
+        -webkit-white-space: nowrap !important; /* iOS Safari 特定修復 */
+        display: inline-block !important; /* 確保作為內聯塊元素，不會被意外分割 */
+        -webkit-display: inline-block !important;
         max-width: 100%; /* 允許在必要時收縮，但優先不換行 */
         overflow: hidden; /* 如果內容過長，隱藏溢出部分 */
         text-overflow: ellipsis; /* 如果內容過長，顯示省略號 */
+        text-align: left !important;
+        -webkit-text-align: left !important;
+        direction: ltr !important;
+        flex-shrink: 0 !important;
+        -webkit-flex-shrink: 0 !important;
     }
     
     .route-stats {
