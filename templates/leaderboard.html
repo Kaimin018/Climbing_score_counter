@@ -227,13 +227,10 @@
                     <input type="file" id="editRoutePhoto" name="photo" accept="image/*" style="display: none;">
                     <input type="file" id="editRoutePhotoFromGallery" name="photo" accept="image/*" style="display: none;">
                     
-                    <!-- 照片選擇按鈕組 -->
-                    <div class="photo-upload-buttons" style="display: flex; gap: 10px; margin-top: 10px;">
-                        <button type="button" class="btn btn-secondary" onclick="triggerEditCameraCapture()" style="flex: 1;">
-                            📷 拍照
-                        </button>
-                        <button type="button" class="btn btn-secondary" onclick="triggerEditGallerySelect()" style="flex: 1;">
-                            🖼️ 從圖庫選擇
+                    <!-- 照片選擇按鈕 -->
+                    <div class="photo-upload-buttons" style="margin-top: 10px;">
+                        <button type="button" class="btn btn-secondary" onclick="triggerEditGallerySelect()" style="width: 100%;">
+                            🖼️ 選擇照片（可拍照或從圖庫選擇）
                         </button>
                     </div>
                     
@@ -241,7 +238,7 @@
                     <div id="editRoutePhotoPreview" style="margin-top: 10px;"></div>
                     
                     <small style="display: block; color: #666; margin-top: 5px;">
-                        支援手機拍照或從圖庫選擇照片上傳。如需更換照片，請選擇新照片。
+                        點擊按鈕可選擇照片（支持拍照或從圖庫選擇）。如需更換照片，請選擇新照片。
                     </small>
                 </div>
                 <div class="form-group">
@@ -326,13 +323,10 @@
                     <input type="file" id="routePhoto" name="photo" accept="image/*" style="display: none;">
                     <input type="file" id="routePhotoFromGallery" name="photo" accept="image/*" style="display: none;">
                     
-                    <!-- 照片選擇按鈕組 -->
-                    <div class="photo-upload-buttons" style="display: flex; gap: 10px; margin-top: 10px;">
-                        <button type="button" class="btn btn-secondary" onclick="triggerCameraCapture()" style="flex: 1;">
-                            📷 拍照
-                        </button>
-                        <button type="button" class="btn btn-secondary" onclick="triggerGallerySelect()" style="flex: 1;">
-                            🖼️ 從圖庫選擇
+                    <!-- 照片選擇按鈕 -->
+                    <div class="photo-upload-buttons" style="margin-top: 10px;">
+                        <button type="button" class="btn btn-secondary" onclick="triggerGallerySelect()" style="width: 100%;">
+                            🖼️ 選擇照片（可拍照或從圖庫選擇）
                         </button>
                     </div>
                     
@@ -345,7 +339,7 @@
                     </div>
                     
                     <small style="display: block; color: #666; margin-top: 5px;">
-                        支援手機拍照或從圖庫選擇照片上傳
+                        點擊按鈕可選擇照片（支持拍照或從圖庫選擇）
                     </small>
                 </div>
                 <div class="form-group">
@@ -635,6 +629,9 @@
             const routeName = route.name || '未命名路線';
             const grade = route.grade || '-';
             const photoUrl = route.photo_url || '';
+            // 轉義 URL 和名稱中的特殊字符
+            const safePhotoUrl = photoUrl ? photoUrl.replace(/'/g, "\\'").replace(/"/g, '&quot;') : '';
+            const safeRouteName = routeName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             
             // 統計完成人數
             const scores = route.scores || [];
@@ -652,7 +649,7 @@
                             完成條數: ${completedCount}/${totalCount} 人
                         </div>
                     </div>
-                    ${photoUrl ? `<div class="completed-route-photo"><img src="${photoUrl}" alt="${routeName}" style="max-width: 100%; border-radius: 4px; margin-top: 10px;"></div>` : ''}
+                    ${photoUrl ? `<div class="completed-route-photo"><img src="${safePhotoUrl}" alt="${safeRouteName}" style="max-width: 100%; border-radius: 4px; margin-top: 10px;" onerror="this.style.display='none'; console.error('照片載入失敗，URL:', '${safePhotoUrl}');"></div>` : ''}
                 </div>
             `;
         }).join('');
@@ -706,10 +703,14 @@
             
             // 如果有圖片，顯示縮圖
             const photoUrl = route.photo_url || '';
+            // 轉義 URL 和名稱中的特殊字符，防止 JavaScript 錯誤
+            const safePhotoUrl = photoUrl ? photoUrl.replace(/'/g, "\\'").replace(/"/g, '&quot;') : '';
+            const safeRouteName = routeDisplayName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             const photoThumbnail = photoUrl ? `
-                <img src="${photoUrl}" alt="${routeDisplayName}" class="route-photo-thumbnail" 
-                     onclick="showPhotoModal('${photoUrl}', '${routeDisplayName}')" 
-                     title="點擊查看大圖">
+                <img src="${safePhotoUrl}" alt="${safeRouteName}" class="route-photo-thumbnail" 
+                     onclick="showPhotoModal('${safePhotoUrl}', '${safeRouteName}')" 
+                     title="點擊查看大圖"
+                     onerror="this.style.display='none'; console.error('照片載入失敗，URL:', '${safePhotoUrl}');">
             ` : '';
             
             return `
@@ -780,10 +781,12 @@
         // 更新預覽區域（顯示現有照片）
         const photoPreview = document.getElementById('editRoutePhotoPreview');
         if (route.photo_url) {
+            // 轉義 URL 中的特殊字符
+            const safePhotoUrl = route.photo_url.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             photoPreview.innerHTML = `
                 <div style="margin-top: 10px;">
                     <p style="font-size: 14px; color: #666; margin-bottom: 5px;">目前照片:</p>
-                    <img id="editRoutePhotoPreviewImg" src="${route.photo_url}" alt="路線照片" style="max-width: 200px; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;">
+                    <img id="editRoutePhotoPreviewImg" src="${safePhotoUrl}" alt="路線照片" style="max-width: 200px; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;" onerror="this.style.display='none'; console.error('照片載入失敗，URL:', '${safePhotoUrl}');">
                     <p style="font-size: 12px; color: #999; margin-top: 5px;">選擇新照片將替換現有照片</p>
                 </div>
             `;
@@ -1039,22 +1042,12 @@
         });
     }
 
-    // 觸發拍照功能
-    function triggerCameraCapture() {
-        const routePhotoInput = document.getElementById('routePhoto');
-        if (routePhotoInput) {
-            // 設置 capture 屬性以使用相機
-            routePhotoInput.setAttribute('capture', 'environment');
-            routePhotoInput.click();
-        }
-    }
-    
-    // 觸發從圖庫選擇
+    // 觸發照片選擇（支持拍照和圖庫選擇）
     function triggerGallerySelect() {
         const routePhotoFromGallery = document.getElementById('routePhotoFromGallery');
         if (routePhotoFromGallery) {
-            // 移除 capture 屬性以使用圖庫
-            routePhotoFromGallery.removeAttribute('capture');
+            // 在移動設備上，文件選擇器會自動提供拍照和圖庫選擇選項
+            // 不需要設置 capture 屬性，讓用戶自己選擇
             routePhotoFromGallery.click();
         }
     }
@@ -1070,20 +1063,12 @@
         if (preview) preview.style.display = 'none';
     }
     
-    // 編輯路線：觸發拍照功能
-    function triggerEditCameraCapture() {
-        const editRoutePhotoInput = document.getElementById('editRoutePhoto');
-        if (editRoutePhotoInput) {
-            editRoutePhotoInput.setAttribute('capture', 'environment');
-            editRoutePhotoInput.click();
-        }
-    }
-    
-    // 編輯路線：觸發從圖庫選擇
+    // 編輯路線：觸發照片選擇（支持拍照和圖庫選擇）
     function triggerEditGallerySelect() {
         const editRoutePhotoFromGallery = document.getElementById('editRoutePhotoFromGallery');
         if (editRoutePhotoFromGallery) {
-            editRoutePhotoFromGallery.removeAttribute('capture');
+            // 在移動設備上，文件選擇器會自動提供拍照和圖庫選擇選項
+            // 不需要設置 capture 屬性，讓用戶自己選擇
             editRoutePhotoFromGallery.click();
         }
     }
@@ -1333,6 +1318,8 @@
         .then(data => {
             if (data.id) {
                 closeEditRouteModal();
+                // 重新載入路線列表以顯示更新後的照片
+                loadRoutes();
                 refreshLeaderboard(true);
                 showToast('路線更新成功！', 'success');
             } else {
@@ -1532,7 +1519,18 @@
         // 構建 FormData（支持文件上傳）
         formData.append('name', routeName);
         formData.append('grade', gradeValue);
-        const photoFile = document.getElementById('routePhoto').files[0];
+        
+        // 獲取照片文件（優先使用圖庫選擇輸入框）
+        const routePhotoFromGallery = document.getElementById('routePhotoFromGallery');
+        const routePhotoInput = document.getElementById('routePhoto');
+        let photoFile = null;
+        // 優先使用圖庫選擇輸入框
+        if (routePhotoFromGallery && routePhotoFromGallery.files && routePhotoFromGallery.files[0]) {
+            photoFile = routePhotoFromGallery.files[0];
+        } else if (routePhotoInput && routePhotoInput.files && routePhotoInput.files[0]) {
+            photoFile = routePhotoInput.files[0];
+        }
+        
         if (photoFile) {
             formData.append('photo', photoFile);
         }
@@ -1575,6 +1573,8 @@
         })
         .then(data => {
             if (data.id) {
+                // 重新載入路線列表以顯示新上傳的照片
+                loadRoutes();
                 refreshLeaderboard(true); // 只更新排行榜
                 showToast('路線創建成功！', 'success');
             } else {
