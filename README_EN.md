@@ -26,6 +26,7 @@ This system uses Python/Django as the backend framework and SQLite (default) or 
 - **API**: Django REST Framework
 - **Frontend**: HTML + CSS + JavaScript
 - **Image Processing**: Pillow (supports mobile photo uploads)
+- **HTML Parsing**: BeautifulSoup4 (for HTML structure checking in tests)
 
 ## Quick Start
 
@@ -321,7 +322,7 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ### Test Cases
 
-The system includes the following test cases (52 tests total):
+The system includes the following test cases (31 test files, over 250 test cases):
 
 1. **Core Scoring Logic Tests** (`test_case_01_default_member.py`):
    - Progressive route addition scoring
@@ -395,6 +396,58 @@ The system includes the following test cases (52 tests total):
    - Mobile page contains responsive design elements
    - CSS file contains mobile media queries
    - Mobile form input font size (prevent iOS auto-zoom)
+
+11. **Security Tests** (`test_case_12_security.py`)
+
+12. **Settings Configuration Tests** (`test_case_13_settings_config.py`)
+
+13. **Login UI Tests** (`test_case_14_login_ui.py`)
+
+14. **AWS Deployment Issues Tests** (`test_case_15_aws_deployment_issues.py`)
+
+15. **iPhone Photo Upload Tests** (`test_case_16_iphone_photo_upload.py`)
+
+16. **Mobile Photo Upload Tests** (`test_case_17_mobile_photo_upload.py`)
+
+17. **Route Photo Display Tests** (`test_case_18_route_photo_display.py`)
+
+18. **Mobile Delete Route Tests** (`test_case_19_mobile_delete_route.py`)
+
+19. **First Time Camera Photo Tests** (`test_case_20_first_time_camera_photo.py`)
+
+20. **Mobile Desktop Data Consistency Tests** (`test_case_21_mobile_desktop_data_consistency.py`)
+
+21. **iPhone Photo Update Route Fix Tests** (`test_case_22_iphone_photo_update_route_fix.py`)
+
+22. **Desktop Route Update Authentication Tests** (`test_case_23_desktop_route_update_authentication.py`)
+
+23. **Member Deletion Leaderboard Tests** (`test_case_24_member_deletion_leaderboard.py`)
+
+24. **Guest Create Room CSRF Tests** (`test_case_25_guest_create_room_csrf.py`)
+
+25. **Create Route with Photo Tests** (`test_case_26_create_route_with_photo.py`)
+
+26. **Room Deletion Tests** (`test_case_27_room_deletion.py`)
+
+27. **Tab Switching Tests** (`test_case_27_tab_switching.py`)
+
+28. **Boundary Values Tests** (`test_case_28_boundary_values.py`)
+
+29. **Safari Route List Alignment Tests** (`test_case_28_safari_route_list_alignment.py`):
+   - Safari browser route list left alignment
+   - Route names do not wrap unexpectedly
+   - Route list frame left alignment
+
+30. **Data Integrity Tests** (`test_case_29_data_integrity.py`)
+
+31. **Safari Detailed Alignment Diagnostic Tests** (`test_case_29_safari_detailed_alignment.py`):
+   - Detailed CSS property value checks for each element
+   - HTML structure and inline style checks
+   - JavaScript-generated HTML checks
+   - Mobile-specific style override checks
+   - Safari-specific compatibility checks (including -webkit- prefixes)
+
+32. **Add Member to Existing Routes Tests** (`test_case_30_add_member_to_existing_routes.py`)
 
 ### GitHub Actions Testing
 

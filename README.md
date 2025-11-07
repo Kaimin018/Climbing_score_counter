@@ -26,6 +26,7 @@
 - **API**: Django REST Framework
 - **前端**: HTML + CSS + JavaScript
 - **圖片處理**: Pillow（支持手機照片上傳）
+- **HTML 解析**: BeautifulSoup4（用於測試中的 HTML 結構檢查）
 - **生產環境**: Gunicorn + Nginx（AWS EC2 部署）
 
 ## 部署
@@ -352,7 +353,7 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ### 測試案例
 
-系統包含以下測試案例（共 30 個測試文件，超過 150 個測試用例）：
+系統包含以下測試案例（共 31 個測試文件，超過 250 個測試用例）：
 
 1. **核心計分邏輯測試**（`test_case_01_default_member.py`）：
    - 循序漸進新增路線的計分
@@ -475,9 +476,21 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 28. **邊界值測試**（`test_case_28_boundary_values.py`）
 
-29. **數據完整性測試**（`test_case_29_data_integrity.py`）
+29. **Safari 路線列表對齊測試**（`test_case_28_safari_route_list_alignment.py`）：
+   - Safari 瀏覽器路線列表左對齊
+   - 路線名稱不會意外換行
+   - 整個路線列表框架左對齊
 
-30. **向現有路線添加成員測試**（`test_case_30_add_member_to_existing_routes.py`）
+30. **數據完整性測試**（`test_case_29_data_integrity.py`）
+
+31. **Safari 詳細對齊診斷測試**（`test_case_29_safari_detailed_alignment.py`）：
+   - 詳細檢查每個元素的 CSS 屬性值
+   - 檢查 HTML 結構和內聯樣式
+   - 檢查 JavaScript 生成的 HTML
+   - 檢查移動端特定的樣式覆蓋
+   - 檢查 Safari 特定的兼容性問題（包括 -webkit- 前綴）
+
+32. **向現有路線添加成員測試**（`test_case_30_add_member_to_existing_routes.py`）
 
 ### GitHub Actions 測試
 
