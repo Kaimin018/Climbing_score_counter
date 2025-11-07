@@ -798,29 +798,54 @@
         const editPhotoInput = document.getElementById('editRoutePhoto');
         const editPhotoFromGallery = document.getElementById('editRoutePhotoFromGallery');
         
-        if (editPhotoInput) {
-            editPhotoInput.value = '';
-            // 設置 change 事件監聽器
-            editPhotoInput.onchange = function() {
-                if (editPhotoFromGallery && this.files && this.files[0]) {
+        // 統一的 change 事件處理函數（用於編輯路線）
+        const handleEditPhotoChange = function(inputElement) {
+            if (inputElement && inputElement.files && inputElement.files[0]) {
+                // 同步到另一個輸入框
+                const otherInput = inputElement.id === 'editRoutePhotoFromGallery' ? editPhotoInput : editPhotoFromGallery;
+                if (otherInput) {
                     const dataTransfer = new DataTransfer();
-                    dataTransfer.items.add(this.files[0]);
-                    editPhotoFromGallery.files = dataTransfer.files;
+                    dataTransfer.items.add(inputElement.files[0]);
+                    otherInput.files = dataTransfer.files;
                 }
                 // 更新預覽（如果已有照片，顯示新照片）
-                showPhotoPreview(this, 'editRoutePhotoPreview', 'editRoutePhotoPreviewImg');
+                // 先檢查預覽區域是否有現有照片結構
+                const photoPreview = document.getElementById('editRoutePhotoPreview');
+                if (photoPreview) {
+                    const existingImg = document.getElementById('editRoutePhotoPreviewImg');
+                    // 如果沒有預覽圖片元素，創建預覽結構
+                    if (!existingImg) {
+                        photoPreview.innerHTML = `
+                            <div style="margin-top: 10px;">
+                                <p style="font-size: 14px; color: #666; margin-bottom: 5px;">新選擇的照片:</p>
+                                <img id="editRoutePhotoPreviewImg" src="" alt="路線照片" style="max-width: 200px; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;">
+                                <p style="font-size: 12px; color: #999; margin-top: 5px;">選擇新照片將替換現有照片</p>
+                            </div>
+                        `;
+                    } else {
+                        // 如果有現有照片，更新標題
+                        const titleElement = photoPreview.querySelector('p');
+                        if (titleElement && titleElement.textContent.includes('目前照片')) {
+                            titleElement.textContent = '新選擇的照片:';
+                        }
+                    }
+                }
+                // 顯示新照片預覽
+                showPhotoPreview(inputElement, 'editRoutePhotoPreview', 'editRoutePhotoPreviewImg');
+            }
+        };
+        
+        if (editPhotoInput) {
+            editPhotoInput.value = '';
+            editPhotoInput.onchange = function() {
+                handleEditPhotoChange(this);
             };
         }
         
         if (editPhotoFromGallery) {
             editPhotoFromGallery.value = '';
             editPhotoFromGallery.onchange = function() {
-                if (editPhotoInput && this.files && this.files[0]) {
-                    const dataTransfer = new DataTransfer();
-                    dataTransfer.items.add(this.files[0]);
-                    editPhotoInput.files = dataTransfer.files;
-                }
-                showPhotoPreview(this, 'editRoutePhotoPreview', 'editRoutePhotoPreviewImg');
+                handleEditPhotoChange(this);
             };
         }
         
@@ -1045,10 +1070,16 @@
     // 觸發照片選擇（支持拍照和圖庫選擇）
     function triggerGallerySelect() {
         const routePhotoFromGallery = document.getElementById('routePhotoFromGallery');
+        const routePhotoInput = document.getElementById('routePhoto');
+        
+        // 優先使用圖庫選擇輸入框，但也要確保拍照輸入框有事件監聽
         if (routePhotoFromGallery) {
             // 在移動設備上，文件選擇器會自動提供拍照和圖庫選擇選項
             // 不需要設置 capture 屬性，讓用戶自己選擇
             routePhotoFromGallery.click();
+        } else if (routePhotoInput) {
+            // 如果圖庫選擇輸入框不存在，使用拍照輸入框
+            routePhotoInput.click();
         }
     }
     
@@ -1066,26 +1097,73 @@
     // 編輯路線：觸發照片選擇（支持拍照和圖庫選擇）
     function triggerEditGallerySelect() {
         const editRoutePhotoFromGallery = document.getElementById('editRoutePhotoFromGallery');
+        const editRoutePhotoInput = document.getElementById('editRoutePhoto');
+        
+        // 優先使用圖庫選擇輸入框，但也要確保拍照輸入框有事件監聽
         if (editRoutePhotoFromGallery) {
             // 在移動設備上，文件選擇器會自動提供拍照和圖庫選擇選項
             // 不需要設置 capture 屬性，讓用戶自己選擇
             editRoutePhotoFromGallery.click();
+        } else if (editRoutePhotoInput) {
+            // 如果圖庫選擇輸入框不存在，使用拍照輸入框
+            editRoutePhotoInput.click();
         }
     }
     
     // 顯示照片預覽
     function showPhotoPreview(input, previewId, previewImgId) {
-        if (input.files && input.files[0]) {
+        if (input && input.files && input.files[0]) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 const preview = document.getElementById(previewId);
-                const previewImg = document.getElementById(previewImgId);
+                let previewImg = document.getElementById(previewImgId);
+                
+                // 如果預覽圖片元素不存在，嘗試創建它
+                if (preview && !previewImg) {
+                    // 檢查預覽容器是否有內容
+                    if (preview.innerHTML.trim() === '') {
+                        // 創建預覽結構（用於新增路線）
+                        preview.innerHTML = `
+                            <img id="${previewImgId}" src="" alt="照片預覽" style="max-width: 200px; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;">
+                        `;
+                        previewImg = document.getElementById(previewImgId);
+                    } else {
+                        // 如果預覽容器有內容但沒有圖片元素，嘗試查找或創建
+                        previewImg = preview.querySelector('img');
+                        if (!previewImg) {
+                            const img = document.createElement('img');
+                            img.id = previewImgId;
+                            img.alt = '照片預覽';
+                            img.style.cssText = 'max-width: 200px; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;';
+                            preview.appendChild(img);
+                            previewImg = img;
+                        } else {
+                            // 如果找到了圖片元素但沒有 ID，設置 ID
+                            if (!previewImg.id) {
+                                previewImg.id = previewImgId;
+                            }
+                        }
+                    }
+                }
+                
                 if (preview && previewImg) {
                     previewImg.src = e.target.result;
                     preview.style.display = 'block';
+                    // 確保圖片元素可見
+                    if (previewImg.style.display === 'none') {
+                        previewImg.style.display = 'block';
+                    }
+                    console.log('照片預覽已顯示，URL:', e.target.result.substring(0, 50) + '...');
+                } else {
+                    console.error('預覽元素未找到:', { previewId, previewImgId, preview: !!preview, previewImg: !!previewImg });
                 }
             };
+            reader.onerror = function(error) {
+                console.error('讀取照片文件失敗:', error);
+            };
             reader.readAsDataURL(input.files[0]);
+        } else {
+            console.warn('沒有選擇照片文件:', { input: !!input, files: input ? input.files : null });
         }
     }
     
@@ -1102,28 +1180,31 @@
         const routePhotoInput = document.getElementById('routePhoto');
         const routePhotoFromGallery = document.getElementById('routePhotoFromGallery');
         
+        // 統一的 change 事件處理函數
+        const handlePhotoChange = function(inputElement) {
+            if (inputElement && inputElement.files && inputElement.files[0]) {
+                // 同步到另一個輸入框
+                const otherInput = inputElement.id === 'routePhotoFromGallery' ? routePhotoInput : routePhotoFromGallery;
+                if (otherInput) {
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(inputElement.files[0]);
+                    otherInput.files = dataTransfer.files;
+                }
+                // 顯示預覽
+                showPhotoPreview(inputElement, 'routePhotoPreview', 'routePhotoPreviewImg');
+            }
+        };
+        
+        // 為兩個輸入框都設置事件監聽器
         if (routePhotoInput) {
             routePhotoInput.onchange = function() {
-                // 同步到圖庫選擇輸入框（如果拍照成功）
-                if (routePhotoFromGallery && this.files && this.files[0]) {
-                    // 創建新的 FileList（無法直接設置，所以使用 DataTransfer）
-                    const dataTransfer = new DataTransfer();
-                    dataTransfer.items.add(this.files[0]);
-                    routePhotoFromGallery.files = dataTransfer.files;
-                }
-                showPhotoPreview(this, 'routePhotoPreview', 'routePhotoPreviewImg');
+                handlePhotoChange(this);
             };
         }
         
         if (routePhotoFromGallery) {
             routePhotoFromGallery.onchange = function() {
-                // 同步到拍照輸入框（如果從圖庫選擇成功）
-                if (routePhotoInput && this.files && this.files[0]) {
-                    const dataTransfer = new DataTransfer();
-                    dataTransfer.items.add(this.files[0]);
-                    routePhotoInput.files = dataTransfer.files;
-                }
-                showPhotoPreview(this, 'routePhotoPreview', 'routePhotoPreviewImg');
+                handlePhotoChange(this);
             };
         }
     }
