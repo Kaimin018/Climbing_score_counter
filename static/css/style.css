@@ -63,10 +63,10 @@ body {
     overflow: hidden;
 }
 
-/* 左側主內容區 */
+/* 主內容區 */
 .main-content {
     flex: 1;
-    min-width: 0; /* 允許 flex 項目收縮 */
+    min-width: 0;
     display: flex;
     flex-direction: column;
     max-height: calc(100vh - 40px);
@@ -85,7 +85,149 @@ body {
     min-height: 0;
 }
 
-/* 右側固定排行榜 */
+/* 標籤頁容器 */
+.tabs-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* 標籤頁導航 */
+.tabs-nav {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 0;
+}
+
+.tab-btn {
+    padding: 12px 24px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #666;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    top: 2px;
+}
+
+.tab-btn:hover {
+    color: #2c3e50;
+    background: #f8f9fa;
+}
+
+.tab-btn.active {
+    color: #2c3e50;
+    border-bottom-color: #3498db;
+    font-weight: 600;
+    background: transparent;
+}
+
+/* 標籤頁內容 */
+.tabs-content {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.tab-pane {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    flex-direction: column;
+}
+
+.tab-pane.active {
+    display: flex;
+}
+
+/* 排行榜完整視圖（標籤頁中） */
+.leaderboard-full {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.leaderboard-header {
+    padding: 18px 20px;
+    border-bottom: 2px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    border-radius: 8px 8px 0 0;
+}
+
+.leaderboard-header h3 {
+    margin: 0;
+    color: white;
+    font-size: 1.3rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.leaderboard-header .btn {
+    padding: 8px 14px;
+    font-size: 1rem;
+    background-color: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    color: white;
+}
+
+.leaderboard-header .btn:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+    transform: scale(1.05);
+}
+
+.leaderboard-table-wrapper-full {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: white;
+    border-radius: 0 0 8px 8px;
+}
+
+/* 路線列表完整視圖（標籤頁中） */
+.routes-section-full {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.routes-header {
+    padding: 15px 20px;
+    border-bottom: 2px solid #e0e0e0;
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    border-radius: 8px 8px 0 0;
+}
+
+.routes-header h3 {
+    margin: 0;
+    color: white;
+    font-size: 1.3rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* 保留舊的樣式以向後兼容（如果其他地方使用） */
 .leaderboard-sidebar {
     width: 480px;
     flex-shrink: 0;
@@ -1826,6 +1968,28 @@ tbody tr:hover {
         margin-bottom: 10px;
     }
 
+    /* 移動端標籤頁樣式 */
+    .tabs-nav {
+        gap: 5px;
+        margin-bottom: 15px;
+    }
+    
+    .tab-btn {
+        padding: 10px 16px;
+        font-size: 0.9rem;
+        flex: 1;
+    }
+    
+    .leaderboard-header,
+    .routes-header {
+        padding: 12px 15px;
+    }
+    
+    .leaderboard-header h3,
+    .routes-header h3 {
+        font-size: 1.1rem;
+    }
+    
     .routes-list {
         display: flex;
         flex-direction: column;
@@ -1842,6 +2006,11 @@ tbody tr:hover {
         /* 优化：移动端一次显示 5 条路线 */
         /* 移动端路线项是垂直布局，每条约 110px，5条 + 间距 + padding = 约 600px */
         height: 600px; /* 使用固定高度而不是 max-height，确保显示5条 */
+    }
+    
+    /* 移動端標籤頁中的路線列表 */
+    .routes-section-full {
+        padding: 0;
     }
 
     /* 移動端自定義滾動條樣式 */

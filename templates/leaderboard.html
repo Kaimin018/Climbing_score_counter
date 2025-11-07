@@ -29,7 +29,7 @@
         </div>
     </div>
 
-    <!-- 左側主內容區 -->
+    <!-- 主內容區 - 標籤頁布局 -->
     <div class="main-content">
         <div class="leaderboard-container">
             <div class="room-header" id="roomHeader">
@@ -51,42 +51,63 @@
                 </div>
             </div>
 
-
-            <div class="routes-section">
-                <h3>路線列表</h3>
-                <div id="routesList" class="routes-list">
-                    <div class="loading">載入中...</div>
+            <!-- 標籤頁導航 -->
+            <div class="tabs-container">
+                <div class="tabs-nav">
+                    <button class="tab-btn active" onclick="switchTab('leaderboard')" id="tabLeaderboard">
+                        📊 排行榜
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('routes')" id="tabRoutes">
+                        📍 路線列表
+                    </button>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- 右側固定排行榜 -->
-    <div class="leaderboard-sidebar">
-        <div class="leaderboard-sidebar-header">
-            <h3>排行榜<span class="room-title-inline" id="roomTitleInline"></span></h3>
-            <button class="btn btn-secondary btn-small" onclick="refreshLeaderboard()" title="刷新排行榜">
-                🔄
-            </button>
-        </div>
-        <div class="leaderboard-table-wrapper">
-            <div class="leaderboard-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>排名</th>
-                            <th>成員</th>
-                            <th>總分</th>
-                            <th>完成條數</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="leaderboardBody">
-                        <tr>
-                            <td colspan="5" class="loading">載入中...</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <!-- 標籤頁內容 -->
+                <div class="tabs-content">
+                    <!-- 第一個標籤頁：排行榜 -->
+                    <div class="tab-pane active" id="tabPaneLeaderboard">
+                        <div class="leaderboard-full">
+                            <div class="leaderboard-header">
+                                <h3>排行榜<span class="room-title-inline" id="roomTitleInline"></span></h3>
+                                <button class="btn btn-secondary btn-small" onclick="refreshLeaderboard()" title="刷新排行榜">
+                                    🔄
+                                </button>
+                            </div>
+                            <div class="leaderboard-table-wrapper-full">
+                                <div class="leaderboard-table">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>排名</th>
+                                                <th>成員</th>
+                                                <th>總分</th>
+                                                <th>完成條數</th>
+                                                <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="leaderboardBody">
+                                            <tr>
+                                                <td colspan="5" class="loading">載入中...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 第二個標籤頁：路線列表 -->
+                    <div class="tab-pane" id="tabPaneRoutes">
+                        <div class="routes-section-full">
+                            <div class="routes-header">
+                                <h3>路線列表</h3>
+                            </div>
+                            <div id="routesList" class="routes-list">
+                                <div class="loading">載入中...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -572,6 +593,30 @@
             });
     }
 
+    // 標籤頁切換函數
+    function switchTab(tabName) {
+        // 隱藏所有標籤頁內容
+        document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.classList.remove('active');
+        });
+        
+        // 移除所有按鈕的 active 狀態
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // 顯示選中的標籤頁
+        const targetPane = document.getElementById('tabPane' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+        const targetBtn = document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+        
+        if (targetPane) {
+            targetPane.classList.add('active');
+        }
+        if (targetBtn) {
+            targetBtn.classList.add('active');
+        }
+    }
+
     function displayLeaderboard(data) {
         const roomInfo = data.room_info;
         const leaderboard = data.leaderboard;
@@ -819,8 +864,8 @@
             if (routeNameForEdit && /^\d+$/.test(routeNameForEdit)) {
                 routeNameForEdit = '路線' + routeNameForEdit;
             } else if (!routeNameForEdit || routeNameForEdit === '') {
-                // 如果完全移除後為空，保持原樣或添加預設值
-                routeNameForEdit = '路線1';
+                // 如果完全移除後為空，則保持原樣，不自動設為 '路線1'
+                routeNameForEdit = '';
             }
         }
         
