@@ -192,15 +192,24 @@ sudo systemctl restart climbing_system
 
 - 确认 DNS 已生效
 - 确认 80 端口已开放（Let's Encrypt 需要）
+  - 检查 AWS 安全组（Security Group）
+  - 检查网络 ACL (Network ACL)
+  - 检查操作系统防火墙（UFW/iptables）
+  - 运行检查脚本：`bash Deployment/check_firewall.sh`
 - 检查 Nginx 配置是否正确
 - 查看 Certbot 日志：`sudo certbot certificates`
+- 详细故障排除：参考 `Deployment/FIREWALL_TROUBLESHOOTING.md`
 
 ### 域名无法访问
 
 - 检查 DNS 记录
 - 检查 AWS 安全组（确保 80 和 443 端口开放）
+- 检查网络 ACL (Network ACL) - 如果使用自定义 NACL
+- 检查操作系统防火墙（UFW/iptables）
+  - 运行检查脚本：`bash Deployment/check_firewall.sh`
 - 检查 Nginx 配置
 - 查看 Nginx 日志：`sudo tail -f /var/log/nginx/error.log`
+- 详细故障排除：参考 `Deployment/FIREWALL_TROUBLESHOOTING.md`
 
 ## 常用命令
 
