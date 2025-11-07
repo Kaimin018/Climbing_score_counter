@@ -216,8 +216,6 @@ climbing_score_counting_system/
   - 實時密碼強度驗證
   - 訪客登錄功能
 
-- **login.html**: 登錄頁面（已棄用，功能已整合到 index.html）
-
 - **leaderboard.html**: 排行榜頁面
   - 顯示成員排行榜（右側固定欄，可隨時查看排名變化）
   - 路線列表與完成狀態
@@ -510,10 +508,16 @@ scoring/tests/
 **總測試數量：超過 150 個測試用例**（包含 30 個測試文件，涵蓋所有核心功能和邊界情況）
 
 ### CI/CD
-- **GitHub Actions**: 自動運行測試
-  - Python 版本: 3.8, 3.9, 3.10, 3.11, 3.12
-  - 測試套件: `scoring.tests`
-  - 特定測試案例: `scoring.tests.test_api.APITestCase.test_create_room_add_member_create_route`
+- **GitHub Actions**: 自動運行測試，workflow 分成兩個檔案
+  - `.github/workflows/test.yml`：自動化測試流程（PR/Push 觸發）
+    - Python 版本: 3.8, 3.9, 3.10, 3.11, 3.12
+    - 運行測試套件: `scoring.tests`
+    - 覆蓋所有重點 API / 模型 / 前端相關測試
+    - 測試全部通過後才允許後續步驟或合併
+  - `.github/workflows/deploy.yml`：部署流程
+    - 僅在 `main`（或 `release`）分支測試通過後觸發部署
+    - 包含上線所需自動化操作（可根據需求擴充：如 build、migrate、傳到伺服器、重啟服務等）
+  - 兩者可以自動平行執行，確保各自負責測試與部署流程分離，提升 CI/CD 彈性與安全
 
 ## 靜態文件與媒體
 
