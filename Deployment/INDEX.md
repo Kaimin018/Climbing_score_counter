@@ -64,8 +64,13 @@
 
 #### Git 和权限问题
 - **[docs/troubleshooting/FIX_GIT_OWNERSHIP.md](docs/troubleshooting/FIX_GIT_OWNERSHIP.md)** - Git 所有权和权限问题修复
+- **[docs/troubleshooting/FIX_GIT_CONFLICT.md](docs/troubleshooting/FIX_GIT_CONFLICT.md)** - Git 冲突修复（文件结构重构后，包含手动处理步骤）
 - **[scripts/tools/fix_permissions.sh](scripts/tools/fix_permissions.sh)** - 一键修复所有权限问题（推荐）
-- **[scripts/tools/fix_git_conflict.sh](scripts/tools/fix_git_conflict.sh)** - 修复 Git 冲突（文件结构重构后使用）
+- **[scripts/tools/fix_git_conflict.sh](scripts/tools/fix_git_conflict.sh)** - 修复 Git 冲突脚本（需要先推送代码）
+
+#### 服务连接问题
+- **[docs/troubleshooting/FIX_502_BAD_GATEWAY.md](docs/troubleshooting/FIX_502_BAD_GATEWAY.md)** - 502 Bad Gateway 错误修复
+- **[scripts/tools/fix_502_gateway.sh](scripts/tools/fix_502_gateway.sh)** - 502 错误自动诊断和修复脚本
 
 #### DNS 问题
 - **[docs/troubleshooting/CHECK_DNS.md](docs/troubleshooting/CHECK_DNS.md)** - DNS 检查指南
@@ -103,6 +108,7 @@
 - `setup_config.sh` - 配置初始化
 - `fix_permissions.sh` - **一键修复权限问题**（Git、虚拟环境等，推荐）
 - `fix_git_conflict.sh` - **修复 Git 冲突**（文件结构重构后使用）
+- `fix_502_gateway.sh` - **502 Bad Gateway 诊断和修复**
 - `fix_venv_path.sh` - 虚拟环境路径修复
 - `fix_400_error.sh` - 400 错误修复脚本
 - `sync_database_from_server.sh` - 从服务器同步数据库
@@ -181,7 +187,8 @@ Deployment/
 - **同步数据库** → 看 `docs/setup/DATABASE_SYNC.md`
 - **网站无法访问** → 看 `docs/troubleshooting/TROUBLESHOOTING_DEPLOYMENT.md`
 - **遇到 400/404 错误** → 看 `docs/troubleshooting/FIX_400_ERROR.md` 或 `FIX_404_IP_ACCESS.md`
-- **Git pull 冲突** → 运行 `scripts/tools/fix_git_conflict.sh`（文件结构重构后）
+- **遇到 502 Bad Gateway** → 看 `docs/troubleshooting/FIX_502_BAD_GATEWAY.md` 或运行 `scripts/tools/fix_502_gateway.sh`
+- **Git pull 冲突** → 看 `docs/troubleshooting/FIX_GIT_CONFLICT.md`（包含手动处理步骤）
 - **配置 GitHub Actions** → 看 `docs/guides/DEPLOYMENT_CI_CD.md`
 - **检查服务器状态** → 运行 `scripts/checks/` 下的检查脚本
 - **查看常用命令** → 看 `QUICK_DEBUG.md`
