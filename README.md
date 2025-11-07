@@ -38,6 +38,7 @@
 - `Deployment/AWS_EC2_DEPLOYMENT.md` - 完整部署指南
 - `Deployment/DEPLOYMENT_CI_CD.md` - CI/CD 自動部署指南
 - `Deployment/TROUBLESHOOTING_DEPLOYMENT.md` - 故障排除指南
+- `Deployment/DATABASE_SYNC.md` - 數據庫同步指南（**重要**：避免更新時數據丟失）
 - `QUICK_START.md` - 快速參考
 - `Deployment/DEPLOYMENT_CHANGES.md` - 部署修改總結
 
