@@ -275,6 +275,12 @@ fi
 # 重啟 Gunicorn 服務
 echo "重啟 Gunicorn 服務..."
 sudo systemctl daemon-reload
+
+# 啟用服務（確保開機自啟）
+echo "啟用服務（開機自啟）..."
+sudo systemctl enable climbing_system
+
+# 重啟服務
 sudo systemctl restart climbing_system
 
 # 檢查服務狀態
