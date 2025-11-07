@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 REM Windows 批處理腳本：從 AWS EC2 同步數據庫到本地
 REM 使用方法：雙擊此文件，或從命令行運行
 
@@ -7,10 +8,29 @@ echo 從 AWS EC2 同步數據庫到本地
 echo ==========================================
 echo.
 
-REM 設置環境變數（請根據實際情況修改）
-set EC2_HOST=3.26.6.19
-set EC2_KEY=%USERPROFILE%\.ssh\your-key.pem
-set EC2_USER=ubuntu
+REM 從 EC2_security_config 文件導入配置
+set SECURITY_FILE=security\EC2_security_config
+if not exist "%SECURITY_FILE%" (
+    echo 錯誤: 找不到配置文件 %SECURITY_FILE%
+    pause
+    exit /b 1
+)
+
+REM 讀取配置（跳過註釋行和空行）
+for /f "tokens=1,2 delims==" %%a in ('findstr /v "^#" "%SECURITY_FILE%" ^| findstr /v "^$"') do (
+    if "%%a"=="EC2_HOST" set EC2_HOST=%%b
+    if "%%a"=="EC2_KEY" (
+        set "TEMP_KEY=%%b"
+        REM 展開環境變數：將文件中的 %USERPROFILE% 替換為實際值
+        call set "EC2_KEY=%%TEMP_KEY:%%USERPROFILE%%=%USERPROFILE%%%"
+    )
+    if "%%a"=="EC2_USER" set EC2_USER=%%b
+)
+
+REM 如果配置未找到，使用默認值
+if "%EC2_HOST%"=="" set EC2_HOST=3.26.6.19
+if "%EC2_KEY%"=="" set EC2_KEY=%USERPROFILE%\.ssh\your-key.pem
+if "%EC2_USER%"=="" set EC2_USER=ubuntu
 
 echo 配置信息:
 echo   EC2_HOST: %EC2_HOST%

@@ -1,7 +1,7 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
-from scoring.models import Room, Member, Route, Score
+from scoring.models import Room, Member, Route, Score, update_scores
 from scoring.tests.test_helpers import TestDataFactory, cleanup_test_data, create_basic_test_setup
 
 
@@ -652,6 +652,117 @@ class APITestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['total_count'], 0)
         self.assertEqual(len(response.data['completed_routes']), 0)
+        
+        # 測試完成後清理房間
+        cleanup_test_data(room=test_room)
+
+    def test_member_completed_routes_displays_score_instead_of_completion_count(self):
+        """測試成員完成路線詳情顯示分數而非完成條數"""
+        # 創建測試環境：房間和三個成員
+        test_room = TestDataFactory.create_room(name="測試房間")
+        m1 = TestDataFactory.create_normal_members(test_room, count=1, names=["成員A"])[0]
+        m2 = TestDataFactory.create_normal_members(test_room, count=1, names=["成員B"])[0]
+        m3 = TestDataFactory.create_normal_members(test_room, count=1, names=["成員C"])[0]
+        
+        # 刷新房間以獲取最新的 standard_line_score
+        test_room.refresh_from_db()
+        L = test_room.standard_line_score  # 3個一般組成員，L = LCM(1,2,3) = 6
+        
+        # 創建路線1：只有m1完成（1人完成，每人得 L/1 = 6分）
+        route1 = TestDataFactory.create_route(
+            room=test_room,
+            name="路線1",
+            grade="V3",
+            members=[m1, m2, m3],
+            member_completions={str(m1.id): True, str(m2.id): False, str(m3.id): False}
+        )
+        update_scores(test_room.id)
+        
+        # 創建路線2：m1和m2完成（2人完成，每人得 L/2 = 3分）
+        route2 = TestDataFactory.create_route(
+            room=test_room,
+            name="路線2",
+            grade="V4",
+            members=[m1, m2, m3],
+            member_completions={str(m1.id): True, str(m2.id): True, str(m3.id): False}
+        )
+        update_scores(test_room.id)
+        
+        # 測試獲取成員1完成的路線
+        url = f'/api/members/{m1.id}/completed-routes/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # 驗證響應結構
+        self.assertIn('member_id', response.data)
+        self.assertIn('member_name', response.data)
+        self.assertIn('completed_routes', response.data)
+        self.assertEqual(response.data['member_id'], m1.id)
+        self.assertEqual(response.data['member_name'], '成員A')
+        
+        # 驗證完成的路線數量
+        completed_routes = response.data['completed_routes']
+        self.assertEqual(len(completed_routes), 2, "成員A應該完成2條路線")
+        
+        # 驗證每條路線的數據結構包含scores
+        for route in completed_routes:
+            self.assertIn('scores', route, "路線數據應該包含scores數組")
+            self.assertIsInstance(route['scores'], list, "scores應該是列表")
+            
+            # 找到該成員在該路線的score記錄
+            member_score = None
+            for score in route['scores']:
+                if score['member_id'] == m1.id:
+                    member_score = score
+                    break
+            
+            self.assertIsNotNone(member_score, f"應該找到成員{m1.id}在路線{route['id']}的score記錄")
+            self.assertIn('score_attained', member_score, "score記錄應該包含score_attained字段")
+            self.assertIn('is_completed', member_score, "score記錄應該包含is_completed字段")
+            self.assertTrue(member_score['is_completed'], "該成員應該已完成這條路線")
+            
+            # 驗證分數計算正確
+            route_id = route['id']
+            if route_id == route1.id:
+                # 路線1：1人完成，每人得6分
+                expected_score = 6.00
+                self.assertEqual(
+                    float(member_score['score_attained']), 
+                    expected_score,
+                    f"路線1：1人完成，成員A應該獲得{L}/1={expected_score}分"
+                )
+            elif route_id == route2.id:
+                # 路線2：2人完成，每人得3分
+                expected_score = 3.00
+                self.assertEqual(
+                    float(member_score['score_attained']), 
+                    expected_score,
+                    f"路線2：2人完成，成員A應該獲得{L}/2={expected_score}分"
+                )
+        
+        # 測試獲取成員2完成的路線（只有路線2，應該獲得3分）
+        url = f'/api/members/{m2.id}/completed-routes/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total_count'], 1, "成員B應該完成1條路線")
+        
+        completed_routes_m2 = response.data['completed_routes']
+        self.assertEqual(completed_routes_m2[0]['id'], route2.id, "成員B完成的路線應該是路線2")
+        
+        # 驗證成員B在路線2的分數
+        route2_data = completed_routes_m2[0]
+        m2_score = None
+        for score in route2_data['scores']:
+            if score['member_id'] == m2.id:
+                m2_score = score
+                break
+        
+        self.assertIsNotNone(m2_score, "應該找到成員B在路線2的score記錄")
+        self.assertEqual(
+            float(m2_score['score_attained']), 
+            3.00,
+            f"路線2：2人完成，成員B應該獲得{L}/2=3.00分"
+        )
         
         # 測試完成後清理房間
         cleanup_test_data(room=test_room)

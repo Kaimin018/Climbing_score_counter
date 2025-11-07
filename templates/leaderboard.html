@@ -850,6 +850,7 @@
     function displayCompletedRoutes(data) {
         const container = document.getElementById('completedRoutesList');
         const routes = data.completed_routes || [];
+        const memberId = data.member_id;
         
         if (routes.length === 0) {
             container.innerHTML = '<div class="empty">該成員尚未完成任何路線</div>';
@@ -864,10 +865,10 @@
             const safePhotoUrl = photoUrl ? photoUrl.replace(/'/g, "\\'").replace(/"/g, '&quot;') : '';
             const safeRouteName = routeName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             
-            // 統計完成人數
+            // 找到該成員在這條路線的分數
             const scores = route.scores || [];
-            const completedCount = scores.filter(s => s.is_completed).length;
-            const totalCount = scores.length;
+            const memberScore = scores.find(s => s.member_id === memberId);
+            const scoreAttained = memberScore ? parseFloat(memberScore.score_attained || 0).toFixed(2) : '0.00';
             
             return `
                 <div class="completed-route-item">
@@ -877,7 +878,7 @@
                             <span class="route-grade-badge">${grade}</span>
                         </div>
                         <div class="completed-route-stats">
-                            完成條數: ${completedCount}/${totalCount} 人
+                            獲得分數: ${scoreAttained} 分
                         </div>
                     </div>
                     ${photoUrl ? `<div class="completed-route-photo"><img src="${safePhotoUrl}" alt="${safeRouteName}" style="max-width: 100%; border-radius: 4px; margin-top: 10px;" onerror="this.style.display='none'; console.error('照片載入失敗，URL:', '${safePhotoUrl}');"></div>` : ''}
