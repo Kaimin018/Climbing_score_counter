@@ -202,8 +202,16 @@ if ! command -v pip &> /dev/null; then
     exit 1
 fi
 
+# 安裝系統依賴（pyheif 需要）
+echo "安裝系統依賴（pyheif 支持）..."
+sudo apt-get update -qq
+sudo apt-get install -y libheif-dev libde265-dev libjpeg-dev zlib1g-dev 2>/dev/null || {
+    echo "⚠️  警告: 無法安裝系統依賴，pyheif 可能無法正常工作"
+    echo "   手動執行: sudo apt-get install -y libheif-dev libde265-dev libjpeg-dev zlib1g-dev"
+}
+
 # 安裝/更新依賴
-echo "安裝依賴..."
+echo "安裝 Python 依賴..."
 pip install --upgrade pip
 pip install -r requirements.txt
 

@@ -22,7 +22,7 @@ sudo apt upgrade -y
 
 # 安裝必要套件
 echo "2. 安裝必要套件..."
-sudo apt install -y python3 python3-pip python3-venv nginx git curl
+sudo apt install -y python3 python3-pip python3-venv nginx git curl libheif-dev libde265-dev libjpeg-dev zlib1g-dev
 
 # 創建項目目錄
 echo "3. 創建項目目錄..."
