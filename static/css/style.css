@@ -1840,8 +1840,8 @@ tbody tr:hover {
         box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
         min-height: 0;
         /* 优化：移动端一次显示 5 条路线 */
-        /* 计算：移动端路线项更高（垂直布局），约 80px * 5 + 10px * 4 + 24px = 464px */
-        max-height: 480px;
+        /* 移动端路线项是垂直布局，每条约 110px，5条 + 间距 + padding = 约 600px */
+        height: 600px; /* 使用固定高度而不是 max-height，确保显示5条 */
     }
 
     /* 移動端自定義滾動條樣式 */
@@ -1866,12 +1866,27 @@ tbody tr:hover {
     .route-item {
         flex-direction: column;
         align-items: flex-start;
-        gap: 10px;
-        padding: 12px;
+        gap: 6px; /* 进一步减少间距 */
+        padding: 8px 12px; /* 减少垂直 padding */
+        min-height: 100px; /* 设置最小高度，确保一致性 */
+        box-sizing: border-box;
     }
 
     .route-info {
         width: 100%;
+    }
+    
+    /* 移动端路线项内容优化 */
+    .route-name-grade {
+        margin-bottom: 4px; /* 减少底部间距 */
+    }
+    
+    .route-name-grade strong {
+        font-size: 1rem; /* 稍微减小字体 */
+    }
+    
+    .route-stats {
+        font-size: 0.85rem; /* 稍微减小字体 */
     }
 
     .route-actions {
