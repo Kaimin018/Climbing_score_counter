@@ -23,6 +23,11 @@ for /f "tokens=1,2 delims==" %%a in ('findstr /v "^#" "%SECURITY_FILE%" ^| finds
         set "TEMP_KEY=%%b"
         REM 展開環境變數：將文件中的 %USERPROFILE% 替換為實際值
         call set "EC2_KEY=%%TEMP_KEY:%%USERPROFILE%%=%USERPROFILE%%%"
+        REM 將相對路徑轉換為絕對路徑（如果路徑不以驅動器字母開頭）
+        for %%F in ("!EC2_KEY!") do (
+            set "TEST_PATH=%%~fF"
+            if "!TEST_PATH!" neq "" set "EC2_KEY=!TEST_PATH!"
+        )
     )
     if "%%a"=="EC2_USER" set EC2_USER=%%b
 )

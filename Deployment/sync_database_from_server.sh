@@ -8,7 +8,51 @@ echo "=========================================="
 echo "從 AWS EC2 同步數據庫到本地"
 echo "=========================================="
 
-# 配置（請根據實際情況修改）
+# 從 EC2_security_config 文件導入配置（如果存在）
+CONFIG_FILE="security/EC2_security_config"
+if [ -f "$CONFIG_FILE" ]; then
+    echo "從配置文件讀取設置: $CONFIG_FILE"
+    # 讀取配置（跳過註釋行和空行）
+    while IFS='=' read -r key value || [ -n "$key" ]; do
+        # 跳過註釋行和空行
+        [[ "$key" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$key" ]] && continue
+        
+        # 去除前後空格
+        key=$(echo "$key" | xargs)
+        value=$(echo "$value" | xargs)
+        # 確保值不為空
+        [[ -z "$value" ]] && continue
+        
+        case "$key" in
+            EC2_HOST)
+                EC2_HOST="$value"
+                ;;
+            EC2_KEY)
+                # 將 Windows 路徑轉換為 Unix 路徑
+                # 先將反斜線轉換為正斜線（使用 sed 確保正確轉換）
+                value=$(echo "$value" | sed 's/\\/\//g')
+                # 處理 %USERPROFILE% 或 $USERPROFILE$ 轉換為 $HOME
+                value="${value//%USERPROFILE%/$HOME}"
+                value="${value//\$USERPROFILE\$/$HOME}"
+                # 如果是相對路徑，轉換為絕對路徑（基於項目根目錄）
+                if [[ "$value" != /* ]] && [[ "$value" != ~* ]]; then
+                    # 獲取腳本所在目錄的父目錄（項目根目錄）
+                    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+                    PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+                    # 確保路徑之間有斜線分隔符
+                    value="$PROJECT_ROOT/$value"
+                fi
+                EC2_KEY="$value"
+                ;;
+            EC2_USER)
+                EC2_USER="$value"
+                ;;
+        esac
+    done < "$CONFIG_FILE"
+fi
+
+# 配置（如果環境變數或配置文件未設置，使用默認值）
 EC2_USER="${EC2_USER:-ubuntu}"
 EC2_HOST="${EC2_HOST:-your-ec2-ip}"
 EC2_KEY="${EC2_KEY:-~/.ssh/your-key.pem}"
@@ -17,15 +61,27 @@ REMOTE_DB="$PROJECT_DIR/db.sqlite3"
 LOCAL_DB="db.sqlite3"
 BACKUP_DIR="backups"
 
-# 檢查必要的環境變數
-if [ "$EC2_HOST" = "your-ec2-ip" ]; then
-    echo "⚠️  錯誤: 請設置 EC2_HOST 環境變數"
-    echo "   使用方法:"
+# 顯示配置信息
+echo ""
+echo "配置信息:"
+echo "  EC2_HOST: $EC2_HOST"
+echo "  EC2_KEY: $EC2_KEY"
+echo "  EC2_USER: $EC2_USER"
+echo ""
+
+# 檢查必要的配置
+if [ "$EC2_HOST" = "your-ec2-ip" ] || [ -z "$EC2_HOST" ]; then
+    echo "⚠️  錯誤: 請設置 EC2_HOST"
+    echo "   方法1: 在 security/EC2_security_config 文件中設置"
+    echo "   方法2: 使用環境變數:"
     echo "   export EC2_HOST=3.26.6.19"
     echo "   export EC2_KEY=~/.ssh/your-key.pem"
     echo "   bash Deployment/sync_database_from_server.sh"
     exit 1
 fi
+
+# 展開 ~ 路徑
+EC2_KEY="${EC2_KEY/#\~/$HOME}"
 
 # 檢查 SSH 連接
 echo "檢查 SSH 連接..."
