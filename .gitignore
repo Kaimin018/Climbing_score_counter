@@ -50,6 +50,12 @@ Thumbs.db
 .env
 .server-config
 
+# Documentation (ignore doc files/folders)
+doc/
+docs/
+*.doc
+*.docx
+
 # Test output files
 test_output.txt
 *.test.txt
@@ -65,4 +71,14 @@ test_output.txt
 
 # Static files (collected)
 /staticfiles/
+
+# Security files (ignore sensitive security/secrets and key files)
+security
+security.*
+/security/
+/secrets/
+/secrets.*
+*.key
+*.pem
+*.crt
 
