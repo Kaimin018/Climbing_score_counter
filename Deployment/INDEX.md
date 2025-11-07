@@ -63,7 +63,8 @@
 - **[scripts/tools/fix_nginx_syntax.sh](scripts/tools/fix_nginx_syntax.sh)** - 修复 Nginx 语法
 
 #### Git 和权限问题
-- **[docs/troubleshooting/FIX_GIT_OWNERSHIP.md](docs/troubleshooting/FIX_GIT_OWNERSHIP.md)** - Git 所有权问题修复
+- **[docs/troubleshooting/FIX_GIT_OWNERSHIP.md](docs/troubleshooting/FIX_GIT_OWNERSHIP.md)** - Git 所有权和权限问题修复
+- **[scripts/tools/fix_permissions.sh](scripts/tools/fix_permissions.sh)** - 一键修复所有权限问题（推荐）
 
 #### DNS 问题
 - **[docs/troubleshooting/CHECK_DNS.md](docs/troubleshooting/CHECK_DNS.md)** - DNS 检查指南
@@ -99,6 +100,7 @@
 - `deploy.sh` - 自动部署脚本
 - `setup_ec2.sh` - EC2 初始设置
 - `setup_config.sh` - 配置初始化
+- `fix_permissions.sh` - **一键修复权限问题**（Git、虚拟环境等，推荐）
 - `fix_venv_path.sh` - 虚拟环境路径修复
 - `fix_400_error.sh` - 400 错误修复脚本
 - `sync_database_from_server.sh` - 从服务器同步数据库
