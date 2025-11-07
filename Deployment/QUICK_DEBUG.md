@@ -42,8 +42,19 @@ source venv/bin/activate
 
 ### 從服務器同步到本地（更新代碼前執行）
 
+**Windows 用戶（推薦）**：
 ```bash
-# 在本地執行
+# 方法1: 使用批處理文件（雙擊運行）
+Deployment\sync_db_from_server.bat
+
+# 方法2: 使用 Git Bash
+export EC2_HOST=3.26.6.19
+export EC2_KEY=~/.ssh/your-key.pem
+bash Deployment/sync_database_from_server.sh
+```
+
+**macOS/Linux 用戶**：
+```bash
 export EC2_HOST=3.26.6.19
 export EC2_KEY=~/.ssh/your-key.pem
 bash Deployment/sync_database_from_server.sh
