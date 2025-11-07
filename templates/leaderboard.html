@@ -595,6 +595,8 @@
 
     // 標籤頁切換函數
     function switchTab(tabName) {
+        console.log('切換標籤頁:', tabName); // 調試用
+        
         // 隱藏所有標籤頁內容
         document.querySelectorAll('.tab-pane').forEach(pane => {
             pane.classList.remove('active');
@@ -605,15 +607,35 @@
             btn.classList.remove('active');
         });
         
+        // 根據 tabName 生成正確的 ID
+        let paneId, btnId;
+        if (tabName === 'leaderboard') {
+            paneId = 'tabPaneLeaderboard';
+            btnId = 'tabLeaderboard';
+        } else if (tabName === 'routes') {
+            paneId = 'tabPaneRoutes';
+            btnId = 'tabRoutes';
+        } else {
+            console.error('未知的標籤頁名稱:', tabName);
+            return;
+        }
+        
         // 顯示選中的標籤頁
-        const targetPane = document.getElementById('tabPane' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
-        const targetBtn = document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+        const targetPane = document.getElementById(paneId);
+        const targetBtn = document.getElementById(btnId);
         
         if (targetPane) {
             targetPane.classList.add('active');
+            console.log('顯示標籤頁內容:', paneId);
+        } else {
+            console.error('找不到標籤頁內容元素:', paneId);
         }
+        
         if (targetBtn) {
             targetBtn.classList.add('active');
+            console.log('激活按鈕:', btnId);
+        } else {
+            console.error('找不到按鈕元素:', btnId);
         }
     }
 

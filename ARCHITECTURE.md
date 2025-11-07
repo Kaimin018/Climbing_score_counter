@@ -16,7 +16,10 @@ climbing_score_counting_system/
 ├── scoring/                 # 核心應用模組
 │   ├── models.py           # 資料模型
 │   ├── views.py            # 視圖邏輯（API + 頁面）
+│   ├── auth_views.py       # 認證視圖（註冊、登錄、登出、訪客登錄）
+│   ├── auth_serializers.py # 認證序列化器
 │   ├── serializers.py      # API 序列化器
+│   ├── permissions.py      # 權限控制
 │   ├── urls.py             # API 路由
 │   ├── admin.py            # Django Admin 配置
 │   ├── management/         # 管理命令
@@ -38,10 +41,28 @@ climbing_score_counting_system/
 │       ├── test_case_11_mobile_ui.py
 │       ├── test_case_12_security.py
 │       ├── test_case_13_settings_config.py
-│       └── test_case_14_login_ui.py
+│       ├── test_case_14_login_ui.py
+│       ├── test_case_15_aws_deployment_issues.py
+│       ├── test_case_16_iphone_photo_upload.py
+│       ├── test_case_17_mobile_photo_upload.py
+│       ├── test_case_18_route_photo_display.py
+│       ├── test_case_19_mobile_delete_route.py
+│       ├── test_case_20_first_time_camera_photo.py
+│       ├── test_case_21_mobile_desktop_data_consistency.py
+│       ├── test_case_22_iphone_photo_update_route_fix.py
+│       ├── test_case_23_desktop_route_update_authentication.py
+│       ├── test_case_24_member_deletion_leaderboard.py
+│       ├── test_case_25_guest_create_room_csrf.py
+│       ├── test_case_26_create_route_with_photo.py
+│       ├── test_case_27_room_deletion.py
+│       ├── test_case_27_tab_switching.py
+│       ├── test_case_28_boundary_values.py
+│       ├── test_case_29_data_integrity.py
+│       └── test_case_30_add_member_to_existing_routes.py
 ├── templates/              # HTML 模板
-│   ├── base.html
-│   ├── index.html          # 首頁（房間列表）
+│   ├── base.html           # 基礎模板（導航欄、頁腳）
+│   ├── index.html          # 首頁（登錄界面/房間列表）
+│   ├── login.html          # 登錄頁面（已棄用，功能已整合到 index.html）
 │   ├── leaderboard.html    # 排行榜頁面
 │   └── rules.html          # 規則說明頁面
 ├── static/                 # 靜態文件
@@ -142,9 +163,16 @@ climbing_score_counting_system/
 ### 3. 視圖層 (views.py)
 
 #### 頁面視圖
-- `index_view`: 首頁（房間列表）
+- `index_view`: 首頁（登錄界面/房間列表）
 - `leaderboard_view`: 排行榜頁面
 - `rules_view`: 規則說明頁面
+
+#### 認證視圖 (auth_views.py)
+- `register_view`: 用戶註冊（POST /api/auth/register/）
+- `login_view`: 用戶登錄（POST /api/auth/login/）
+- `guest_login_view`: 訪客登錄（POST /api/auth/guest-login/）
+- `logout_view`: 用戶登出（POST /api/auth/logout/）
+- `current_user_view`: 獲取當前用戶信息（GET /api/auth/current-user/）
 
 ### 4. 路由配置
 
@@ -169,16 +197,26 @@ climbing_score_counting_system/
 /api/routes/<id>/               → RouteViewSet (詳情、更新、刪除)
 /api/scores/                    → ScoreViewSet (列表)
 /api/scores/<id>/               → ScoreViewSet (詳情、更新、刪除)
+/api/auth/register/             → register_view (用戶註冊)
+/api/auth/login/                → login_view (用戶登錄)
+/api/auth/guest-login/          → guest_login_view (訪客登錄)
+/api/auth/logout/               → logout_view (用戶登出)
+/api/auth/current-user/         → current_user_view (獲取當前用戶)
 ```
 
 ## 前端架構
 
 ### 模板系統
 - **base.html**: 基礎模板（導航欄、頁腳）
-- **index.html**: 房間列表頁面
-  - 創建新房間
-  - 顯示現有房間列表
+- **index.html**: 首頁（登錄界面/房間列表）
+  - 未登錄：顯示登錄/註冊界面（桌面版：兩欄布局，移動版：單欄布局）
+  - 已登錄：顯示房間列表，可創建新房間
   - 自動生成房間名稱範例
+  - 登錄/註冊表單切換
+  - 實時密碼強度驗證
+  - 訪客登錄功能
+
+- **login.html**: 登錄頁面（已棄用，功能已整合到 index.html）
 
 - **leaderboard.html**: 排行榜頁面
   - 顯示成員排行榜（右側固定欄，可隨時查看排名變化）
@@ -407,6 +445,23 @@ scoring/tests/
         ├── test_guest_user_can_create_member_with_csrf
         ├── test_guest_login_button_in_template
         └── test_guest_user_complete_workflow
+├── test_case_15_aws_deployment_issues.py    # AWS 部署問題測試
+├── test_case_16_iphone_photo_upload.py      # iPhone 照片上傳測試
+├── test_case_17_mobile_photo_upload.py      # 移動端照片上傳測試
+├── test_case_18_route_photo_display.py      # 路線照片顯示測試
+├── test_case_19_mobile_delete_route.py     # 移動端刪除路線測試
+├── test_case_20_first_time_camera_photo.py  # 首次使用相機拍照測試
+├── test_case_21_mobile_desktop_data_consistency.py  # 移動端桌面端數據一致性測試
+├── test_case_22_iphone_photo_update_route_fix.py  # iPhone 照片更新路線修復測試
+├── test_case_23_desktop_route_update_authentication.py  # 桌面端路線更新認證測試
+├── test_case_24_member_deletion_leaderboard.py  # 成員刪除排行榜測試
+├── test_case_25_guest_create_room_csrf.py  # 訪客創建房間 CSRF 測試
+├── test_case_26_create_route_with_photo.py  # 創建路線並上傳照片測試
+├── test_case_27_room_deletion.py           # 房間刪除測試
+├── test_case_27_tab_switching.py            # 標籤頁切換測試
+├── test_case_28_boundary_values.py          # 邊界值測試
+├── test_case_29_data_integrity.py           # 數據完整性測試
+└── test_case_30_add_member_to_existing_routes.py  # 向現有路線添加成員測試
 ```
 
 ### 測試輔助工具 (`test_helpers.py`)
@@ -442,16 +497,17 @@ scoring/tests/
 - **資料驗證測試**: 成員名稱唯一性、路線難度必填、JSON 格式驗證
 - **登錄界面測試**: 登錄/註冊表單、密碼驗證、訪客登錄、CSRF 處理、用戶狀態管理
 - **安全性測試**: 用戶認證、API 權限控制、XSS 防護、SQL 注入防護
-- **總測試用例數**: 118 個測試用例（包含新增的訪客登錄和完整工作流程測試）
 - **完整流程測試**: 創建房間、新增成員、建立路線的完整流程
-- **路線管理測試**: 路線名稱編輯、完成狀態更新、FormData 處理
-- **圖片功能測試**: 圖片上傳、圖片縮圖顯示、圖片格式支持（PNG、JPEG、HEIC）
-- **手機端測試**: 響應式設計、移動端 API 調用、移動端圖片上傳
-- **邊界條件測試**: 空完成狀態、部分更新、漸進式完成
-- **安全性測試**: 用戶認證、API 權限控制、XSS 防護
+- **路線管理測試**: 路線名稱編輯、完成狀態更新、FormData 處理、路線刪除、房間刪除
+- **圖片功能測試**: 圖片上傳、圖片縮圖顯示、圖片格式支持（PNG、JPEG、HEIC）、iPhone 照片處理
+- **手機端測試**: 響應式設計、移動端 API 調用、移動端圖片上傳、移動端刪除操作
+- **邊界條件測試**: 空完成狀態、部分更新、漸進式完成、邊界值測試
+- **數據完整性測試**: 外鍵約束、唯一性約束、數據一致性、事務處理、並發操作
+- **部署相關測試**: AWS 部署問題、認證配置、CSRF 處理
+- **用戶體驗測試**: 標籤頁切換、移動端桌面端數據一致性、首次使用相機拍照
 - **配置測試**: 日誌配置（開發/生產環境）、權限配置（開發/生產環境）、環境變數配置
 
-**總測試數量：94 個測試**
+**總測試數量：超過 150 個測試用例**（包含 30 個測試文件，涵蓋所有核心功能和邊界情況）
 
 ### CI/CD
 - **GitHub Actions**: 自動運行測試

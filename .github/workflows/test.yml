@@ -41,7 +41,8 @@ jobs:
     
     - name: Run all tests
       run: |
-        python manage.py test scoring.tests --verbosity=0
+        python manage.py test scoring.tests --verbosity=1
+      continue-on-error: false
     
     - name: Test specific workflow - Create Room, Add Member, Create Route
       continue-on-error: true

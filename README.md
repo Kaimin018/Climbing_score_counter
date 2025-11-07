@@ -352,7 +352,7 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ### 測試案例
 
-系統包含以下測試案例（共 94 個測試）：
+系統包含以下測試案例（共 30 個測試文件，超過 150 個測試用例）：
 
 1. **核心計分邏輯測試**（`test_case_01_default_member.py`）：
    - 循序漸進新增路線的計分
@@ -434,9 +434,50 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
    - SQL 注入防護（房間名、成員名、路線名、URL 參數、查詢參數）
 
 12. **設置配置測試**（`test_case_13_settings_config.py`）：
-   - 日誌配置（開發/生產環境）
-   - 權限配置（開發/生產環境）
-   - 環境變數配置
+    - 日誌配置（開發/生產環境）
+    - 權限配置（開發/生產環境）
+    - 環境變數配置
+
+13. **登錄界面功能測試**（`test_case_14_login_ui.py`）：
+    - 登錄/註冊表單功能
+    - 密碼驗證
+    - 訪客登錄
+    - CSRF 處理
+    - 用戶狀態管理
+
+14. **AWS 部署問題測試**（`test_case_15_aws_deployment_issues.py`）
+
+15. **iPhone 照片上傳測試**（`test_case_16_iphone_photo_upload.py`）
+
+16. **移動端照片上傳測試**（`test_case_17_mobile_photo_upload.py`）
+
+17. **路線照片顯示測試**（`test_case_18_route_photo_display.py`）
+
+18. **移動端刪除路線測試**（`test_case_19_mobile_delete_route.py`）
+
+19. **首次使用相機拍照測試**（`test_case_20_first_time_camera_photo.py`）
+
+20. **移動端桌面端數據一致性測試**（`test_case_21_mobile_desktop_data_consistency.py`）
+
+21. **iPhone 照片更新路線修復測試**（`test_case_22_iphone_photo_update_route_fix.py`）
+
+22. **桌面端路線更新認證測試**（`test_case_23_desktop_route_update_authentication.py`）
+
+23. **成員刪除排行榜測試**（`test_case_24_member_deletion_leaderboard.py`）
+
+24. **訪客創建房間 CSRF 測試**（`test_case_25_guest_create_room_csrf.py`）
+
+25. **創建路線並上傳照片測試**（`test_case_26_create_route_with_photo.py`）
+
+26. **房間刪除測試**（`test_case_27_room_deletion.py`）
+
+27. **標籤頁切換測試**（`test_case_27_tab_switching.py`）
+
+28. **邊界值測試**（`test_case_28_boundary_values.py`）
+
+29. **數據完整性測試**（`test_case_29_data_integrity.py`）
+
+30. **向現有路線添加成員測試**（`test_case_30_add_member_to_existing_routes.py`）
 
 ### GitHub Actions 測試
 
