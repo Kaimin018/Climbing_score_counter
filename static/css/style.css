@@ -144,8 +144,10 @@ body {
     min-height: 0;
     overflow: hidden;
     flex-direction: column;
-    text-align: left; /* 確保內容左對齊 */
+    text-align: left !important; /* 確保內容左對齊，使用 !important */
+    -webkit-text-align: left !important; /* iOS Safari 特定修復 */
     align-items: stretch; /* 確保子元素拉伸到全寬 */
+    -webkit-align-items: stretch; /* iOS Safari 特定修復 */
 }
 
 .tab-pane.active {
@@ -212,7 +214,11 @@ body {
     background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
     border-radius: 8px 8px 0 0;
     flex-shrink: 0;
-    text-align: left; /* 確保內容左對齊 */
+    text-align: left !important; /* 確保內容左對齊，使用 !important 覆蓋可能的繼承樣式 */
+    -webkit-text-align: left !important; /* iOS Safari 特定修復 */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* 確保子元素左對齊 */
 }
 
 .routes-header h3 {
@@ -221,7 +227,10 @@ body {
     font-size: 1.3rem;
     font-weight: 600;
     letter-spacing: 0.5px;
-    text-align: left; /* 明確設置標題左對齊 */
+    text-align: left !important; /* 明確設置標題左對齊，使用 !important */
+    -webkit-text-align: left !important; /* iOS Safari 特定修復 */
+    align-self: flex-start; /* 強制左對齊 */
+    width: 100%; /* 確保佔據全寬以便左對齊生效 */
 }
 
 /* 保留舊的樣式以向後兼容（如果其他地方使用） */
@@ -1983,13 +1992,20 @@ tbody tr:hover {
     .leaderboard-header,
     .routes-header {
         padding: 12px 15px;
-        text-align: left; /* 確保移動端也左對齊 */
+        text-align: left !important; /* 確保移動端也左對齊，使用 !important */
+        -webkit-text-align: left !important; /* iOS Safari 特定修復 */
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start; /* 確保子元素左對齊 */
     }
     
     .leaderboard-header h3,
     .routes-header h3 {
         font-size: 1.1rem;
-        text-align: left; /* 明確設置標題左對齊 */
+        text-align: left !important; /* 明確設置標題左對齊，使用 !important */
+        -webkit-text-align: left !important; /* iOS Safari 特定修復 */
+        align-self: flex-start; /* 強制左對齊 */
+        width: 100%; /* 確保佔據全寬以便左對齊生效 */
     }
     
     .routes-list {
