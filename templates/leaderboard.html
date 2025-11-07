@@ -7,22 +7,25 @@
 <div class="leaderboard-layout">
     <!-- 移動端房間標題（顯示在排行榜上方） -->
     <div class="room-header-mobile" id="roomHeaderMobile">
+        <div class="room-info">
+            <span>房間 ID: <strong id="roomIdDisplayMobile">-</strong></span>
+            <span style="margin-left: 20px;">每一條線總分 (L): <strong id="standardLineScoreMobile">-</strong></span>
+        </div>
         <div class="header-top">
             <div class="header-buttons">
                 <button class="btn btn-secondary btn-square" onclick="goHome()" title="返回首頁" style="font-size: 1.3rem; line-height: 1;">
                     ←
                 </button>
-                <a href="/rules/" class="btn btn-secondary btn-square" title="規則說明" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; font-size: 1.3rem; line-height: 1;">
-                    📋
-                </a>
+                <button class="btn btn-primary btn-square" onclick="showAddMemberModal()" title="新增成員" style="font-size: 1.1rem; line-height: 1;">
+                    👤
+                </button>
+                <button class="btn btn-primary btn-square" onclick="showAddRouteModal()" title="新增路線" style="font-size: 1.1rem; line-height: 1;">
+                    ➕
+                </button>
                 <button class="btn btn-secondary btn-square" onclick="showEditRoomModal()" title="編輯房間" style="font-size: 1.3rem; line-height: 1;">
                     ✏️
                 </button>
             </div>
-        </div>
-        <div class="room-info">
-            <span>房間 ID: <strong id="roomIdDisplayMobile">-</strong></span>
-            <span style="margin-left: 20px;">每一條線總分 (L): <strong id="standardLineScoreMobile">-</strong></span>
         </div>
     </div>
 
@@ -53,8 +56,8 @@
                 <button class="btn btn-primary" onclick="showAddRouteModal()">新增路線</button>
             </div>
 
-            <div class="routes-section" style="margin-bottom: 30px;">
-                <h3 style="margin-bottom: 15px; color: #2c3e50; font-weight: 600;">路線列表</h3>
+            <div class="routes-section">
+                <h3>路線列表</h3>
                 <div id="routesList" class="routes-list">
                     <div class="loading">載入中...</div>
                 </div>
