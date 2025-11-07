@@ -5,4 +5,5 @@ djangorestframework==3.14.0
 django-cors-headers==4.3.1
 Pillow>=10.0.0  # 圖片處理庫，用於 ImageField（Windows 用戶建議使用預編譯版本）
 pyheif>=0.8.0  # HEIC/HEIF 格式圖片處理庫，用於將 iPhone 照片轉換為 JPEG（最新版本為 0.8.0）
+beautifulsoup4>=4.12.0  # HTML 解析庫，用於測試中的 HTML 結構檢查
 gunicorn>=21.2.0  # WSGI 服務器，用於生產環境
