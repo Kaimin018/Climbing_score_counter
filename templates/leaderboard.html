@@ -515,7 +515,34 @@
     });
     
     // 頁面載入時獲取排行榜和路線列表
+    // 檢查用戶認證狀態的輔助函數
+    function checkAuthentication() {
+        return fetch('/api/auth/current-user/', {
+            credentials: 'include'
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json().then(user => ({ authenticated: true, user }));
+            } else {
+                return { authenticated: false, user: null };
+            }
+        })
+        .catch(error => {
+            console.error('檢查認證狀態失敗:', error);
+            return { authenticated: false, user: null };
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
+        // 檢查認證狀態（在生產環境中很重要）
+        checkAuthentication().then(authStatus => {
+            if (!authStatus.authenticated) {
+                console.warn('用戶未認證，某些操作可能需要登錄');
+                // 在生產環境中，可以選擇重定向到登錄頁面
+                // 但在開發環境中，允許未認證用戶訪問（因為 DEBUG=True 時使用 AllowAny）
+            }
+        });
+        
         loadLeaderboard();
         loadMembersForRouteForm();
         loadRoutes();
@@ -1447,6 +1474,13 @@
     document.getElementById('editRouteForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
+        // 檢查用戶認證狀態
+        const csrfToken = getCookie('csrftoken');
+        if (!csrfToken) {
+            showToast('請先登錄或刷新頁面後重試', 'error');
+            return;
+        }
+        
         const routeId = document.getElementById('editRouteId').value;
         const formData = new FormData();
         const memberCompletions = {};
@@ -1500,18 +1534,33 @@
         }
         formData.append('member_completions', JSON.stringify(memberCompletions));
         // 添加 CSRF token 到 FormData
-        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+        formData.append('csrfmiddlewaretoken', csrfToken);
 
+        // 在發送請求前，先檢查認證狀態（可選，但可以提前發現問題）
         fetch(`/api/routes/${routeId}/`, {
             method: 'PATCH',
             headers: {
-                'X-CSRFToken': getCookie('csrftoken')
+                'X-CSRFToken': csrfToken
             },
             credentials: 'include',
             body: formData
             // 注意：不要設置 Content-Type，讓瀏覽器自動設置（包含 boundary）
         })
         .then(response => {
+            // 如果返回 401 或 403，說明認證失敗
+            if (response.status === 401 || response.status === 403) {
+                return response.json().then(err => {
+                    // 如果是認證錯誤，提供更友好的錯誤信息
+                    if (err.detail && err.detail.includes('Authentication')) {
+                        showToast('認證失敗，請先登錄或刷新頁面後重試', 'error');
+                        // 可選：重定向到首頁
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 2000);
+                    }
+                    return Promise.reject(err);
+                });
+            }
             if (!response.ok) {
                 return response.json().then(err => Promise.reject(err));
             }
@@ -1530,8 +1579,13 @@
         })
         .catch(error => {
             console.error('更新路線失敗:', error);
-            const errorMsg = error.detail || error.message || JSON.stringify(error);
-            showToast('更新路線時發生錯誤: ' + errorMsg, 'error');
+            // 處理認證錯誤
+            if (error.detail && typeof error.detail === 'string' && error.detail.includes('Authentication')) {
+                showToast('認證失敗，請先登錄或刷新頁面後重試', 'error');
+            } else {
+                const errorMsg = error.detail || error.message || JSON.stringify(error);
+                showToast('更新路線時發生錯誤: ' + errorMsg, 'error');
+            }
         });
     });
 
