@@ -134,7 +134,15 @@ def route_photo_upload_path(instance, filename):
     # 生成安全的文件名（使用時間戳和路線ID）
     # 強制使用標準格式，不依賴原始文件名
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    route_id = instance.id if instance.id else 'new'
+    
+    # 如果路線還沒有 ID（創建時），使用臨時標識符
+    # 注意：在序列化器的 create 方法中，我們會先創建路線獲取 ID，然後再處理照片
+    # 所以這裡通常不會遇到 'new' 的情況，但為了安全起見仍然處理
+    if instance.id:
+        route_id = instance.id
+    else:
+        # 使用時間戳作為臨時標識符，避免使用 'new' 字符串
+        route_id = f'temp_{timestamp}'
     
     # 使用固定的文件名格式，避免特殊字符問題
     # 格式：route_{route_id}_{timestamp}{ext}

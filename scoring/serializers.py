@@ -457,8 +457,19 @@ class RouteCreateSerializer(serializers.ModelSerializer):
         member_completions = validated_data.pop('member_completions', {})
         room = self.context['room']
         
-        # 創建路線
+        # 如果包含照片，需要先保存路線獲取 ID，然後再處理照片
+        # 這樣 route_photo_upload_path 可以使用正確的 route_id
+        photo_data = validated_data.pop('photo', None)
+        
+        # 先創建路線（不包含照片）
         route = Route.objects.create(room=room, **validated_data)
+        
+        # 如果有照片，現在路線已經有 ID，可以正確處理照片上傳
+        if photo_data:
+            # 使用路線的 ID 來處理照片上傳
+            # route_photo_upload_path 現在可以使用 route.id 而不是 'new'
+            route.photo = photo_data
+            route.save()
         
         # 批量創建所有成員的 Score 記錄
         members = room.members.all()

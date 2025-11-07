@@ -1892,7 +1892,13 @@
             if (error.grade && Array.isArray(error.grade) && error.grade.length > 0) {
                 errorMsg = '難度等級錯誤: ' + error.grade[0];
             } else if (error.photo && Array.isArray(error.photo) && error.photo.length > 0) {
-                errorMsg = '圖片錯誤: ' + error.photo[0];
+                // 處理照片相關錯誤，特別是 "The string did not match the expected pattern"
+                const photoError = error.photo[0];
+                if (typeof photoError === 'string' && photoError.includes('string') && photoError.includes('pattern')) {
+                    errorMsg = '照片格式錯誤，請嘗試重新選擇照片或將照片轉換為 JPEG/PNG 格式';
+                } else {
+                    errorMsg = '圖片錯誤: ' + photoError;
+                }
             } else if (error.name && Array.isArray(error.name) && error.name.length > 0) {
                 errorMsg = '路線名稱錯誤: ' + error.name[0];
             } else if (error.member_completions && Array.isArray(error.member_completions) && error.member_completions.length > 0) {
