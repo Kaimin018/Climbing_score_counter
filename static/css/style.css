@@ -948,7 +948,6 @@ tbody tr:hover {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
     padding: 15px;
@@ -956,13 +955,13 @@ tbody tr:hover {
     border-radius: 8px;
     background: #fafafa;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
-    min-height: 0;
     /* 增加宽度：路线列表现在占据整个标签页宽度 */
     width: 100%;
     box-sizing: border-box;
     /* 优化：一次显示 5 条路线 */
     /* 计算：60px (min-height) * 5 + 10px (gap) * 4 + 30px (padding top+bottom) = 370px */
-    max-height: 370px;
+    height: 370px;
+    flex-shrink: 0;
 }
 
 /* 自定義滾動條樣式 */
