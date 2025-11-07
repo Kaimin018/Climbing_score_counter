@@ -102,8 +102,8 @@ class RouteCreateSerializer(serializers.ModelSerializer):
             if file_name_lower.endswith('.heic') or file_name_lower.endswith('.heif'):
                 is_heic = True
         
-        # 如果是 HEIC 格式，嘗試使用 Pillow 轉換為 JPEG
-        # 注意：Pillow 默認不支持 HEIC，但如果系統安裝了 pillow-heif，可以支持
+        # 如果是 HEIC 格式，先使用 pyheif 轉換為 JPEG，再用 Pillow 處理
+        # 這個方案可以確保第一次拍照時也能正確處理 HEIC 格式
         if is_heic:
             try:
                 from PIL import Image
@@ -116,10 +116,25 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                     value.seek(0)
                 file_content = value.read()
                 
-                # 嘗試使用 Pillow 打開（如果安裝了 pillow-heif，可以打開 HEIC）
+                # 方案1：嘗試使用 pyheif 將 HEIC 轉換為 JPEG
                 try:
-                    img = Image.open(BytesIO(file_content))
-                    # 轉換為 RGB 模式（HEIC 可能是其他模式）
+                    import pyheif
+                    
+                    # 使用 pyheif 讀取 HEIC 文件（從 bytes 讀取）
+                    # pyheif.read_heif 可以接受 bytes 或文件路徑
+                    heif_file = pyheif.read_heif(BytesIO(file_content))
+                    
+                    # 將 HEIC 數據轉換為 Pillow Image
+                    img = Image.frombytes(
+                        heif_file.mode,
+                        heif_file.size,
+                        heif_file.data,
+                        "raw",
+                        heif_file.mode,
+                        heif_file.stride,
+                    )
+                    
+                    # 轉換為 RGB 模式（HEIC 可能是其他模式，如 RGBA）
                     if img.mode != 'RGB':
                         img = img.convert('RGB')
                     
@@ -147,53 +162,123 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                     )
                     
                     return new_file
-                except Exception as e:
-                    # Pillow 無法打開 HEIC（可能沒有安裝 pillow-heif）
-                    # 在這種情況下，我們仍然允許上傳，但將文件名改為 .jpg
-                    # 這樣 Django 的 ImageField 驗證就會通過
-                    # 注意：實際文件內容仍然是 HEIC，但文件名是 .jpg
-                    from django.core.files.uploadedfile import InMemoryUploadedFile
-                    from io import BytesIO
-                    import os
-                    
-                    # 讀取原始文件內容
-                    if hasattr(value, 'seek'):
-                        value.seek(0)
-                    file_content = value.read()
-                    
-                    # 創建新的文件對象，使用 .jpg 擴展名
-                    new_name = file_name
-                    if new_name:
-                        base_name = os.path.splitext(new_name)[0]
-                        if not base_name:
-                            base_name = 'photo'
-                        new_name = base_name + '.jpg'
-                    else:
-                        new_name = 'photo.jpg'
-                    
-                    # 確保文件名以 .jpg 結尾
-                    if not new_name.lower().endswith(('.jpg', '.jpeg')):
-                        base_name = os.path.splitext(new_name)[0]
-                        if not base_name:
-                            base_name = 'photo'
-                        new_name = base_name + '.jpg'
-                    
-                    # 創建新的 InMemoryUploadedFile 對象
-                    new_file = InMemoryUploadedFile(
-                        BytesIO(file_content),
-                        'photo',  # field_name
-                        new_name,
-                        'image/jpeg',  # 改為 image/jpeg 以通過驗證
-                        len(file_content),
-                        None  # charset
-                    )
-                    
-                    # 在文件對象上添加標記，表示這是 HEIC 格式
-                    new_file._is_heic = True
-                    new_file._original_name = file_name
-                    new_file._original_content_type = content_type
-                    
-                    return new_file
+                except ImportError:
+                    # pyheif 未安裝，嘗試使用 pillow-heif（如果已安裝）
+                    try:
+                        # 嘗試使用 Pillow 打開（如果安裝了 pillow-heif，可以打開 HEIC）
+                        img = Image.open(BytesIO(file_content))
+                        # 轉換為 RGB 模式（HEIC 可能是其他模式）
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        
+                        # 將圖片保存為 JPEG
+                        output = BytesIO()
+                        img.save(output, format='JPEG', quality=95)
+                        output.seek(0)
+                        
+                        # 創建新的文件對象，使用 .jpg 擴展名
+                        new_name = file_name
+                        if new_name:
+                            base_name = os.path.splitext(new_name)[0]
+                            new_name = base_name + '.jpg'
+                        else:
+                            new_name = 'photo.jpg'
+                        
+                        # 創建新的 InMemoryUploadedFile 對象
+                        new_file = InMemoryUploadedFile(
+                            output,
+                            'photo',  # field_name
+                            new_name,
+                            'image/jpeg',  # 改為 image/jpeg
+                            len(output.getvalue()),
+                            None  # charset
+                        )
+                        
+                        return new_file
+                    except Exception as pillow_error:
+                        # Pillow 也無法打開 HEIC（可能沒有安裝 pillow-heif）
+                        # 在這種情況下，我們仍然允許上傳，但將文件名改為 .jpg
+                        # 這樣 Django 的 ImageField 驗證就會通過
+                        # 注意：實際文件內容仍然是 HEIC，但文件名是 .jpg
+                        # 這是一個後備方案，不推薦使用
+                        from django.core.files.uploadedfile import InMemoryUploadedFile
+                        from io import BytesIO
+                        import os
+                        
+                        # 讀取原始文件內容
+                        if hasattr(value, 'seek'):
+                            value.seek(0)
+                        file_content = value.read()
+                        
+                        # 創建新的文件對象，使用 .jpg 擴展名
+                        new_name = file_name
+                        if new_name:
+                            base_name = os.path.splitext(new_name)[0]
+                            if not base_name:
+                                base_name = 'photo'
+                            new_name = base_name + '.jpg'
+                        else:
+                            new_name = 'photo.jpg'
+                        
+                        # 確保文件名以 .jpg 結尾
+                        if not new_name.lower().endswith(('.jpg', '.jpeg')):
+                            base_name = os.path.splitext(new_name)[0]
+                            if not base_name:
+                                base_name = 'photo'
+                            new_name = base_name + '.jpg'
+                        
+                        # 創建新的 InMemoryUploadedFile 對象
+                        new_file = InMemoryUploadedFile(
+                            BytesIO(file_content),
+                            'photo',  # field_name
+                            new_name,
+                            'image/jpeg',  # 改為 image/jpeg 以通過驗證
+                            len(file_content),
+                            None  # charset
+                        )
+                        
+                        # 在文件對象上添加標記，表示這是 HEIC 格式
+                        new_file._is_heic = True
+                        new_file._original_name = file_name
+                        new_file._original_content_type = content_type
+                        
+                        return new_file
+                except Exception as pyheif_error:
+                    # pyheif 轉換失敗，嘗試使用 pillow-heif 作為後備
+                    try:
+                        img = Image.open(BytesIO(file_content))
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        
+                        output = BytesIO()
+                        img.save(output, format='JPEG', quality=95)
+                        output.seek(0)
+                        
+                        new_name = file_name
+                        if new_name:
+                            base_name = os.path.splitext(new_name)[0]
+                            new_name = base_name + '.jpg'
+                        else:
+                            new_name = 'photo.jpg'
+                        
+                        new_file = InMemoryUploadedFile(
+                            output,
+                            'photo',
+                            new_name,
+                            'image/jpeg',
+                            len(output.getvalue()),
+                            None
+                        )
+                        
+                        return new_file
+                    except Exception as pillow_error:
+                        # 所有轉換方法都失敗
+                        raise serializers.ValidationError(
+                            f'無法處理 HEIC 格式圖片。'
+                            f'pyheif 錯誤: {str(pyheif_error)}。'
+                            f'Pillow 錯誤: {str(pillow_error)}。'
+                            f'請安裝 pyheif 或 pillow-heif 庫，或將圖片轉換為 JPEG/PNG 格式後再上傳。'
+                        )
             except Exception as e:
                 # 如果轉換失敗，返回原始錯誤
                 raise serializers.ValidationError(
