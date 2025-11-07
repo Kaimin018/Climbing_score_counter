@@ -17,7 +17,11 @@ cd /var/www/Climbing_score_counter
 ## 更新代碼
 
 ```bash
+# 正常更新
 git pull origin main
+
+# 如果遇到文件冲突（文件结构重构后），使用修复脚本：
+bash Deployment/scripts/tools/fix_git_conflict.sh
 ```
 
 ## 部署更新
