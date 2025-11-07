@@ -54,7 +54,7 @@
             </div>
 
             <div class="routes-section" style="margin-bottom: 30px;">
-                <h3 style="margin-bottom: 15px; color: #2c3e50;">路線列表</h3>
+                <h3 style="margin-bottom: 15px; color: #2c3e50; font-weight: 600;">路線列表</h3>
                 <div id="routesList" class="routes-list">
                     <div class="loading">載入中...</div>
                 </div>
@@ -552,6 +552,16 @@
         const roomTitleInline = document.getElementById('roomTitleInline');
         if (roomTitleInline) {
             roomTitleInline.textContent = ' ' + roomInfo.name;
+        }
+        
+        // 更新導航欄中的房間資訊
+        const navbarRoomInfo = document.getElementById('navbarRoomInfo');
+        const navbarRoomId = document.getElementById('navbarRoomId');
+        const navbarStandardLineScore = document.getElementById('navbarStandardLineScore');
+        if (navbarRoomInfo && navbarRoomId && navbarStandardLineScore) {
+            navbarRoomId.textContent = roomInfo.id;
+            navbarStandardLineScore.textContent = roomInfo.standard_line_score;
+            navbarRoomInfo.style.display = 'flex';
         }
         
         // 更新編輯房間表單的預設值
@@ -1382,6 +1392,14 @@
                     const roomTitleInline = document.getElementById('roomTitleInline');
                     if (roomTitleInline) {
                         roomTitleInline.textContent = ' ' + data.name;
+                    }
+                }
+                
+                // 同步更新導航欄中的房間資訊
+                if (data.standard_line_score !== undefined) {
+                    const navbarStandardLineScore = document.getElementById('navbarStandardLineScore');
+                    if (navbarStandardLineScore) {
+                        navbarStandardLineScore.textContent = data.standard_line_score;
                     }
                 }
             } else {

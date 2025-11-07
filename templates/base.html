@@ -10,14 +10,20 @@
 </head>
 <body>
     <nav class="navbar">
-        <div class="container" style="display: flex; justify-content: space-between; align-items: center;">
-            <h1 style="margin: 0;"><a href="/" style="color: white; text-decoration: none;">攀岩計分系統</a></h1>
-            <div style="display: flex; gap: 15px; align-items: center;">
-                <a href="/" style="color: white; text-decoration: none; padding: 8px 15px; border-radius: 4px; transition: background-color 0.3s;">首頁</a>
-                <a href="/rules/" style="color: white; text-decoration: none; padding: 8px 15px; border-radius: 4px; transition: background-color 0.3s;">規則說明</a>
-                <span id="userInfo" style="color: white; padding: 8px 15px; display: none;">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 200px;">
+                <h1 style="margin: 0 0 4px 0;"><a href="/" style="color: white; text-decoration: none;">攀岩計分系統</a></h1>
+                <div id="navbarRoomInfo" class="navbar-room-info" style="display: none;">
+                    <span>房間 ID: <strong id="navbarRoomId">-</strong></span>
+                    <span>每一條線總分 (L): <strong id="navbarStandardLineScore">-</strong></span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 15px; align-items: center; margin-top: 4px;">
+                <a href="/" style="color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; transition: background-color 0.3s; font-size: 0.9rem;">首頁</a>
+                <a href="/rules/" style="color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; transition: background-color 0.3s; font-size: 0.9rem;">規則說明</a>
+                <span id="userInfo" style="color: white; padding: 6px 12px; display: none; font-size: 0.9rem;">
                     <span id="usernameDisplay"></span>
-                    <button onclick="handleLogout()" style="margin-left: 10px; padding: 4px 12px; background-color: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; color: white; cursor: pointer;">登出</button>
+                    <button onclick="handleLogout()" style="margin-left: 10px; padding: 4px 10px; background-color: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; color: white; cursor: pointer; font-size: 0.85rem;">登出</button>
                 </span>
             </div>
         </div>
