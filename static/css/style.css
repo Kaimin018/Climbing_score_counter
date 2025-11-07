@@ -1624,8 +1624,11 @@ tbody tr:hover {
         align-items: center;
         justify-content: center;
         border-radius: 6px;
-        font-size: 1.2rem;
+        font-size: 1.3rem;
+        line-height: 1;
         flex-shrink: 0;
+        /* 確保圖標大小一致 */
+        font-size: 1.3rem !important;
     }
 
     .room-header-mobile .header-top h2 {
