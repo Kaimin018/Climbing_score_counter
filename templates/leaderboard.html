@@ -549,8 +549,20 @@
     });
 
     function loadLeaderboard() {
-        fetch(`/api/rooms/${ROOM_ID}/leaderboard/`)
-            .then(response => response.json())
+        // 添加時間戳防止緩存
+        const timestamp = new Date().getTime();
+        fetch(`/api/rooms/${ROOM_ID}/leaderboard/?_t=${timestamp}`, {
+            cache: 'no-cache',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 displayLeaderboard(data);
             })
@@ -1042,11 +1054,15 @@
             return;
         }
         
+        // 保存成員信息（在關閉彈窗前）
+        const memberId = currentEditingMemberId;
+        const memberName = currentEditingMemberName;
+        
         // 關閉編輯彈窗
         closeEditMemberModal();
         
-        // 執行刪除操作
-        deleteMember(currentEditingMemberId, currentEditingMemberName);
+        // 執行刪除操作（使用保存的變數，而不是可能已被清空的全局變數）
+        deleteMember(memberId, memberName);
     }
 
     function deleteMember(memberId, memberName) {
@@ -1073,14 +1089,22 @@
             console.log('刪除成員響應狀態:', response.status);
             if (response.status === 204 || response.ok) {
                 showToast('成員已刪除', 'success');
-                refreshLeaderboard(true);
-                loadMembersForRouteForm(); // 刷新成員列表供路線表單使用
+                // 強制刷新排行榜（不使用緩存）
+                // 先關閉編輯彈窗（如果還開著）
+                closeEditMemberModal();
+                // 立即刷新排行榜
+                loadLeaderboard();
+                // 刷新成員列表供路線表單使用
+                loadMembersForRouteForm();
             } else if (response.status === 404) {
-                // 成員不存在
+                // 成員不存在（可能已被刪除）
                 return response.json().then(err => {
                     const errorMsg = err.detail || '找不到指定的成員';
                     showToast('刪除成員時發生錯誤: ' + errorMsg, 'error');
-                    refreshLeaderboard(true); // 刷新列表，可能成員已被刪除
+                    // 刷新列表，可能成員已被刪除
+                    closeEditMemberModal();
+                    loadLeaderboard();
+                    loadMembersForRouteForm();
                 });
             } else if (response.status === 403 || response.status === 401) {
                 // 權限問題
@@ -1108,6 +1132,10 @@
             }
             
             showToast('刪除成員時發生錯誤: ' + errorMsg, 'error');
+            // 即使出錯也刷新排行榜，確保數據同步
+            closeEditMemberModal();
+            loadLeaderboard();
+            loadMembersForRouteForm();
         });
     }
 

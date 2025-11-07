@@ -645,11 +645,20 @@
             return;
         }
 
+        // 獲取 CSRF token
+        const csrftoken = getCSRFToken();
+        if (!csrftoken) {
+            alert('無法獲取安全令牌，請刷新頁面後重試');
+            return;
+        }
+
         fetch(`/api/rooms/${roomId}/`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
-            }
+                'X-CSRFToken': csrftoken
+            },
+            credentials: 'include'
         })
         .then(response => {
             if (response.status === 204 || response.ok) {
@@ -661,7 +670,16 @@
         })
         .catch(error => {
             console.error('刪除房間失敗:', error);
-            alert('刪除房間時發生錯誤');
+            let errorMsg = '刪除房間時發生錯誤';
+            
+            // 處理 CSRF 錯誤
+            if (error.detail && typeof error.detail === 'string' && error.detail.includes('CSRF')) {
+                errorMsg = '安全令牌驗證失敗，請刷新頁面後重試';
+            } else if (error.detail) {
+                errorMsg = error.detail;
+            }
+            
+            alert(errorMsg);
         });
     }
 
@@ -690,6 +708,13 @@
     document.getElementById('createRoomForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
+        // 獲取 CSRF token
+        const csrftoken = getCSRFToken();
+        if (!csrftoken) {
+            alert('無法獲取安全令牌，請刷新頁面後重試');
+            return;
+        }
+        
         const formData = new FormData(e.target);
         const data = {
             name: formData.get('name')
@@ -700,7 +725,9 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
             },
+            credentials: 'include',
             body: JSON.stringify(data)
         })
         .then(response => {
@@ -724,8 +751,22 @@
         })
         .catch(error => {
             console.error('創建房間失敗:', error);
-            const errorMsg = error.detail || error.message || JSON.stringify(error);
-            alert('創建房間時發生錯誤: ' + errorMsg);
+            let errorMsg = '創建房間時發生錯誤';
+            
+            // 處理 CSRF 錯誤
+            if (error.detail && typeof error.detail === 'string' && error.detail.includes('CSRF')) {
+                errorMsg = '安全令牌驗證失敗，請刷新頁面後重試';
+            } else if (error.detail) {
+                errorMsg = error.detail;
+            } else if (error.message) {
+                errorMsg = error.message;
+            } else if (typeof error === 'string') {
+                errorMsg = error;
+            } else {
+                errorMsg = JSON.stringify(error);
+            }
+            
+            alert(errorMsg);
         });
     });
 </script>
