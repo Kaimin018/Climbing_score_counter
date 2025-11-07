@@ -2026,39 +2026,53 @@ tbody tr:hover {
     }
 
     .route-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 6px; /* 进一步减少间距 */
-        padding: 8px 12px; /* 减少垂直 padding */
-        min-height: 100px; /* 设置最小高度，确保一致性 */
+        flex-direction: row; /* 改为水平布局，让按钮和内容在同一行 */
+        align-items: center; /* 垂直居中对齐 */
+        gap: 10px; /* 内容区域和按钮之间的间距 */
+        padding: 10px 12px; /* 减少 padding，使路线更紧凑 */
+        min-height: auto; /* 移除固定最小高度，让内容决定高度 */
         box-sizing: border-box;
     }
 
     .route-info {
-        width: 100%;
+        flex: 1; /* 占据剩余空间 */
+        min-width: 0; /* 允许内容收缩 */
     }
     
     /* 移动端路线项内容优化 */
     .route-name-grade {
         margin-bottom: 4px; /* 减少底部间距 */
+        flex-wrap: wrap; /* 允许换行 */
+        align-items: center;
     }
     
     .route-name-grade strong {
-        font-size: 1rem; /* 稍微减小字体 */
+        font-size: 0.95rem; /* 稍微减小字体 */
+        line-height: 1.3;
     }
     
     .route-stats {
-        font-size: 0.85rem; /* 稍微减小字体 */
+        font-size: 0.8rem; /* 稍微减小字体 */
+        color: #666;
+        margin-top: 2px;
+    }
+
+    /* 移动端缩略图优化 */
+    .route-photo-thumbnail {
+        width: 35px;
+        height: 35px;
+        margin-left: 6px;
     }
 
     .route-actions {
-        width: 100%;
-        justify-content: flex-end;
+        flex-shrink: 0; /* 按钮不收缩 */
+        width: auto; /* 移除固定宽度 */
     }
 
     .route-actions .btn {
-        flex: 1;
-        max-width: 120px;
+        padding: 6px 12px; /* 减小按钮 padding */
+        font-size: 0.85rem; /* 减小按钮字体 */
+        white-space: nowrap; /* 防止按钮文字换行 */
     }
 
     .home-container {
