@@ -316,7 +316,7 @@
             <form id="addRouteForm">
                 <div class="form-group">
                     <label for="routeName">路線名稱:</label>
-                    <input type="text" id="routeName" name="name" required placeholder="路線1">
+                    <input type="text" id="routeName" name="name" required placeholder="">
                     <small style="display: block; color: #666; margin-top: 5px;">
                         輸入的名稱會自動加上【路線】前綴
                     </small>
@@ -1489,10 +1489,11 @@
     
     function showAddRouteModal() {
         document.getElementById('addRouteModal').style.display = 'block';
-        // 設置路線名稱預設值（路線1、路線2等）
-        setTimeout(function() {
-            setupRouteNameExample();
-        }, 100);
+        // 清空路線名稱輸入框
+        const routeNameInput = document.getElementById('routeName');
+        if (routeNameInput) {
+            routeNameInput.value = '';
+        }
         // 重置照片預覽
         clearRoutePhoto();
         
@@ -1581,6 +1582,11 @@
     function closeAddRouteModal() {
         document.getElementById('addRouteModal').style.display = 'none';
         document.getElementById('addRouteForm').reset();
+        // 確保路線名稱輸入框被清空
+        const routeNameInput = document.getElementById('routeName');
+        if (routeNameInput) {
+            routeNameInput.value = '';
+        }
     }
 
     function showEditRoomModal() {
