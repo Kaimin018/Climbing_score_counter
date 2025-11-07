@@ -158,4 +158,15 @@ sudo systemctl restart climbing_system
 sudo systemctl reload nginx
 ```
 
+**配置文件路径错误**（文件结构重构后）：
+```bash
+# 自动修复（如果脚本已推送）
+bash Deployment/scripts/tools/fix_gunicorn_config_path.sh
+
+# 或手动修复
+sudo sed -i 's|Deployment/gunicorn_config.py|Deployment/configs/gunicorn_config.py|g' /etc/systemd/system/climbing_system.service
+sudo systemctl daemon-reload
+sudo systemctl restart climbing_system
+```
+
 **详细文档**：`docs/troubleshooting/FIX_502_BAD_GATEWAY.md`

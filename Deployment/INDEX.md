@@ -109,6 +109,7 @@
 - `fix_permissions.sh` - **一键修复权限问题**（Git、虚拟环境等，推荐）
 - `fix_git_conflict.sh` - **修复 Git 冲突**（文件结构重构后使用）
 - `fix_502_gateway.sh` - **502 Bad Gateway 诊断和修复**
+- `fix_gunicorn_config_path.sh` - **修复 Gunicorn 配置文件路径**（文件结构重构后）
 - `fix_venv_path.sh` - 虚拟环境路径修复
 - `fix_400_error.sh` - 400 错误修复脚本
 - `sync_database_from_server.sh` - 从服务器同步数据库
