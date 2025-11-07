@@ -546,7 +546,10 @@ class TestCaseMobileUI(TestCase):
         
         # 檢查是否包含響應式 CSS 類
         self.assertIn('leaderboard-layout', content)
-        self.assertIn('leaderboard-sidebar', content)
+        # 注意：leaderboard-sidebar 已被移除，改用標籤頁布局
+        # 檢查新的標籤頁結構
+        self.assertIn('tabs-container', content)
+        self.assertIn('tab-pane', content)
         self.assertIn('main-content', content)
         
         # 檢查是否包含移動端優化的按鈕

@@ -97,14 +97,12 @@
                     </div>
 
                     <!-- 第二個標籤頁：路線列表 -->
-                    <div class="tab-pane" id="tabPaneRoutes">
-                        <div class="routes-section-full">
-                            <div class="routes-header">
-                                <h3>路線列表</h3>
-                            </div>
-                            <div id="routesList" class="routes-list">
-                                <div class="loading">載入中...</div>
-                            </div>
+                    <div class="tab-pane" id="tabPaneRoutes" style="display: none;">
+                        <div class="routes-header">
+                            <h3>路線列表</h3>
+                        </div>
+                        <div id="routesList" class="routes-list">
+                            <div class="loading">載入中...</div>
                         </div>
                     </div>
                 </div>
@@ -616,7 +614,35 @@
         });
     }
 
+    // 當前標籤頁狀態：0 = 排行榜，1 = 路線列表
+    let currentTab = 0;
+    
     document.addEventListener('DOMContentLoaded', function() {
+        // 初始化：確保只顯示排行榜標籤頁
+        const leaderboardPane = document.getElementById('tabPaneLeaderboard');
+        const routesPane = document.getElementById('tabPaneRoutes');
+        const leaderboardBtn = document.getElementById('tabLeaderboard');
+        const routesBtn = document.getElementById('tabRoutes');
+        
+        // 強制設置初始狀態
+        if (leaderboardPane) {
+            leaderboardPane.classList.add('active');
+            leaderboardPane.style.display = 'flex';
+        }
+        if (routesPane) {
+            routesPane.classList.remove('active');
+            routesPane.style.display = 'none';
+        }
+        if (leaderboardBtn) {
+            leaderboardBtn.classList.add('active');
+        }
+        if (routesBtn) {
+            routesBtn.classList.remove('active');
+        }
+        
+        // 設置當前標籤頁狀態
+        currentTab = 0;
+        
         // 檢查認證狀態（在生產環境中很重要）
         checkAuthentication().then(authStatus => {
             if (!authStatus.authenticated) {
@@ -660,16 +686,23 @@
     function switchTab(tabName) {
         console.log('切換標籤頁:', tabName); // 調試用
         
-        // 根據 tabName 生成正確的 ID
-        let paneId, btnId;
+        // 根據 tabName 生成正確的 ID 和狀態值
+        let paneId, btnId, tabState;
         if (tabName === 'leaderboard') {
             paneId = 'tabPaneLeaderboard';
             btnId = 'tabLeaderboard';
+            tabState = 0;
         } else if (tabName === 'routes') {
             paneId = 'tabPaneRoutes';
             btnId = 'tabRoutes';
+            tabState = 1;
         } else {
             console.error('未知的標籤頁名稱:', tabName);
+            return;
+        }
+        
+        // 如果已經是當前標籤頁，不執行切換
+        if (currentTab === tabState) {
             return;
         }
         
@@ -707,10 +740,14 @@
         // 激活選中的按鈕
         targetBtn.classList.add('active');
         
+        // 更新當前標籤頁狀態
+        currentTab = tabState;
+        
         console.log('標籤頁切換完成:', {
             tabName: tabName,
             paneId: paneId,
             btnId: btnId,
+            tabState: tabState,
             paneVisible: targetPane.style.display,
             paneHasActive: targetPane.classList.contains('active')
         });
