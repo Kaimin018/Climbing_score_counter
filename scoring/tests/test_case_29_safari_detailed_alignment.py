@@ -226,17 +226,18 @@ class TestCaseSafariDetailedAlignment(TestCase):
                 break
         
         if not css_content:
-            # 如果無法通過 HTTP 獲取，直接讀取文件
-            import os
-            from django.conf import settings
-            css_file_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'css', 'style.css')
-            if not os.path.exists(css_file_path):
+            # 如果無法通過 HTTP 獲取，嘗試直接讀取文件（僅在開發環境）
+            try:
+                import os
+                from django.conf import settings
                 css_file_path = os.path.join(settings.BASE_DIR, 'static', 'css', 'style.css')
-            if os.path.exists(css_file_path):
-                with open(css_file_path, 'r', encoding='utf-8') as f:
-                    css_content = f.read()
+                if os.path.exists(css_file_path):
+                    with open(css_file_path, 'r', encoding='utf-8') as f:
+                        css_content = f.read()
+            except Exception:
+                pass  # 在 CI 環境中可能無法讀取文件，這是正常的
         
-        self.assertIsNotNone(css_content, "應該能夠讀取 CSS 文件")
+        self.assertIsNotNone(css_content, "應該能夠讀取 CSS 文件（通過 HTTP 或文件系統）")
         
         # 檢查桌面端 .route-name-grade
         route_name_grade_pattern = r'\.route-name-grade\s*\{[^}]*\}'
@@ -405,17 +406,18 @@ class TestCaseSafariDetailedAlignment(TestCase):
                 break
         
         if not css_content:
-            # 如果無法通過 HTTP 獲取，直接讀取文件
-            import os
-            from django.conf import settings
-            css_file_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'css', 'style.css')
-            if not os.path.exists(css_file_path):
+            # 如果無法通過 HTTP 獲取，嘗試直接讀取文件（僅在開發環境）
+            try:
+                import os
+                from django.conf import settings
                 css_file_path = os.path.join(settings.BASE_DIR, 'static', 'css', 'style.css')
-            if os.path.exists(css_file_path):
-                with open(css_file_path, 'r', encoding='utf-8') as f:
-                    css_content = f.read()
+                if os.path.exists(css_file_path):
+                    with open(css_file_path, 'r', encoding='utf-8') as f:
+                        css_content = f.read()
+            except Exception:
+                pass  # 在 CI 環境中可能無法讀取文件，這是正常的
         
-        self.assertIsNotNone(css_content, "應該能夠讀取 CSS 文件")
+        self.assertIsNotNone(css_content, "應該能夠讀取 CSS 文件（通過 HTTP 或文件系統）")
         
         # 檢查是否有移動端媒體查詢
         self.assertIn('@media', css_content, "應該有 @media 查詢")
@@ -528,17 +530,18 @@ class TestCaseSafariDetailedAlignment(TestCase):
                 break
         
         if not css_content:
-            # 如果無法通過 HTTP 獲取，直接讀取文件
-            import os
-            from django.conf import settings
-            css_file_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'css', 'style.css')
-            if not os.path.exists(css_file_path):
+            # 如果無法通過 HTTP 獲取，嘗試直接讀取文件（僅在開發環境）
+            try:
+                import os
+                from django.conf import settings
                 css_file_path = os.path.join(settings.BASE_DIR, 'static', 'css', 'style.css')
-            if os.path.exists(css_file_path):
-                with open(css_file_path, 'r', encoding='utf-8') as f:
-                    css_content = f.read()
+                if os.path.exists(css_file_path):
+                    with open(css_file_path, 'r', encoding='utf-8') as f:
+                        css_content = f.read()
+            except Exception:
+                pass  # 在 CI 環境中可能無法讀取文件，這是正常的
         
-        self.assertIsNotNone(css_content, "應該能夠讀取 CSS 文件")
+        self.assertIsNotNone(css_content, "應該能夠讀取 CSS 文件（通過 HTTP 或文件系統）")
         
         # 查找 .tab-pane 樣式
         tab_pane_pattern = r'\.tab-pane\s*\{[^}]*\}'
@@ -623,17 +626,18 @@ class TestCaseSafariDetailedAlignment(TestCase):
                 break
         
         if not css_content:
-            # 如果無法通過 HTTP 獲取，直接讀取文件
-            import os
-            from django.conf import settings
-            css_file_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'css', 'style.css')
-            if not os.path.exists(css_file_path):
+            # 如果無法通過 HTTP 獲取，嘗試直接讀取文件（僅在開發環境）
+            try:
+                import os
+                from django.conf import settings
                 css_file_path = os.path.join(settings.BASE_DIR, 'static', 'css', 'style.css')
-            if os.path.exists(css_file_path):
-                with open(css_file_path, 'r', encoding='utf-8') as f:
-                    css_content = f.read()
+                if os.path.exists(css_file_path):
+                    with open(css_file_path, 'r', encoding='utf-8') as f:
+                        css_content = f.read()
+            except Exception:
+                pass  # 在 CI 環境中可能無法讀取文件，這是正常的
         
-        self.assertIsNotNone(css_content, "應該能夠讀取 CSS 文件")
+        self.assertIsNotNone(css_content, "應該能夠讀取 CSS 文件（通過 HTTP 或文件系統）")
         
         # 檢查 routes-header 相關的 -webkit- 前綴
         if '.routes-header' in css_content:

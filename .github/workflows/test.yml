@@ -39,6 +39,11 @@ jobs:
       run: |
         python manage.py migrate --noinput
     
+    - name: Collect static files
+      run: |
+        python manage.py collectstatic --noinput || true
+      continue-on-error: true
+    
     - name: Run all tests
       run: |
         python manage.py test scoring.tests --verbosity=1
