@@ -139,7 +139,7 @@ body {
 }
 
 .tab-pane {
-    display: none;
+    display: none !important; /* 強制隱藏非活動標籤頁 */
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -147,7 +147,7 @@ body {
 }
 
 .tab-pane.active {
-    display: flex;
+    display: flex !important; /* 強制顯示活動標籤頁 */
 }
 
 /* 排行榜完整視圖（標籤頁中） */

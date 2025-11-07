@@ -414,6 +414,69 @@
     }
 </style>
 <script>
+    // 全局 fetch 攔截器：統一處理認證失效
+    (function() {
+        const originalFetch = window.fetch;
+        let isRedirecting = false; // 防止重複重定向
+        
+        window.fetch = function(...args) {
+            return originalFetch.apply(this, args)
+                .then(response => {
+                    // 檢查是否為認證錯誤（401 或 403）
+                    if (response.status === 401 || response.status === 403) {
+                        // 排除登錄相關的 API 調用，避免重定向循環
+                        const url = args[0];
+                        let urlString = '';
+                        if (typeof url === 'string') {
+                            urlString = url;
+                        } else if (url instanceof Request) {
+                            urlString = url.url;
+                        }
+                        
+                        if (urlString && (
+                            urlString.includes('/api/auth/login/') ||
+                            urlString.includes('/api/auth/register/') ||
+                            urlString.includes('/api/auth/guest-login/') ||
+                            urlString.includes('/api/auth/current-user/')
+                        )) {
+                            // 登錄相關 API 的認證錯誤是正常的，不重定向
+                            return response;
+                        }
+                        
+                        // 如果已經在重定向過程中，不再重複處理
+                        if (isRedirecting) {
+                            return response;
+                        }
+                        
+                        // 認證失效，重定向到登錄頁面
+                        isRedirecting = true;
+                        console.warn('認證憑證已失效，正在重定向到登錄頁面...');
+                        
+                        // 顯示錯誤提示（如果函數已定義）
+                        if (typeof showToast === 'function') {
+                            showToast('登錄憑證已失效，請重新登錄', 'error');
+                        } else {
+                            // 如果 showToast 未定義，使用 alert
+                            alert('登錄憑證已失效，請重新登錄');
+                        }
+                        
+                        // 延遲重定向，讓用戶看到提示
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 1500);
+                        
+                        return response;
+                    }
+                    return response;
+                })
+                .catch(error => {
+                    // 處理網絡錯誤等其他錯誤
+                    console.error('Fetch 錯誤:', error);
+                    throw error;
+                });
+        };
+    })();
+
     // 獲取 CSRF Token
     function getCookie(name) {
         let cookieValue = null;
@@ -597,16 +660,6 @@
     function switchTab(tabName) {
         console.log('切換標籤頁:', tabName); // 調試用
         
-        // 隱藏所有標籤頁內容
-        document.querySelectorAll('.tab-pane').forEach(pane => {
-            pane.classList.remove('active');
-        });
-        
-        // 移除所有按鈕的 active 狀態
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        
         // 根據 tabName 生成正確的 ID
         let paneId, btnId;
         if (tabName === 'leaderboard') {
@@ -620,23 +673,47 @@
             return;
         }
         
-        // 顯示選中的標籤頁
+        // 獲取所有標籤頁和按鈕元素
+        const allPanes = document.querySelectorAll('.tab-pane');
+        const allButtons = document.querySelectorAll('.tab-btn');
         const targetPane = document.getElementById(paneId);
         const targetBtn = document.getElementById(btnId);
         
-        if (targetPane) {
-            targetPane.classList.add('active');
-            console.log('顯示標籤頁內容:', paneId);
-        } else {
+        // 驗證元素存在
+        if (!targetPane) {
             console.error('找不到標籤頁內容元素:', paneId);
+            return;
+        }
+        if (!targetBtn) {
+            console.error('找不到按鈕元素:', btnId);
+            return;
         }
         
-        if (targetBtn) {
-            targetBtn.classList.add('active');
-            console.log('激活按鈕:', btnId);
-        } else {
-            console.error('找不到按鈕元素:', btnId);
-        }
+        // 隱藏所有標籤頁內容（強制設置 display: none）
+        allPanes.forEach(pane => {
+            pane.classList.remove('active');
+            pane.style.display = 'none'; // 強制隱藏
+        });
+        
+        // 移除所有按鈕的 active 狀態
+        allButtons.forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // 顯示選中的標籤頁（強制設置 display: flex）
+        targetPane.classList.add('active');
+        targetPane.style.display = 'flex'; // 強制顯示
+        
+        // 激活選中的按鈕
+        targetBtn.classList.add('active');
+        
+        console.log('標籤頁切換完成:', {
+            tabName: tabName,
+            paneId: paneId,
+            btnId: btnId,
+            paneVisible: targetPane.style.display,
+            paneHasActive: targetPane.classList.contains('active')
+        });
     }
 
     function displayLeaderboard(data) {
