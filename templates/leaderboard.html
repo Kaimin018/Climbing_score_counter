@@ -1079,6 +1079,42 @@
         const routePhotoFromGallery = document.getElementById('routePhotoFromGallery');
         const routePhotoInput = document.getElementById('routePhoto');
         
+        // 確保事件監聽器已設置（如果還沒有設置）
+        // 這對於第一次使用時很重要
+        if (routePhotoInput && !routePhotoInput.onchange) {
+            const handlePhotoChange = function(inputElement) {
+                if (inputElement && inputElement.files && inputElement.files[0]) {
+                    const otherInput = inputElement.id === 'routePhotoFromGallery' ? routePhotoInput : routePhotoFromGallery;
+                    if (otherInput) {
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(inputElement.files[0]);
+                        otherInput.files = dataTransfer.files;
+                    }
+                    showPhotoPreview(inputElement, 'routePhotoPreview', 'routePhotoPreviewImg');
+                }
+            };
+            routePhotoInput.onchange = function() {
+                handlePhotoChange(this);
+            };
+        }
+        
+        if (routePhotoFromGallery && !routePhotoFromGallery.onchange) {
+            const handlePhotoChange = function(inputElement) {
+                if (inputElement && inputElement.files && inputElement.files[0]) {
+                    const otherInput = inputElement.id === 'routePhotoFromGallery' ? routePhotoInput : routePhotoFromGallery;
+                    if (otherInput) {
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(inputElement.files[0]);
+                        otherInput.files = dataTransfer.files;
+                    }
+                    showPhotoPreview(inputElement, 'routePhotoPreview', 'routePhotoPreviewImg');
+                }
+            };
+            routePhotoFromGallery.onchange = function() {
+                handlePhotoChange(this);
+            };
+        }
+        
         // 優先使用圖庫選擇輸入框，但也要確保拍照輸入框有事件監聽
         if (routePhotoFromGallery) {
             // 在移動設備上，文件選擇器會自動提供拍照和圖庫選擇選項
@@ -1119,58 +1155,90 @@
     
     // 顯示照片預覽
     function showPhotoPreview(input, previewId, previewImgId) {
-        if (input && input.files && input.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const preview = document.getElementById(previewId);
-                let previewImg = document.getElementById(previewImgId);
-                
-                // 如果預覽圖片元素不存在，嘗試創建它
-                if (preview && !previewImg) {
-                    // 檢查預覽容器是否有內容
-                    if (preview.innerHTML.trim() === '') {
-                        // 創建預覽結構（用於新增路線）
-                        preview.innerHTML = `
-                            <img id="${previewImgId}" src="" alt="照片預覽" style="max-width: 200px; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;">
-                        `;
-                        previewImg = document.getElementById(previewImgId);
+        if (!input) {
+            console.warn('showPhotoPreview: input 元素不存在');
+            return;
+        }
+        
+        if (!input.files || !input.files[0]) {
+            console.warn('showPhotoPreview: 沒有選擇照片文件', { 
+                input: !!input, 
+                files: input.files ? input.files.length : 0,
+                firstFile: input.files && input.files[0] ? input.files[0].name : 'N/A'
+            });
+            return;
+        }
+        
+        const file = input.files[0];
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            const preview = document.getElementById(previewId);
+            let previewImg = document.getElementById(previewImgId);
+            
+            // 如果預覽圖片元素不存在，嘗試創建它
+            if (preview && !previewImg) {
+                // 檢查預覽容器是否有內容
+                if (preview.innerHTML.trim() === '') {
+                    // 創建預覽結構（用於新增路線）
+                    preview.innerHTML = `
+                        <img id="${previewImgId}" src="" alt="照片預覽" style="max-width: 200px; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;">
+                    `;
+                    previewImg = document.getElementById(previewImgId);
+                } else {
+                    // 如果預覽容器有內容但沒有圖片元素，嘗試查找或創建
+                    previewImg = preview.querySelector('img');
+                    if (!previewImg) {
+                        const img = document.createElement('img');
+                        img.id = previewImgId;
+                        img.alt = '照片預覽';
+                        img.style.cssText = 'max-width: 200px; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;';
+                        preview.appendChild(img);
+                        previewImg = img;
                     } else {
-                        // 如果預覽容器有內容但沒有圖片元素，嘗試查找或創建
-                        previewImg = preview.querySelector('img');
-                        if (!previewImg) {
-                            const img = document.createElement('img');
-                            img.id = previewImgId;
-                            img.alt = '照片預覽';
-                            img.style.cssText = 'max-width: 200px; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;';
-                            preview.appendChild(img);
-                            previewImg = img;
-                        } else {
-                            // 如果找到了圖片元素但沒有 ID，設置 ID
-                            if (!previewImg.id) {
-                                previewImg.id = previewImgId;
-                            }
+                        // 如果找到了圖片元素但沒有 ID，設置 ID
+                        if (!previewImg.id) {
+                            previewImg.id = previewImgId;
                         }
                     }
                 }
-                
-                if (preview && previewImg) {
-                    previewImg.src = e.target.result;
-                    preview.style.display = 'block';
-                    // 確保圖片元素可見
-                    if (previewImg.style.display === 'none') {
-                        previewImg.style.display = 'block';
-                    }
-                    console.log('照片預覽已顯示，URL:', e.target.result.substring(0, 50) + '...');
-                } else {
-                    console.error('預覽元素未找到:', { previewId, previewImgId, preview: !!preview, previewImg: !!previewImg });
+            }
+            
+            if (preview && previewImg) {
+                previewImg.src = e.target.result;
+                preview.style.display = 'block';
+                // 確保圖片元素可見
+                if (previewImg.style.display === 'none') {
+                    previewImg.style.display = 'block';
                 }
-            };
-            reader.onerror = function(error) {
-                console.error('讀取照片文件失敗:', error);
-            };
-            reader.readAsDataURL(input.files[0]);
+                // 確保圖片元素有正確的樣式
+                if (!previewImg.style.maxWidth) {
+                    previewImg.style.maxWidth = '200px';
+                }
+                if (!previewImg.style.maxHeight) {
+                    previewImg.style.maxHeight = '200px';
+                }
+                console.log('照片預覽已顯示，文件名:', file.name, '大小:', file.size, '類型:', file.type);
+            } else {
+                console.error('預覽元素未找到:', { 
+                    previewId, 
+                    previewImgId, 
+                    preview: !!preview, 
+                    previewImg: !!previewImg,
+                    previewHTML: preview ? preview.innerHTML.substring(0, 100) : 'N/A'
+                });
+            }
+        };
+        
+        reader.onerror = function(error) {
+            console.error('讀取照片文件失敗:', error, '文件名:', file.name, '大小:', file.size, '類型:', file.type);
+        };
+        
+        // 確保文件指針在開始位置
+        if (file && file.size > 0) {
+            reader.readAsDataURL(file);
         } else {
-            console.warn('沒有選擇照片文件:', { input: !!input, files: input ? input.files : null });
+            console.error('文件無效或為空:', { name: file.name, size: file.size, type: file.type });
         }
     }
     
@@ -1190,29 +1258,54 @@
         // 統一的 change 事件處理函數
         const handlePhotoChange = function(inputElement) {
             if (inputElement && inputElement.files && inputElement.files[0]) {
+                console.log('文件選擇事件觸發:', {
+                    inputId: inputElement.id,
+                    fileName: inputElement.files[0].name,
+                    fileSize: inputElement.files[0].size,
+                    fileType: inputElement.files[0].type
+                });
+                
                 // 同步到另一個輸入框
                 const otherInput = inputElement.id === 'routePhotoFromGallery' ? routePhotoInput : routePhotoFromGallery;
                 if (otherInput) {
-                    const dataTransfer = new DataTransfer();
-                    dataTransfer.items.add(inputElement.files[0]);
-                    otherInput.files = dataTransfer.files;
+                    try {
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(inputElement.files[0]);
+                        otherInput.files = dataTransfer.files;
+                        console.log('文件已同步到另一個輸入框:', otherInput.id);
+                    } catch (error) {
+                        console.error('同步文件到另一個輸入框失敗:', error);
+                    }
                 }
                 // 顯示預覽
                 showPhotoPreview(inputElement, 'routePhotoPreview', 'routePhotoPreviewImg');
+            } else {
+                console.warn('handlePhotoChange: 沒有有效的文件', {
+                    inputElement: !!inputElement,
+                    files: inputElement ? (inputElement.files ? inputElement.files.length : 0) : 0
+                });
             }
         };
         
-        // 為兩個輸入框都設置事件監聽器
+        // 為兩個輸入框都設置事件監聽器（確保每次打開彈窗時都重新設置）
         if (routePhotoInput) {
+            // 先移除舊的事件監聽器（如果存在）
+            routePhotoInput.onchange = null;
+            // 設置新的事件監聽器
             routePhotoInput.onchange = function() {
                 handlePhotoChange(this);
             };
+            console.log('已為 routePhotoInput 設置事件監聽器');
         }
         
         if (routePhotoFromGallery) {
+            // 先移除舊的事件監聽器（如果存在）
+            routePhotoFromGallery.onchange = null;
+            // 設置新的事件監聽器
             routePhotoFromGallery.onchange = function() {
                 handlePhotoChange(this);
             };
+            console.log('已為 routePhotoFromGallery 設置事件監聽器');
         }
     }
     
