@@ -87,6 +87,13 @@ body {
     letter-spacing: 0.5px;
 }
 
+.room-title-inline {
+    font-size: 0.7rem;
+    font-weight: 400;
+    opacity: 0.8;
+    margin-left: 8px;
+}
+
 .leaderboard-sidebar-header .btn {
     padding: 8px 14px;
     font-size: 1rem;
@@ -1536,22 +1543,36 @@ tbody tr:hover {
         display: block;
         background: white;
         border-radius: 8px;
-        padding: 15px;
+        padding: 10px 15px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         order: -2; /* 顯示在排行榜之前 */
         margin-bottom: 15px;
     }
 
     .room-header-mobile .header-top {
-        flex-direction: column;
-        gap: 10px;
-        align-items: stretch;
+        margin-bottom: 10px;
+    }
+
+    .room-header-mobile .header-buttons {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-start;
+    }
+
+    .room-header-mobile .btn-square {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        font-size: 1.2rem;
+        flex-shrink: 0;
     }
 
     .room-header-mobile .header-top h2 {
-        font-size: 1.3rem;
-        margin: 10px 0;
-        color: #2c3e50;
+        display: none; /* 隱藏房間名稱標題 */
     }
 
     .room-header-mobile .room-info {
@@ -1610,10 +1631,11 @@ tbody tr:hover {
     .leaderboard-sidebar {
         max-height: 400px;
         width: 100%;
-        position: relative;
+        position: sticky;
         top: 0;
         order: -1;
         border-radius: 8px;
+        z-index: 10;
     }
 
     .leaderboard-sidebar-header {
@@ -1622,6 +1644,13 @@ tbody tr:hover {
 
     .leaderboard-sidebar-header h3 {
         font-size: 1rem;
+    }
+
+    .room-title-inline {
+        font-size: 0.6rem;
+        font-weight: 400;
+        opacity: 0.8;
+        margin-left: 6px;
     }
 
     .leaderboard-table-wrapper {

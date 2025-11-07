@@ -8,16 +8,17 @@
     <!-- 移動端房間標題（顯示在排行榜上方） -->
     <div class="room-header-mobile" id="roomHeaderMobile">
         <div class="header-top">
-            <button class="btn btn-secondary btn-small" onclick="goHome()" style="margin-right: 10px;">
-                ← 返回首頁
-            </button>
-            <h2 id="roomNameMobile" style="flex: 1;">載入中...</h2>
-            <a href="/rules/" class="btn btn-secondary btn-small" style="margin-left: 10px; text-decoration: none; display: inline-block;">
-                規則說明
-            </a>
-            <button class="btn btn-secondary btn-small" onclick="showEditRoomModal()" style="margin-left: 10px;">
-                編輯房間
-            </button>
+            <div class="header-buttons">
+                <button class="btn btn-secondary btn-square" onclick="goHome()" title="返回首頁">
+                    ←
+                </button>
+                <a href="/rules/" class="btn btn-secondary btn-square" title="規則說明" style="text-decoration: none; display: inline-block;">
+                    📋
+                </a>
+                <button class="btn btn-secondary btn-square" onclick="showEditRoomModal()" title="編輯房間">
+                    ✏️
+                </button>
+            </div>
         </div>
         <div class="room-info">
             <span>房間 ID: <strong id="roomIdDisplayMobile">-</strong></span>
@@ -50,7 +51,6 @@
             <div class="actions">
                 <button class="btn btn-primary" onclick="showAddMemberModal()">新增成員</button>
                 <button class="btn btn-primary" onclick="showAddRouteModal()">新增路線</button>
-                <button class="btn btn-secondary" onclick="refreshLeaderboard()">刷新排行榜</button>
             </div>
 
             <div class="routes-section" style="margin-bottom: 30px;">
@@ -65,7 +65,7 @@
     <!-- 右側固定排行榜 -->
     <div class="leaderboard-sidebar">
         <div class="leaderboard-sidebar-header">
-            <h3>排行榜</h3>
+            <h3>排行榜<span class="room-title-inline" id="roomTitleInline"></span></h3>
             <button class="btn btn-secondary btn-small" onclick="refreshLeaderboard()" title="刷新排行榜">
                 🔄
             </button>
@@ -544,10 +544,15 @@
         document.getElementById('roomIdDisplay').textContent = roomInfo.id;
         document.getElementById('standardLineScore').textContent = roomInfo.standard_line_score;
         
-        // 同時更新移動端房間標題
-        document.getElementById('roomNameMobile').textContent = roomInfo.name;
+        // 同時更新移動端房間標題（不再顯示房間名稱，改為在排行榜標題中顯示）
         document.getElementById('roomIdDisplayMobile').textContent = roomInfo.id;
         document.getElementById('standardLineScoreMobile').textContent = roomInfo.standard_line_score;
+        
+        // 在排行榜標題右側顯示房間名稱（小字體）
+        const roomTitleInline = document.getElementById('roomTitleInline');
+        if (roomTitleInline) {
+            roomTitleInline.textContent = ' ' + roomInfo.name;
+        }
         
         // 更新編輯房間表單的預設值
         document.getElementById('editRoomId').value = roomInfo.id;
@@ -895,6 +900,8 @@
         .then(response => {
             if (response.status === 204 || response.ok) {
                 showToast('路線已刪除', 'success');
+                // 立即重新載入路線列表，讓該路線消失
+                loadRoutes();
                 refreshLeaderboard(true);
             } else {
                 return response.json().then(err => Promise.reject(err));
@@ -1277,9 +1284,12 @@
                 closeEditRoomModal();
                 refreshLeaderboard(true);
                 showToast('房間更新成功！', 'success');
-                // 同步更新移動端標題
+                // 同步更新排行榜標題中的房間名稱
                 if (data.name) {
-                    document.getElementById('roomNameMobile').textContent = data.name;
+                    const roomTitleInline = document.getElementById('roomTitleInline');
+                    if (roomTitleInline) {
+                        roomTitleInline.textContent = ' ' + data.name;
+                    }
                 }
             } else {
                 showToast('更新失敗: ' + JSON.stringify(data), 'error');
