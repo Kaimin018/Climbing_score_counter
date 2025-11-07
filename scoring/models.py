@@ -95,43 +95,50 @@ def route_photo_upload_path(instance, filename):
     """
     生成路線照片的上傳路徑
     清理文件名，確保符合文件系統要求（特別是處理 iPhone 的文件名）
+    
+    修復方案：強制使用安全的文件名格式，避免 ImageField 驗證失敗
     """
     import os
-    from django.utils.text import get_valid_filename
     from datetime import datetime
     
     # 獲取文件擴展名
     ext = os.path.splitext(filename)[1].lower()
     
-    # 如果沒有擴展名或擴展名不在允許列表中，嘗試從文件名推斷
-    if not ext or ext not in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.heic', '.heif', '.webp']:
-        # 檢查文件名是否包含格式信息
+    # 只允許標準圖片格式的擴展名（HEIC 會在序列化器中轉換為 JPEG）
+    allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']
+    
+    # 如果沒有擴展名或擴展名不在允許列表中，強制使用 .jpg
+    # 這樣可以避免 ImageField 驗證失敗
+    if not ext or ext not in allowed_extensions:
+        # 嘗試從文件名推斷格式（僅作為參考，最終仍使用 .jpg）
         filename_lower = filename.lower()
-        if '.heic' in filename_lower or 'heic' in filename_lower:
-            ext = '.heic'
-        elif '.heif' in filename_lower or 'heif' in filename_lower:
-            ext = '.heif'
-        elif '.jpg' in filename_lower or '.jpeg' in filename_lower:
+        if '.heic' in filename_lower or 'heif' in filename_lower:
+            # HEIC 格式會在序列化器中轉換為 JPEG，所以使用 .jpg
             ext = '.jpg'
         elif '.png' in filename_lower:
             ext = '.png'
+        elif '.gif' in filename_lower:
+            ext = '.gif'
+        elif '.bmp' in filename_lower:
+            ext = '.bmp'
+        elif '.webp' in filename_lower:
+            ext = '.webp'
         else:
-            # 默認使用 .jpg
+            # 默認使用 .jpg（最常見的格式）
             ext = '.jpg'
     
+    # 確保擴展名在允許列表中（最終安全檢查）
+    if ext not in allowed_extensions:
+        ext = '.jpg'
+    
     # 生成安全的文件名（使用時間戳和路線ID）
+    # 強制使用標準格式，不依賴原始文件名
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     route_id = instance.id if instance.id else 'new'
     
-    # 清理文件名，移除特殊字符
-    safe_filename = get_valid_filename(filename)
-    # 如果文件名仍然包含特殊字符，使用默認名稱
-    if not safe_filename or len(safe_filename) > 100:
-        safe_filename = f'route_{route_id}_{timestamp}{ext}'
-    else:
-        # 確保文件名以正確的擴展名結尾
-        base_name = os.path.splitext(safe_filename)[0]
-        safe_filename = f'{base_name}_{timestamp}{ext}'
+    # 使用固定的文件名格式，避免特殊字符問題
+    # 格式：route_{route_id}_{timestamp}{ext}
+    safe_filename = f'route_{route_id}_{timestamp}{ext}'
     
     return f'route_photos/{safe_filename}'
 

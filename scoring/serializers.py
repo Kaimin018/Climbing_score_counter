@@ -296,45 +296,75 @@ class RouteCreateSerializer(serializers.ModelSerializer):
             if hasattr(value, 'seek'):
                 value.seek(0)
             
-            # 如果文件沒有擴展名但 content_type 有效，添加擴展名
-            if not file_name or '.' not in file_name:
-                if content_type:
-                    content_type_lower = content_type.lower()
-                    ext = '.jpg'  # 默認使用 .jpg
-                    if 'png' in content_type_lower:
-                        ext = '.png'
-                    elif 'gif' in content_type_lower:
-                        ext = '.gif'
-                    elif 'bmp' in content_type_lower:
-                        ext = '.bmp'
-                    elif 'webp' in content_type_lower:
-                        ext = '.webp'
-                    
-                    # 創建新的文件對象，添加擴展名
-                    from django.core.files.uploadedfile import InMemoryUploadedFile
-                    from io import BytesIO
-                    import os
-                    
-                    if hasattr(value, 'seek'):
-                        value.seek(0)
-                    file_content = value.read()
-                    
-                    new_name = file_name if file_name else 'photo'
-                    # 確保文件名以正確的擴展名結尾
-                    base_name = os.path.splitext(new_name)[0]
-                    if not base_name:
-                        base_name = 'photo'
-                    new_name = base_name + ext
-                    
-                    new_file = InMemoryUploadedFile(
-                        BytesIO(file_content),
-                        'photo',
-                        new_name,
-                        content_type or 'image/jpeg',
-                        len(file_content),
-                        None
-                    )
-                    return new_file
+            # 重新打開圖片以獲取格式信息（verify 後需要重新打開）
+            if hasattr(value, 'seek'):
+                value.seek(0)
+            img = Image.open(value)
+            
+            # 確保文件名有正確的擴展名（根據實際圖片格式）
+            format_ext_map = {
+                'JPEG': '.jpg',
+                'PNG': '.png',
+                'GIF': '.gif',
+                'BMP': '.bmp',
+                'WEBP': '.webp'
+            }
+            
+            # 根據 Pillow 檢測到的格式確定擴展名
+            detected_ext = format_ext_map.get(img.format, '.jpg')
+            
+            # 如果文件沒有擴展名或擴展名不正確，創建新的文件對象
+            if not file_name or '.' not in file_name or not file_name.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp')):
+                from django.core.files.uploadedfile import InMemoryUploadedFile
+                from io import BytesIO
+                import os
+                
+                if hasattr(value, 'seek'):
+                    value.seek(0)
+                file_content = value.read()
+                
+                # 使用檢測到的格式擴展名
+                base_name = os.path.splitext(file_name)[0] if file_name else 'photo'
+                if not base_name or len(base_name) > 50:
+                    base_name = 'photo'
+                new_name = base_name + detected_ext
+                
+                new_file = InMemoryUploadedFile(
+                    BytesIO(file_content),
+                    'photo',
+                    new_name,
+                    content_type or f'image/{detected_ext[1:]}',  # 移除點號
+                    len(file_content),
+                    None
+                )
+                return new_file
+            
+            # 如果文件名已有擴展名，確保格式正確
+            current_ext = os.path.splitext(file_name)[1].lower()
+            if current_ext not in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
+                # 擴展名不正確，創建新的文件對象
+                from django.core.files.uploadedfile import InMemoryUploadedFile
+                from io import BytesIO
+                import os
+                
+                if hasattr(value, 'seek'):
+                    value.seek(0)
+                file_content = value.read()
+                
+                base_name = os.path.splitext(file_name)[0] if file_name else 'photo'
+                if not base_name or len(base_name) > 50:
+                    base_name = 'photo'
+                new_name = base_name + detected_ext
+                
+                new_file = InMemoryUploadedFile(
+                    BytesIO(file_content),
+                    'photo',
+                    new_name,
+                    content_type or f'image/{detected_ext[1:]}',
+                    len(file_content),
+                    None
+                )
+                return new_file
             
             return value
         except Exception as e:
@@ -469,6 +499,8 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
         allow_blank=True,
         help_text="格式: JSON 字符串，如 '{\"member_id\": true}'"
     )
+    # 使用 FileField 而不是 ImageField，以允許手動驗證
+    photo = serializers.FileField(required=False, allow_null=True)
 
     class Meta:
         model = Route
