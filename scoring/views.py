@@ -108,12 +108,19 @@ class RoomViewSet(viewsets.ModelViewSet):
         """新增路線與成績錄入"""
         room = self.get_object()
         
-        # 處理 member_completions：FormData 中的 JSON 字符串應該保持為字符串，讓序列化器處理
-        # 如果已經是字典（可能來自測試場景），轉換回 JSON 字符串
+        # 處理 member_completions：FormData 可能將值作為列表傳遞（QueryDict），取第一個元素
+        # 如果已經是字典，轉換為 JSON 字符串（因為 serializer 期望字符串）
         data = request.data.copy()
-        if 'member_completions' in data and isinstance(data['member_completions'], dict):
-            import json
-            data['member_completions'] = json.dumps(data['member_completions'])
+        if 'member_completions' in data:
+            member_completions = data['member_completions']
+            if isinstance(member_completions, list):
+                member_completions = member_completions[0] if len(member_completions) > 0 else '{}'
+            if isinstance(member_completions, dict):
+                import json
+                member_completions = json.dumps(member_completions)
+            if not isinstance(member_completions, str):
+                member_completions = str(member_completions)
+            data['member_completions'] = member_completions
         
         # 清理用戶輸入，防止 XSS
         if 'name' in data:
