@@ -1,16 +1,38 @@
 #!/bin/bash
 # AWS EC2 部署腳本
-# 使用方法：bash Deployment/deploy.sh
+# 使用方法：bash Deployment/scripts/tools/deploy.sh
+# 或從項目根目錄：bash Deployment/scripts/tools/deploy.sh
 
 set -e
 
-# 配置
-PROJECT_DIR="/var/www/Climbing_score_counter"
+# 自動檢測項目根目錄
+# 獲取腳本所在目錄
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 從 Deployment/scripts/tools/ 向上三層到項目根目錄
+DETECTED_PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+# 檢查是否在服務器上（/var/www/Climbing_score_counter 存在）
+# 如果不在服務器上，使用檢測到的項目根目錄
+if [ -d "/var/www/Climbing_score_counter" ] && [ -f "/var/www/Climbing_score_counter/manage.py" ]; then
+    # 在服務器上運行
+    PROJECT_DIR="/var/www/Climbing_score_counter"
+else
+    # 在本地運行，使用檢測到的項目根目錄
+    PROJECT_DIR="$DETECTED_PROJECT_ROOT"
+    echo "ℹ️  檢測到本地環境，使用項目目錄: $PROJECT_DIR"
+fi
+
 VENV_DIR="$PROJECT_DIR/venv"
 SERVER_CONFIG="$PROJECT_DIR/.server-config"
 
-# 應用服務器配置（自動替換占位符）
+# 應用服務器配置（自動替換占位符）- 僅在服務器上執行
 apply_server_config() {
+    # 只在服務器環境執行
+    if [ "$PROJECT_DIR" != "/var/www/Climbing_score_counter" ]; then
+        echo "ℹ️  跳過服務器配置（本地環境）"
+        return 0
+    fi
+    
     if [ ! -f "$SERVER_CONFIG" ]; then
         echo "⚠️  未找到服務器配置文件，跳過自動配置"
         return 0
@@ -35,8 +57,8 @@ apply_server_config() {
     
     # 更新 Systemd 服務配置
     SYSTEMD_SERVICE="/etc/systemd/system/climbing_system.service"
-    if [ ! -f "$SYSTEMD_SERVICE" ] && [ -f "$PROJECT_DIR/Deployment/systemd/climbing_system.service" ]; then
-        sudo cp "$PROJECT_DIR/Deployment/systemd/climbing_system.service" "$SYSTEMD_SERVICE"
+    if [ ! -f "$SYSTEMD_SERVICE" ] && [ -f "$PROJECT_DIR/Deployment/configs/systemd/climbing_system.service" ]; then
+        sudo cp "$PROJECT_DIR/Deployment/configs/systemd/climbing_system.service" "$SYSTEMD_SERVICE"
     fi
     
     if [ -f "$SYSTEMD_SERVICE" ]; then
@@ -47,7 +69,7 @@ apply_server_config() {
         
         # 修復舊路徑
         if grep -q "/var/www/Climbing_score_counter/gunicorn_config.py" "$SYSTEMD_SERVICE"; then
-            sudo sed -i "s|/var/www/Climbing_score_counter/gunicorn_config.py|/var/www/Climbing_score_counter/Deployment/gunicorn_config.py|g" "$SYSTEMD_SERVICE"
+            sudo sed -i "s|/var/www/Climbing_score_counter/gunicorn_config.py|/var/www/Climbing_score_counter/Deployment/configs/gunicorn_config.py|g" "$SYSTEMD_SERVICE"
         fi
     fi
     
@@ -55,8 +77,8 @@ apply_server_config() {
     NGINX_AVAILABLE="/etc/nginx/sites-available/climbing_system.conf"
     NGINX_ENABLED="/etc/nginx/sites-enabled/climbing_system.conf"
     
-    if [ ! -f "$NGINX_AVAILABLE" ] && [ -f "$PROJECT_DIR/Deployment/nginx/climbing_system.conf" ]; then
-        sudo cp "$PROJECT_DIR/Deployment/nginx/climbing_system.conf" "$NGINX_AVAILABLE"
+    if [ ! -f "$NGINX_AVAILABLE" ] && [ -f "$PROJECT_DIR/Deployment/configs/nginx/climbing_system.conf" ]; then
+        sudo cp "$PROJECT_DIR/Deployment/configs/nginx/climbing_system.conf" "$NGINX_AVAILABLE"
         [ ! -L "$NGINX_ENABLED" ] && sudo ln -sf "$NGINX_AVAILABLE" "$NGINX_ENABLED"
     fi
     
@@ -68,8 +90,10 @@ apply_server_config() {
 }
 
 # 檢查項目目錄
-[ ! -d "$PROJECT_DIR" ] && { echo "錯誤: 項目目錄不存在"; exit 1; }
-cd $PROJECT_DIR || { echo "錯誤: 無法進入項目目錄"; exit 1; }
+[ ! -d "$PROJECT_DIR" ] && { echo "❌ 錯誤: 項目目錄不存在: $PROJECT_DIR"; exit 1; }
+[ ! -f "$PROJECT_DIR/manage.py" ] && { echo "❌ 錯誤: 未找到 manage.py，請確認項目目錄正確: $PROJECT_DIR"; exit 1; }
+cd "$PROJECT_DIR" || { echo "❌ 錯誤: 無法進入項目目錄: $PROJECT_DIR"; exit 1; }
+echo "📁 項目目錄: $PROJECT_DIR"
 
 # 應用服務器配置
 apply_server_config
@@ -81,19 +105,21 @@ if [ -d ".git" ]; then
         git config --global --add safe.directory "$PROJECT_DIR"
     fi
     
-    # 修復 .git 目錄權限
-    if [ ! -w ".git/FETCH_HEAD" ] 2>/dev/null; then
-        CURRENT_USER=$(whoami)
-        sudo chown -R $CURRENT_USER:$CURRENT_USER .git 2>/dev/null || true
-    fi
-    
-    # 修復項目文件權限
-    CURRENT_USER=$(whoami)
-    if [ ! -w "." ] 2>/dev/null || [ ! -w "Deployment" ] 2>/dev/null; then
-        if ! groups | grep -q www-data; then
-            sudo usermod -a -G www-data $CURRENT_USER 2>/dev/null || true
+    # 修復 .git 目錄權限（僅在服務器上執行）
+    if [ "$PROJECT_DIR" = "/var/www/Climbing_score_counter" ]; then
+        if [ ! -w ".git/FETCH_HEAD" ] 2>/dev/null; then
+            CURRENT_USER=$(whoami)
+            sudo chown -R $CURRENT_USER:$CURRENT_USER .git 2>/dev/null || true
         fi
-        sudo chmod -R g+w "$PROJECT_DIR" 2>/dev/null || true
+        
+        # 修復項目文件權限
+        CURRENT_USER=$(whoami)
+        if [ ! -w "." ] 2>/dev/null || [ ! -w "Deployment" ] 2>/dev/null; then
+            if ! groups | grep -q www-data; then
+                sudo usermod -a -G www-data $CURRENT_USER 2>/dev/null || true
+            fi
+            sudo chmod -R g+w "$PROJECT_DIR" 2>/dev/null || true
+        fi
     fi
     
     git fetch origin
@@ -108,18 +134,24 @@ if [ -d ".git" ]; then
         fi
         git checkout -- db.sqlite3 2>/dev/null || true
         git reset --hard origin/main || git reset --hard origin/master
-        echo "ℹ️  提示：從服務器同步數據庫: bash Deployment/sync_database_from_server.sh"
+        if [ "$PROJECT_DIR" = "/var/www/Climbing_score_counter" ]; then
+            echo "ℹ️  提示：從服務器同步數據庫: bash Deployment/scripts/tools/sync_database_from_server.sh"
+        fi
     fi
     
-    # 重新應用配置（模板文件可能已更新）
-    apply_server_config
+    # 重新應用配置（模板文件可能已更新）- 僅在服務器上執行
+    if [ "$PROJECT_DIR" = "/var/www/Climbing_score_counter" ]; then
+        apply_server_config
+    fi
 fi
 
 # 創建虛擬環境
 if [ ! -d "$VENV_DIR" ]; then
-    if [ ! -w "$PROJECT_DIR" ]; then
-        CURRENT_USER=$(whoami)
-        sudo chmod g+w "$PROJECT_DIR" 2>/dev/null || true
+    if [ "$PROJECT_DIR" = "/var/www/Climbing_score_counter" ]; then
+        if [ ! -w "$PROJECT_DIR" ]; then
+            CURRENT_USER=$(whoami)
+            sudo chmod g+w "$PROJECT_DIR" 2>/dev/null || true
+        fi
     fi
     python3 -m venv $VENV_DIR
 fi
@@ -127,9 +159,13 @@ fi
 # 激活虛擬環境
 source $VENV_DIR/bin/activate
 
-# 安裝系統依賴（pyheif）
-sudo apt-get update -qq
-sudo apt-get install -y libheif-dev libde265-dev libjpeg-dev zlib1g-dev 2>/dev/null || true
+# 安裝系統依賴（pyheif）- 僅在服務器上執行
+if [ "$PROJECT_DIR" = "/var/www/Climbing_score_counter" ]; then
+    sudo apt-get update -qq
+    sudo apt-get install -y libheif-dev libde265-dev libjpeg-dev zlib1g-dev 2>/dev/null || true
+else
+    echo "ℹ️  跳過系統依賴安裝（本地環境）"
+fi
 
 # 安裝 Python 依賴
 pip install --upgrade pip -q
@@ -137,41 +173,53 @@ pip install -r requirements.txt -q
 
 # 數據庫遷移
 python manage.py makemigrations --noinput || true
-if [ -f "db.sqlite3" ] && [ ! -w "db.sqlite3" ]; then
-    sudo chmod 664 db.sqlite3 2>/dev/null || true
-    sudo chown www-data:www-data db.sqlite3 2>/dev/null || true
+if [ "$PROJECT_DIR" = "/var/www/Climbing_score_counter" ]; then
+    if [ -f "db.sqlite3" ] && [ ! -w "db.sqlite3" ]; then
+        sudo chmod 664 db.sqlite3 2>/dev/null || true
+        sudo chown www-data:www-data db.sqlite3 2>/dev/null || true
+    fi
 fi
 python manage.py migrate --noinput
 
 # 創建必要目錄
-sudo mkdir -p $PROJECT_DIR/{logs,media,staticfiles,backups}
+if [ "$PROJECT_DIR" = "/var/www/Climbing_score_counter" ]; then
+    sudo mkdir -p $PROJECT_DIR/{logs,media,staticfiles,backups}
+else
+    mkdir -p $PROJECT_DIR/{logs,media,staticfiles,backups}
+fi
 
 # 收集靜態文件
 CURRENT_USER=$(whoami)
-if [ -d "$PROJECT_DIR/staticfiles" ]; then
-    sudo chown -R $CURRENT_USER:$CURRENT_USER $PROJECT_DIR/staticfiles 2>/dev/null || true
-    sudo chmod -R 755 $PROJECT_DIR/staticfiles 2>/dev/null || true
+if [ "$PROJECT_DIR" = "/var/www/Climbing_score_counter" ]; then
+    if [ -d "$PROJECT_DIR/staticfiles" ]; then
+        sudo chown -R $CURRENT_USER:$CURRENT_USER $PROJECT_DIR/staticfiles 2>/dev/null || true
+        sudo chmod -R 755 $PROJECT_DIR/staticfiles 2>/dev/null || true
+    fi
 fi
 python manage.py collectstatic --noinput --clear
 
-# 設置文件權限
-sudo chown -R www-data:www-data $PROJECT_DIR/{logs,media,staticfiles,backups} 2>/dev/null || true
-sudo chmod -R 775 $PROJECT_DIR/{logs,media,backups} 2>/dev/null || true
-sudo chmod -R 755 $PROJECT_DIR/staticfiles 2>/dev/null || true
-
-if [ -f "$PROJECT_DIR/db.sqlite3" ]; then
-    sudo chown www-data:www-data "$PROJECT_DIR/db.sqlite3" 2>/dev/null || true
-    sudo chmod 664 "$PROJECT_DIR/db.sqlite3" 2>/dev/null || true
+# 設置文件權限（僅在服務器上執行）
+if [ "$PROJECT_DIR" = "/var/www/Climbing_score_counter" ]; then
+    sudo chown -R www-data:www-data $PROJECT_DIR/{logs,media,staticfiles,backups} 2>/dev/null || true
+    sudo chmod -R 775 $PROJECT_DIR/{logs,media,backups} 2>/dev/null || true
+    sudo chmod -R 755 $PROJECT_DIR/staticfiles 2>/dev/null || true
+    
+    if [ -f "$PROJECT_DIR/db.sqlite3" ]; then
+        sudo chown www-data:www-data "$PROJECT_DIR/db.sqlite3" 2>/dev/null || true
+        sudo chmod 664 "$PROJECT_DIR/db.sqlite3" 2>/dev/null || true
+    fi
+    
+    if [ -f "$SERVER_CONFIG" ]; then
+        sudo chmod 600 "$SERVER_CONFIG" 2>/dev/null || true
+    fi
+    
+    # 重啟服務
+    sudo systemctl daemon-reload
+    sudo systemctl enable climbing_system
+    sudo systemctl restart climbing_system
+    sudo nginx -t && sudo systemctl reload nginx
+else
+    echo "ℹ️  跳過服務器權限設置和服務重啟（本地環境）"
 fi
-
-if [ -f "$SERVER_CONFIG" ]; then
-    sudo chmod 600 "$SERVER_CONFIG" 2>/dev/null || true
-fi
-
-# 重啟服務
-sudo systemctl daemon-reload
-sudo systemctl enable climbing_system
-sudo systemctl restart climbing_system
-sudo nginx -t && sudo systemctl reload nginx
 
 echo "✅ 部署完成"
