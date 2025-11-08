@@ -16,7 +16,7 @@ from rest_framework import status
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.files.storage import default_storage
 from scoring.models import Room, Member, Route, Score
-from scoring.tests.test_helpers import TestDataFactory, cleanup_test_data
+from scoring.tests.test_helpers import TestDataFactory, cleanup_test_data, cleanup_test_photos
 from PIL import Image
 from io import BytesIO
 import json
@@ -47,12 +47,8 @@ class TestCaseCreateRouteWithPhoto(TestCase):
     
     def tearDown(self):
         """清理測試數據"""
-        cleanup_test_data(room=self.room)
-        # 清理測試上傳的圖片文件
-        routes = Route.objects.filter(room=self.room)
-        for route in routes:
-            if route.photo and default_storage.exists(route.photo.name):
-                default_storage.delete(route.photo.name)
+        # 使用 cleanup_test_data 的 cleanup_photos 參數自動清理圖片
+        cleanup_test_data(room=self.room, cleanup_photos=True)
     
     def _create_test_image(self, name_prefix, format='JPEG', color='red', size=(800, 600)):
         """創建測試圖片"""

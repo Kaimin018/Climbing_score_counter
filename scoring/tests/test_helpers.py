@@ -5,6 +5,7 @@
 """
 from django.conf import settings
 from rest_framework import status
+from django.core.files.storage import default_storage
 from scoring.models import Room, Member, Route, Score, update_scores
 
 
@@ -164,14 +165,58 @@ class TestDataFactory:
         return route
 
 
-def cleanup_test_data(room=None, routes=None):
+def cleanup_test_photos(room=None, routes=None):
+    """
+    清理測試中創建的圖片文件
+    
+    Args:
+        room: Room 對象或房間 ID，如果提供會清理該房間所有路線的圖片
+        routes: Route 對象列表或單個 Route 對象，如果提供會清理指定路線的圖片
+    """
+    routes_to_clean = []
+    
+    if room:
+        if isinstance(room, Room):
+            room_id = room.id
+        else:
+            room_id = room
+        routes_to_clean.extend(Route.objects.filter(room_id=room_id))
+    
+    if routes:
+        if isinstance(routes, Route):
+            routes_to_clean.append(routes)
+        elif isinstance(routes, list):
+            for route in routes:
+                if isinstance(route, Route):
+                    routes_to_clean.append(route)
+                elif isinstance(route, int):
+                    route_obj = Route.objects.filter(id=route).first()
+                    if route_obj:
+                        routes_to_clean.append(route_obj)
+    
+    # 清理圖片文件
+    for route in routes_to_clean:
+        if route.photo and default_storage.exists(route.photo.name):
+            try:
+                default_storage.delete(route.photo.name)
+            except Exception:
+                # 如果刪除失敗，忽略錯誤（可能是文件已經被刪除）
+                pass
+
+
+def cleanup_test_data(room=None, routes=None, cleanup_photos=False):
     """
     清理測試數據
     
     Args:
         room: Room 對象或房間 ID，如果提供會刪除整個房間（包括所有相關的路線、成員、成績）
         routes: Route 對象列表或單個 Route 對象，如果提供會刪除指定的路線
+        cleanup_photos: 是否同時清理測試中創建的圖片文件（默認 False）
     """
+    # 如果需要清理圖片，在刪除數據前先清理
+    if cleanup_photos:
+        cleanup_test_photos(room=room, routes=routes)
+    
     if room:
         if isinstance(room, Room):
             room_id = room.id

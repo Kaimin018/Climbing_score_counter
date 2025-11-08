@@ -35,12 +35,8 @@ class TestCaseIPhonePhotoUpload(TestCase):
     
     def tearDown(self):
         """清理測試數據"""
-        cleanup_test_data(room=self.room)
-        # 清理測試上傳的圖片文件
-        routes = Route.objects.filter(room=self.room)
-        for route in routes:
-            if route.photo and default_storage.exists(route.photo.name):
-                default_storage.delete(route.photo.name)
+        # 使用 cleanup_test_data 的 cleanup_photos 參數自動清理圖片
+        cleanup_test_data(room=self.room, cleanup_photos=True)
     
     def assert_photo_uploaded_correctly(self, response, route_id=None, expected_extensions=None):
         """

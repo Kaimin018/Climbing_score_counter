@@ -39,7 +39,8 @@ class TestCaseMobileUI(TestCase):
 
     def tearDown(self):
         """測試完成後清理數據"""
-        cleanup_test_data(room=self.room)
+        # 使用 cleanup_test_data 的 cleanup_photos 參數自動清理圖片
+        cleanup_test_data(room=self.room, cleanup_photos=True)
 
     def test_mobile_viewport_meta_tag(self):
         """測試：頁面應該包含 viewport meta 標籤"""
