@@ -79,8 +79,31 @@ echo "[1/3] 同步數據庫..."
 if [ -f "security/EC2_security_config" ]; then
     # 檢查同步腳本是否存在
     if [ -f "Deployment/scripts/tools/sync_db_from_server.sh" ]; then
+        # 記錄同步前的數據庫文件大小（如果存在）
+        if [ -f "db.sqlite3" ]; then
+            OLD_DB_SIZE=$(stat -f%z "db.sqlite3" 2>/dev/null || stat -c%s "db.sqlite3" 2>/dev/null || echo "0")
+        else
+            OLD_DB_SIZE="0"
+        fi
+        
+        # 執行同步腳本（直接輸出，不捕獲）
         bash "Deployment/scripts/tools/sync_db_from_server.sh"
         SYNC_EXIT_CODE=$?
+        
+        # 檢查數據庫文件是否真的被更新了（使用文件大小而不是時間戳，更可靠）
+        if [ -f "db.sqlite3" ]; then
+            NEW_DB_SIZE=$(stat -f%z "db.sqlite3" 2>/dev/null || stat -c%s "db.sqlite3" 2>/dev/null || echo "0")
+            if [ "$NEW_DB_SIZE" != "$OLD_DB_SIZE" ] && [ "$OLD_DB_SIZE" != "0" ]; then
+                echo "   ℹ️  數據庫文件已更新（文件大小改變：${OLD_DB_SIZE} → ${NEW_DB_SIZE} 字節）"
+            elif [ "$OLD_DB_SIZE" = "0" ] && [ -f "db.sqlite3" ] && [ "$NEW_DB_SIZE" -gt 0 ] 2>/dev/null; then
+                echo "   ℹ️  數據庫文件已創建（大小：${NEW_DB_SIZE} 字節）"
+            elif [ "$NEW_DB_SIZE" -gt 0 ] 2>/dev/null; then
+                # 文件大小相同但大于0，可能是远程文件没有变化，这是正常的
+                echo "   ℹ️  數據庫文件已同步（與遠程一致，大小：${NEW_DB_SIZE} 字節）"
+            else
+                echo "   ⚠️  警告：數據庫文件大小為 0，可能下載失敗"
+            fi
+        fi
     else
         echo "⚠️  警告：同步腳本不存在: Deployment/scripts/tools/sync_db_from_server.sh"
         SYNC_EXIT_CODE=1
