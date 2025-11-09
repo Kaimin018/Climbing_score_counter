@@ -59,6 +59,12 @@ if [ -f "$CONFIG_FILE" ]; then
                     EC2_USER="$value"
                 fi
                 ;;
+            DB_FILE_PATH) # <--- 【新增】
+                # 只有當環境變數未設置時才從配置文件讀取
+                if [ -z "$DB_FILE_PATH" ]; then
+                    DB_FILE_PATH="$value"
+                fi
+                ;;
         esac
     done < "$CONFIG_FILE"
 fi
@@ -67,6 +73,7 @@ fi
 EC2_USER="${EC2_USER:-ubuntu}"
 EC2_HOST="${EC2_HOST:-your-ec2-ip}"
 EC2_KEY="${EC2_KEY:-~/.ssh/your-key.pem}"
+DB_FILE_PATH="${DB_FILE_PATH:-/var/www/Climbing_score_counter/db.sqlite3}"
 
 # 如果 EC2_KEY 是從環境變數傳入的 Windows 路徑，需要轉換為 Unix 路徑
 # 檢查是否是 Windows 路徑格式（包含反斜線或驅動器字母）
@@ -89,8 +96,7 @@ if [[ "$EC2_KEY" =~ ^[A-Za-z]: ]] || [[ "$EC2_KEY" == *\\* ]]; then
     fi
 fi
 
-PROJECT_DIR="/var/www/Climbing_score_counter"
-REMOTE_DB="$PROJECT_DIR/db.sqlite3"
+REMOTE_DB="$DB_FILE_PATH"
 LOCAL_DB="db.sqlite3"
 BACKUP_DIR="backups"
 
@@ -100,6 +106,7 @@ echo "配置信息:"
 echo "  EC2_HOST: $EC2_HOST"
 echo "  EC2_KEY: $EC2_KEY"
 echo "  EC2_USER: $EC2_USER"
+echo "  REMOTE_DB: $REMOTE_DB"
 echo ""
 
 # 檢查必要的配置

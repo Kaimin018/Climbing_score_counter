@@ -73,8 +73,8 @@ pip install -r requirements.txt
 ### 4. 一鍵啟動（推薦）✨
 
 系統提供了自動啟動腳本，會自動完成：
+- 從服務器同步最新數據庫（如果已配置 `security/EC2_security_config`）
 - 數據庫遷移
-- 初始化默認數據（房間和成員）
 - 啟動服務器
 
 **Windows PowerShell**：
@@ -92,6 +92,11 @@ start_server.bat
 chmod +x start_server.sh
 ./start_server.sh
 ```
+
+**自動數據庫同步**：
+- 如果存在 `security/EC2_security_config` 配置文件，啟動腳本會自動從服務器下載最新數據庫
+- 如果同步失敗，會使用本地數據庫繼續啟動（不會阻止啟動）
+- 配置文件格式請參考 `security/EC2_security_config` 文件
 
 **或者手動執行**：
 ```bash

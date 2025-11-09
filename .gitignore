@@ -82,3 +82,8 @@ security.*
 *.pem
 *.crt
 
+# Database files to ignore
+db.sqlite3
+*.sqlite
+*.db
+
