@@ -66,6 +66,10 @@ test_output.txt
 *.bak
 *.cache
 
+# Backup directories
+/backups/
+backups/
+
 # Media files (user uploads)
 /media/
 
