@@ -6,9 +6,9 @@ echo "========================================"
 echo ""
 
 # ============================================
-# 數據庫同步配置說明
+# 數據庫和媒體庫同步配置說明
 # ============================================
-# 如果需要在啟動前自動從服務器同步數據庫，請配置：
+# 如果需要在啟動前自動從服務器同步數據庫和媒體庫，請配置：
 # 
 # 配置文件位置: security/EC2_security_config
 # 
@@ -17,10 +17,14 @@ echo ""
 #   EC2_KEY=security/your-key-file.pem                       # 遠端伺服器的 SSH 私鑰文件路徑（相對或絕對路徑）
 #   EC2_USER=ubuntu                                          # 遠端伺服器的 SSH 用戶名（通常是 ubuntu）
 #   DB_FILE_PATH="/var/www/Climbing_score_counter/db.sqlite3"  # 遠端伺服器的數據庫文件路徑（可選引號）
+#   MEDIA_DIR_PATH="/var/www/Climbing_score_counter/media"    # 遠端伺服器的媒體庫目錄路徑（可選引號，默認值如上）
 # 
 # 注意：
-#   - 如果未配置或配置文件不存在，將跳過數據庫同步步驟
+#   - 如果未配置或配置文件不存在，將跳過數據庫和媒體庫同步步驟
 #   - 數據庫同步失敗不會阻止啟動，會使用本地數據庫
+#   - 媒體庫同步失敗不會阻止啟動，會使用本地媒體庫
+#   - 媒體庫同步會自動備份本地媒體庫（如果存在）
+#   - 如果系統安裝了 rsync，將使用 rsync 進行增量同步（更高效）；否則使用 scp
 #   - 配置文件包含敏感信息，不應提交到版本控制系統
 # ============================================
 
@@ -74,8 +78,8 @@ else
     fi
 fi
 
-# 從服務器同步數據庫（如果配置了）
-echo "[1/3] 同步數據庫..."
+# 從服務器同步數據庫和媒體庫（如果配置了）
+echo "[1/3] 同步數據庫和媒體庫..."
 if [ -f "security/EC2_security_config" ]; then
     # 檢查同步腳本是否存在
     if [ -f "Deployment/scripts/tools/sync_db_from_server.sh" ]; then
@@ -90,18 +94,21 @@ if [ -f "security/EC2_security_config" ]; then
         bash "Deployment/scripts/tools/sync_db_from_server.sh"
         SYNC_EXIT_CODE=$?
         
-        # 檢查數據庫文件是否真的被更新了（使用文件大小而不是時間戳，更可靠）
-        if [ -f "db.sqlite3" ]; then
-            NEW_DB_SIZE=$(stat -f%z "db.sqlite3" 2>/dev/null || stat -c%s "db.sqlite3" 2>/dev/null || echo "0")
-            if [ "$NEW_DB_SIZE" != "$OLD_DB_SIZE" ] && [ "$OLD_DB_SIZE" != "0" ]; then
-                echo "   ℹ️  數據庫文件已更新（文件大小改變：${OLD_DB_SIZE} → ${NEW_DB_SIZE} 字節）"
-            elif [ "$OLD_DB_SIZE" = "0" ] && [ -f "db.sqlite3" ] && [ "$NEW_DB_SIZE" -gt 0 ] 2>/dev/null; then
-                echo "   ℹ️  數據庫文件已創建（大小：${NEW_DB_SIZE} 字節）"
-            elif [ "$NEW_DB_SIZE" -gt 0 ] 2>/dev/null; then
-                # 文件大小相同但大于0，可能是远程文件没有变化，这是正常的
-                echo "   ℹ️  數據庫文件已同步（與遠程一致，大小：${NEW_DB_SIZE} 字節）"
-            else
-                echo "   ⚠️  警告：數據庫文件大小為 0，可能下載失敗"
+        # 只有在同步成功時才檢查數據庫文件更新情況
+        if [ $SYNC_EXIT_CODE -eq 0 ]; then
+            # 檢查數據庫文件是否真的被更新了（使用文件大小而不是時間戳，更可靠）
+            if [ -f "db.sqlite3" ]; then
+                NEW_DB_SIZE=$(stat -f%z "db.sqlite3" 2>/dev/null || stat -c%s "db.sqlite3" 2>/dev/null || echo "0")
+                if [ "$NEW_DB_SIZE" != "$OLD_DB_SIZE" ] && [ "$OLD_DB_SIZE" != "0" ]; then
+                    echo "   ℹ️  數據庫文件已更新（文件大小改變：${OLD_DB_SIZE} → ${NEW_DB_SIZE} 字節）"
+                elif [ "$OLD_DB_SIZE" = "0" ] && [ -f "db.sqlite3" ] && [ "$NEW_DB_SIZE" -gt 0 ] 2>/dev/null; then
+                    echo "   ℹ️  數據庫文件已創建（大小：${NEW_DB_SIZE} 字節）"
+                elif [ "$NEW_DB_SIZE" -gt 0 ] 2>/dev/null; then
+                    # 文件大小相同但大于0，可能是远程文件没有变化，这是正常的
+                    echo "   ℹ️  數據庫文件已同步（與遠程一致，大小：${NEW_DB_SIZE} 字節）"
+                else
+                    echo "   ⚠️  警告：數據庫文件大小為 0，可能下載失敗"
+                fi
             fi
         fi
     else
@@ -110,9 +117,9 @@ if [ -f "security/EC2_security_config" ]; then
     fi
     
     if [ $SYNC_EXIT_CODE -ne 0 ]; then
-        echo "⚠️  警告：數據庫同步失敗，將使用本地數據庫。"
+        echo "⚠️  警告：數據庫和媒體庫同步失敗，將使用本地數據庫和媒體庫。"
     else
-        echo "✅ 數據庫同步成功"
+        echo "✅ 數據庫和媒體庫同步成功"
         # 驗證下載的數據庫文件是否有效
         if [ -f "db.sqlite3" ]; then
             echo "   驗證數據庫文件..."
@@ -135,7 +142,7 @@ if [ -f "security/EC2_security_config" ]; then
         fi
     fi
 else
-    echo "ℹ️  未找到配置文件 security/EC2_security_config，跳過數據庫同步"
+    echo "ℹ️  未找到配置文件 security/EC2_security_config，跳過數據庫和媒體庫同步"
     # 即使不同步，也檢查現有數據庫文件是否有效
     if [ -f "db.sqlite3" ]; then
         echo "   檢查本地數據庫文件..."
@@ -163,6 +170,35 @@ $PYTHON_CMD manage.py migrate
 if [ $? -ne 0 ]; then
     echo "遷移失敗！請檢查錯誤信息。"
     exit 1
+fi
+echo ""
+
+# 檢查數據庫中的數據
+echo "檢查數據庫內容..."
+ROOM_COUNT=$($PYTHON_CMD manage.py shell -c "from scoring.models import Room; print(Room.objects.count())" 2>/dev/null || echo "0")
+ROUTE_COUNT=$($PYTHON_CMD manage.py shell -c "from scoring.models import Route; print(Route.objects.count())" 2>/dev/null || echo "0")
+MEMBER_COUNT=$($PYTHON_CMD manage.py shell -c "from scoring.models import Member; print(Member.objects.count())" 2>/dev/null || echo "0")
+
+if [ "$ROOM_COUNT" != "0" ] || [ "$ROUTE_COUNT" != "0" ] || [ "$MEMBER_COUNT" != "0" ]; then
+    echo "   ✅ 數據庫中有數據："
+    echo "      房間: $ROOM_COUNT"
+    echo "      路線: $ROUTE_COUNT"
+    echo "      成員: $MEMBER_COUNT"
+else
+    echo "   ⚠️  警告: 數據庫中沒有數據"
+    echo "      如果剛從服務器同步，請檢查同步是否成功"
+fi
+
+# 檢查媒體文件
+if [ -d "media" ]; then
+    MEDIA_COUNT=$(find media -type f 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$MEDIA_COUNT" -gt 0 ]; then
+        echo "   ✅ 媒體文件: $MEDIA_COUNT 個文件"
+    else
+        echo "   ⚠️  警告: 媒體目錄為空"
+    fi
+else
+    echo "   ⚠️  警告: 媒體目錄不存在"
 fi
 echo ""
 

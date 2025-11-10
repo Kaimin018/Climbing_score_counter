@@ -1,5 +1,5 @@
 #!/bin/bash
-# 從 AWS EC2 服務器同步數據庫到本地
+# 從 AWS EC2 服務器同步數據庫和媒體庫到本地
 # 使用方法：bash Deployment/scripts/tools/sync_db_from_server.sh
 # 配置文件：security/EC2_security_config
 
@@ -12,7 +12,7 @@ cd "$PROJECT_ROOT" || {
 }
 
 echo "=========================================="
-echo "從 AWS EC2 同步數據庫到本地"
+echo "從 AWS EC2 同步數據庫和媒體庫到本地"
 echo "=========================================="
 echo "當前目錄: $(pwd)"
 echo "項目根目錄: $PROJECT_ROOT"
@@ -52,6 +52,9 @@ if [ -f "$CONFIG_FILE" ]; then
             DB_FILE_PATH)
                 REMOTE_DB=$(echo "$value" | sed "s/^[\"']//; s/[\"']$//; s/\r$//; s/\n$//" | tr -d '\r\n')
                 ;;
+            MEDIA_DIR_PATH)
+                REMOTE_MEDIA=$(echo "$value" | sed "s/^[\"']//; s/[\"']$//; s/\r$//; s/\n$//" | tr -d '\r\n')
+                ;;
         esac
     done < "$CONFIG_FILE"
 fi
@@ -61,6 +64,9 @@ EC2_HOST="${EC2_HOST:-}"
 EC2_KEY="${EC2_KEY:-}"
 EC2_USER="${EC2_USER:-ubuntu}"
 REMOTE_DB="${REMOTE_DB:-/var/www/Climbing_score_counter/db.sqlite3}"
+REMOTE_MEDIA="${REMOTE_MEDIA:-/var/www/Climbing_score_counter/media}"
+# 只同步 route_photos 目錄
+REMOTE_ROUTE_PHOTOS="${REMOTE_MEDIA}/route_photos"
 
 echo ""
 echo "配置信息:"
@@ -68,6 +74,8 @@ echo "  EC2_HOST: ${EC2_HOST:-未設置}"
 echo "  EC2_KEY: ${EC2_KEY:-未設置}"
 echo "  EC2_USER: $EC2_USER"
 echo "  REMOTE_DB: $REMOTE_DB"
+echo "  REMOTE_MEDIA: $REMOTE_MEDIA"
+echo "  REMOTE_ROUTE_PHOTOS: $REMOTE_ROUTE_PHOTOS"
 echo ""
 
 # 檢查必要的配置
@@ -87,6 +95,20 @@ if [ ! -f "$EC2_KEY" ]; then
     exit 1
 fi
 
+# 檢查密鑰文件權限（僅 Linux/macOS）
+CURRENT_PERM=$(stat -c "%a" "$EC2_KEY" 2>/dev/null || stat -f "%OLp" "$EC2_KEY" 2>/dev/null || echo "unknown")
+if [ "$CURRENT_PERM" != "600" ] && [ "$CURRENT_PERM" != "unknown" ]; then
+    echo "檢查密鑰文件權限..."
+    echo "   當前權限: $CURRENT_PERM（需要 600）"
+    echo "   正在修復權限..."
+    chmod 600 "$EC2_KEY" 2>/dev/null
+    if [ $? -eq 0 ]; then
+        echo "   ✅ 密鑰文件權限已修復為 600"
+    else
+        echo "   ⚠️  警告: 無法自動修復權限，請手動執行: chmod 600 \"$EC2_KEY\""
+    fi
+fi
+
 # 檢查 SSH 是否可用
 if ! command -v ssh &> /dev/null; then
     echo "❌ 錯誤: SSH 客戶端未安裝"
@@ -99,17 +121,48 @@ if ! command -v scp &> /dev/null; then
     exit 1
 fi
 
+# 檢查 RSYNC 是否可用（優先使用，支持增量同步）
+USE_RSYNC=false
+if command -v rsync &> /dev/null; then
+    USE_RSYNC=true
+    echo "ℹ️  檢測到 rsync，將使用 rsync 同步媒體庫（支持增量同步）"
+else
+    echo "ℹ️  未檢測到 rsync，將使用 scp 同步媒體庫"
+fi
+
 # 檢查 SSH 連接
+echo ""
 echo "檢查 SSH 連接..."
-if ! ssh -i "$EC2_KEY" -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "echo '連接成功'" &>/dev/null; then
+SSH_TEST_OUTPUT=$(ssh -i "$EC2_KEY" -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "echo '連接成功'" 2>&1)
+SSH_TEST_EXIT_CODE=$?
+
+if [ $SSH_TEST_EXIT_CODE -ne 0 ]; then
     echo "❌ 無法連接到服務器 $EC2_USER@$EC2_HOST"
+    echo "   退出代碼: $SSH_TEST_EXIT_CODE"
+    if [ -n "$SSH_TEST_OUTPUT" ]; then
+        echo "   錯誤信息:"
+        echo "$SSH_TEST_OUTPUT" | sed 's/^/   /'
+    fi
+    echo ""
+    echo "   提示: 請檢查："
+    echo "   1. 服務器是否運行中"
+    echo "   2. 網絡連接是否正常"
+    echo "   3. 密鑰文件路徑是否正確: $EC2_KEY"
+    if [ "$IS_WINDOWS" = true ]; then
+        echo "   4. 密鑰文件權限（Windows 環境）"
+        echo "      如果權限錯誤，請在 PowerShell 中執行："
+        echo "      icacls \"$WIN_KEY_PATH\" /inheritance:r /grant:r \"${WIN_USER}:(R)\""
+    else
+        echo "   4. 密鑰文件權限是否正確（應為 600）"
+    fi
+    echo "   5. 可以嘗試手動連接: ssh -i \"$EC2_KEY\" $EC2_USER@$EC2_HOST"
     exit 1
 fi
 echo "✅ SSH 連接成功"
 
 # 檢查遠程數據庫是否存在且可讀
+echo ""
 echo "檢查遠程數據庫..."
-# 使用單引號包裹遠程命令，避免路徑中的特殊字符問題
 REMOTE_CHECK_CMD="[ -f '$REMOTE_DB' ] && [ -r '$REMOTE_DB' ]"
 if ! ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_CHECK_CMD"; then
     echo "❌ 遠程數據庫不存在或不可讀: $REMOTE_DB"
@@ -139,31 +192,72 @@ echo "下載遠程數據庫..."
 echo "   從: $EC2_USER@$EC2_HOST:$REMOTE_DB"
 echo "   到: $LOCAL_DB"
 
-# 執行 SCP 下載（確保遠程路徑正確處理）
-echo "   執行 SCP 命令..."
-# 構建遠程路徑（使用變數拼接，避免引號問題）
+# 獲取遠程文件大小（用於顯示進度）
+REMOTE_SIZE_CMD="stat -c%s '$REMOTE_DB' 2>/dev/null || stat -f%z '$REMOTE_DB' 2>/dev/null || echo '0'"
+REMOTE_SIZE=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_SIZE_CMD" 2>/dev/null || echo "0")
+
+# 執行 SCP 下載（帶進度顯示）
 REMOTE_SOURCE="$EC2_USER@$EC2_HOST:$REMOTE_DB"
-SCP_OUTPUT=$(scp -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$REMOTE_SOURCE" "$LOCAL_DB" 2>&1)
-SCP_EXIT_CODE=$?
+
+# 執行下載並顯示進度
+if command -v pv &> /dev/null && [ "$REMOTE_SIZE" != "0" ] && [ "$REMOTE_SIZE" != "無法獲取" ] && [ "$REMOTE_SIZE" -gt 0 ] 2>/dev/null; then
+    # 使用 pv 顯示進度條（最佳體驗）
+    echo "   使用 pv 顯示下載進度..."
+    ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "cat '$REMOTE_DB'" 2>/dev/null | \
+        pv -s "$REMOTE_SIZE" -p -t -e -r -b > "$LOCAL_DB"
+    SCP_EXIT_CODE=$?
+    SCP_OUTPUT=""
+elif [ "$REMOTE_SIZE" != "0" ] && [ "$REMOTE_SIZE" != "無法獲取" ] && [ "$REMOTE_SIZE" -gt 0 ] 2>/dev/null; then
+    # 使用文件大小監控顯示進度
+    echo "   執行 SCP 命令..."
+    echo "   文件大小: $((REMOTE_SIZE / 1024)) KB"
+    
+    # 在後台執行 scp，同時監控文件大小變化
+    scp -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$REMOTE_SOURCE" "$LOCAL_DB" >/dev/null 2>&1 &
+    SCP_PID=$!
+    
+    # 監控進度
+    while kill -0 $SCP_PID 2>/dev/null; do
+        if [ -f "$LOCAL_DB" ]; then
+            CURRENT_SIZE=$(stat -f%z "$LOCAL_DB" 2>/dev/null || stat -c%s "$LOCAL_DB" 2>/dev/null || echo "0")
+            if [ "$CURRENT_SIZE" -gt 0 ] 2>/dev/null && [ "$REMOTE_SIZE" -gt 0 ] 2>/dev/null; then
+                PERCENT=$((CURRENT_SIZE * 100 / REMOTE_SIZE))
+                if [ $PERCENT -gt 100 ]; then
+                    PERCENT=100
+                fi
+                BAR_LENGTH=50
+                FILLED=$((PERCENT * BAR_LENGTH / 100))
+                BAR=$(printf "%*s" $FILLED | tr ' ' '=')
+                printf "\r   進度: [%-${BAR_LENGTH}s] %3d%% (%d/%d KB)" "$BAR" "$PERCENT" "$((CURRENT_SIZE / 1024))" "$((REMOTE_SIZE / 1024))"
+            fi
+        fi
+        sleep 0.5
+    done
+    
+    wait $SCP_PID
+    SCP_EXIT_CODE=$?
+    echo ""  # 換行
+    SCP_OUTPUT=""
+else
+    # 無法獲取大小，使用普通 scp
+    echo "   執行 SCP 命令..."
+    SCP_OUTPUT=$(scp -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$REMOTE_SOURCE" "$LOCAL_DB" 2>&1)
+    SCP_EXIT_CODE=$?
+fi
 
 if [ $SCP_EXIT_CODE -ne 0 ]; then
     echo "❌ 數據庫下載失敗，退出代碼: $SCP_EXIT_CODE"
     if [ -n "$SCP_OUTPUT" ]; then
-        echo "   SCP 錯誤輸出: $SCP_OUTPUT"
+        echo "   SCP 錯誤輸出:"
+        echo "$SCP_OUTPUT" | sed 's/^/   /'
     fi
     exit 1
 fi
 
-# 顯示 SCP 輸出（如果有）
-if [ -n "$SCP_OUTPUT" ]; then
-    echo "   SCP 輸出: $SCP_OUTPUT"
-fi
-
-# 檢查下載是否成功（嚴格檢查文件存在和大小）
+# 檢查下載是否成功
 if [ -f "$LOCAL_DB" ]; then
     FILE_SIZE=$(stat -f%z "$LOCAL_DB" 2>/dev/null || stat -c%s "$LOCAL_DB" 2>/dev/null || echo "0")
     
-    # 確保文件大小大於 0
     if [ "$FILE_SIZE" -gt 0 ] 2>/dev/null; then
         FILE_SIZE_KB=$((FILE_SIZE / 1024))
         FILE_SIZE_MB=$((FILE_SIZE / 1024 / 1024))
@@ -187,7 +281,6 @@ if [ -f "$LOCAL_DB" ]; then
     else
         echo "❌ 數據庫下載失敗 - 文件為空 (0 字節)"
         echo "   請檢查遠程文件 $REMOTE_DB 是否為空或路徑是否有誤"
-        echo "   遠程文件大小檢查:"
         REMOTE_SIZE_CMD="stat -c%s '$REMOTE_DB' 2>/dev/null || stat -f%z '$REMOTE_DB' 2>/dev/null || echo '無法獲取'"
         REMOTE_SIZE=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_SIZE_CMD")
         echo "   遠程文件大小: $REMOTE_SIZE 字節"
@@ -196,6 +289,105 @@ if [ -f "$LOCAL_DB" ]; then
 else
     echo "❌ 數據庫下載失敗 - 本地文件 $LOCAL_DB 不存在"
     exit 1
+fi
+
+# 同步媒體庫（只同步 route_photos 目錄）
+echo ""
+echo "=========================================="
+echo "同步媒體庫（route_photos）..."
+echo "=========================================="
+
+# 檢查遠程 route_photos 目錄是否存在
+echo "檢查遠程 route_photos 目錄..."
+REMOTE_PHOTOS_CHECK_CMD="[ -d '$REMOTE_ROUTE_PHOTOS' ] && [ -r '$REMOTE_ROUTE_PHOTOS' ]"
+if ! ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_PHOTOS_CHECK_CMD"; then
+    echo "⚠️  警告: 遠程 route_photos 目錄不存在或不可讀: $REMOTE_ROUTE_PHOTOS"
+    echo "   跳過媒體庫同步"
+else
+    echo "✅ 遠程 route_photos 目錄存在且可讀"
+    
+    # 創建本地媒體庫目錄結構
+    LOCAL_MEDIA="media"
+    LOCAL_ROUTE_PHOTOS="$LOCAL_MEDIA/route_photos"
+    mkdir -p "$LOCAL_ROUTE_PHOTOS"
+    
+    # 備份本地 route_photos（如果存在且不為空）
+    if [ -d "$LOCAL_ROUTE_PHOTOS" ] && [ "$(ls -A $LOCAL_ROUTE_PHOTOS 2>/dev/null)" ]; then
+        BACKUP_PHOTOS_DIR="$BACKUP_DIR/route_photos_backup_$(date +%Y%m%d_%H%M%S)"
+        echo "備份本地 route_photos 到: $BACKUP_PHOTOS_DIR"
+        cp -r "$LOCAL_ROUTE_PHOTOS" "$BACKUP_PHOTOS_DIR" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            echo "✅ 本地 route_photos 已備份"
+        fi
+    fi
+    
+    # 同步 route_photos
+    echo ""
+    echo "同步 route_photos..."
+    echo "   從: $EC2_USER@$EC2_HOST:$REMOTE_ROUTE_PHOTOS/"
+    echo "   到: $LOCAL_ROUTE_PHOTOS/"
+    
+    if [ "$USE_RSYNC" = true ]; then
+        # 使用 rsync（支持增量同步，更高效，帶進度顯示）
+        echo "   使用 rsync 同步（顯示進度）..."
+        rsync -avz --progress --delete \
+            -e "ssh -i $EC2_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+            "$EC2_USER@$EC2_HOST:$REMOTE_ROUTE_PHOTOS/" \
+            "$LOCAL_ROUTE_PHOTOS/" 2>&1 | \
+            while IFS= read -r line; do
+                # 過濾並顯示進度信息
+                if [[ "$line" =~ ^[0-9]+% ]] || [[ "$line" =~ ^[0-9]+/[0-9]+ ]] || [[ "$line" =~ ^[0-9]+\.[0-9]+[KMGT]?B/s ]]; then
+                    echo "   $line"
+                elif [[ "$line" =~ ^[a-zA-Z] ]] && [[ ! "$line" =~ ^(sending|receiving|building) ]]; then
+                    echo "   $line"
+                fi
+            done
+        SYNC_EXIT_CODE=${PIPESTATUS[0]}
+        RSYNC_OUTPUT=""
+        
+        if [ $SYNC_EXIT_CODE -eq 0 ]; then
+            echo "✅ route_photos 同步成功！"
+            # 統計同步的文件數量
+            FILE_COUNT=$(find "$LOCAL_ROUTE_PHOTOS" -type f 2>/dev/null | wc -l | tr -d ' ')
+            echo "   文件數量: $FILE_COUNT"
+            
+            # 計算總大小
+            if command -v du &> /dev/null; then
+                TOTAL_SIZE=$(du -sh "$LOCAL_ROUTE_PHOTOS" 2>/dev/null | cut -f1)
+                echo "   總大小: $TOTAL_SIZE"
+            fi
+        else
+            echo "❌ route_photos 同步失敗，退出代碼: $SYNC_EXIT_CODE"
+            if [ -n "$RSYNC_OUTPUT" ]; then
+                echo "   RSYNC 錯誤輸出:"
+                echo "$RSYNC_OUTPUT" | sed 's/^/   /'
+            fi
+        fi
+    else
+        # 使用 scp（備用方案）
+        echo "   使用 scp 同步..."
+        SCP_OUTPUT=$(scp -r -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST:$REMOTE_ROUTE_PHOTOS/" "$LOCAL_ROUTE_PHOTOS/" 2>&1)
+        SYNC_EXIT_CODE=$?
+        
+        if [ $SYNC_EXIT_CODE -eq 0 ]; then
+            echo "✅ route_photos 同步成功！"
+            # 統計同步的文件數量
+            FILE_COUNT=$(find "$LOCAL_ROUTE_PHOTOS" -type f 2>/dev/null | wc -l | tr -d ' ')
+            echo "   文件數量: $FILE_COUNT"
+            
+            # 計算總大小
+            if command -v du &> /dev/null; then
+                TOTAL_SIZE=$(du -sh "$LOCAL_ROUTE_PHOTOS" 2>/dev/null | cut -f1)
+                echo "   總大小: $TOTAL_SIZE"
+            fi
+        else
+            echo "❌ route_photos 同步失敗，退出代碼: $SYNC_EXIT_CODE"
+            if [ -n "$SCP_OUTPUT" ]; then
+                echo "   SCP 錯誤輸出:"
+                echo "$SCP_OUTPUT" | sed 's/^/   /'
+            fi
+        fi
+    fi
 fi
 
 echo ""
