@@ -172,8 +172,15 @@ def cleanup_test_photos(room=None, routes=None):
     Args:
         room: Room 對象或房間 ID，如果提供會清理該房間所有路線的圖片
         routes: Route 對象列表或單個 Route 對象，如果提供會清理指定路線的圖片
+    
+    Returns:
+        int: 成功刪除的圖片文件數量
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     routes_to_clean = []
+    deleted_count = 0
     
     if room:
         if isinstance(room, Room):
@@ -196,12 +203,20 @@ def cleanup_test_photos(room=None, routes=None):
     
     # 清理圖片文件
     for route in routes_to_clean:
-        if route.photo and default_storage.exists(route.photo.name):
+        if route.photo:
+            photo_name = route.photo.name
             try:
-                default_storage.delete(route.photo.name)
-            except Exception:
-                # 如果刪除失敗，忽略錯誤（可能是文件已經被刪除）
-                pass
+                if default_storage.exists(photo_name):
+                    default_storage.delete(photo_name)
+                    deleted_count += 1
+                    logger.debug(f"已刪除測試圖片: {photo_name}")
+                else:
+                    logger.debug(f"測試圖片不存在，跳過: {photo_name}")
+            except Exception as e:
+                # 如果刪除失敗，記錄錯誤但不中斷測試
+                logger.warning(f"刪除測試圖片失敗: {photo_name}, 錯誤: {str(e)}")
+    
+    return deleted_count
 
 
 def cleanup_test_data(room=None, routes=None, cleanup_photos=False):
