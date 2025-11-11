@@ -40,11 +40,19 @@ jobs:
         pip install -r requirements.txt
     
     - name: Run migrations
+      env:
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        DEBUG: 'False'
       run: |
+        export SECRET_KEY=${SECRET_KEY:-django-insecure-climbing-score-system-dev-key-change-in-production}
         python manage.py migrate --noinput
     
     - name: Run tests
+      env:
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        DEBUG: 'True'
       run: |
+        export SECRET_KEY=${SECRET_KEY:-django-insecure-climbing-score-system-dev-key-change-in-production}
         python manage.py test scoring.tests --verbosity=0
     
     - name: Configure SSH

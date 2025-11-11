@@ -50,12 +50,20 @@ jobs:
     
     - name: Run migrations
       if: ${{ github.event.inputs.skip_tests != 'true' }}
+      env:
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        DEBUG: 'True'
       run: |
+        export SECRET_KEY=${SECRET_KEY:-django-insecure-climbing-score-system-dev-key-change-in-production}
         python manage.py migrate --noinput
     
     - name: Run tests
       if: ${{ github.event.inputs.skip_tests != 'true' }}
+      env:
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        DEBUG: 'True'
       run: |
+        export SECRET_KEY=${SECRET_KEY:-django-insecure-climbing-score-system-dev-key-change-in-production}
         python manage.py test scoring.tests --verbosity=0
     
     - name: Configure SSH
@@ -106,10 +114,16 @@ jobs:
           fi
           
           # 執行部署腳本
-          if [ -f "deploy.sh" ]; then
-            bash deploy.sh
+          if [ -f "Deployment/deploy.sh" ]; then
+            chmod +x Deployment/deploy.sh
+            bash Deployment/deploy.sh
           else
-            echo "錯誤: 找不到 deploy.sh 腳本"
+            echo "錯誤: 找不到 Deployment/deploy.sh 腳本"
+            echo "當前目錄: $(pwd)"
+            echo "目錄內容:"
+            ls -la
+            echo "Deployment 目錄內容:"
+            ls -la Deployment/ || echo "Deployment 目錄不存在"
             exit 1
           fi
           

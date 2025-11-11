@@ -34,22 +34,37 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+      env:
+        SECRET_KEY: test-secret-key-for-ci
+        DEBUG: 'True'
     
     - name: Run migrations
+      env:
+        SECRET_KEY: test-secret-key-for-ci
+        DEBUG: 'True'
       run: |
         python manage.py migrate --noinput
     
     - name: Collect static files
+      env:
+        SECRET_KEY: test-secret-key-for-ci
+        DEBUG: 'True'
       run: |
         python manage.py collectstatic --noinput || true
       continue-on-error: true
     
     - name: Run all tests
+      env:
+        SECRET_KEY: test-secret-key-for-ci
+        DEBUG: 'True'
       run: |
         python manage.py test scoring.tests --verbosity=1
       continue-on-error: false
     
     - name: Test specific workflow - Create Room, Add Member, Create Route
+      env:
+        SECRET_KEY: test-secret-key-for-ci
+        DEBUG: 'True'
       continue-on-error: true
       run: |
         python manage.py test scoring.tests.test_case_02_api.APITestCase.test_create_room_add_member_create_route --verbosity=0
