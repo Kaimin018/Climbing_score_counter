@@ -200,6 +200,15 @@ def cleanup_test_photos(room=None, routes=None):
                     route_obj = Route.objects.filter(id=route).first()
                     if route_obj:
                         routes_to_clean.append(route_obj)
+        else:
+            # 處理 QuerySet 或其他可迭代對象
+            try:
+                for route in routes:
+                    if isinstance(route, Route):
+                        routes_to_clean.append(route)
+            except (TypeError, AttributeError):
+                # 如果不是可迭代對象，嘗試作為單個對象處理
+                pass
     
     # 清理圖片文件
     for route in routes_to_clean:

@@ -36,7 +36,8 @@ class TestCaseRoutePhotoThumbnail(TestCase):
 
     def tearDown(self):
         """測試完成後清理數據"""
-        cleanup_test_data(room=self.room)
+        # 使用 cleanup_test_data 的 cleanup_photos 參數自動清理圖片
+        cleanup_test_data(room=self.room, cleanup_photos=True)
 
     def test_route_list_shows_photo_thumbnail(self):
         """測試：路線列表中有圖片的路線應該顯示縮圖"""
@@ -81,9 +82,7 @@ class TestCaseRoutePhotoThumbnail(TestCase):
         self.assertTrue(photo_url.startswith('http'), 
                        f"photo_url 應該是完整的 URL，實際: {photo_url}")
         
-        # 清理
-        if route.photo and default_storage.exists(route.photo.name):
-            default_storage.delete(route.photo.name)
+        # 照片會在 tearDown 中自動清理
 
     def test_route_list_no_thumbnail_for_route_without_photo(self):
         """測試：沒有圖片的路線不應該顯示縮圖"""
@@ -157,9 +156,7 @@ class TestCaseRoutePhotoThumbnail(TestCase):
         self.assertIn('photo_url', updated_route)
         self.assertNotEqual(updated_route['photo_url'], '', "photo_url 不應該為空")
         
-        # 清理
-        if route.photo and default_storage.exists(route.photo.name):
-            default_storage.delete(route.photo.name)
+        # 照片會在 tearDown 中自動清理
 
     def test_multiple_routes_with_and_without_photos(self):
         """測試：多個路線（有圖片和無圖片）同時存在時，縮圖顯示正確"""

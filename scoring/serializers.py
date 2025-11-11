@@ -6,6 +6,110 @@ from .models import Room, Member, Route, Score
 logger = logging.getLogger(__name__)
 
 
+def convert_file_to_uploaded_file(file_obj):
+    """
+    強制將文件對象轉換為 InMemoryUploadedFile，避免 pickle 錯誤
+    
+    這個函數會處理所有可能的文件對象類型：
+    - BufferedRandom
+    - BufferedReader
+    - 包裝在 UploadedFile 中的 BufferedRandom/BufferedReader
+    - 其他不可序列化的文件對象
+    
+    參數:
+        file_obj: 任何文件對象
+        
+    返回:
+        InMemoryUploadedFile: 可序列化的文件對象
+    """
+    import io
+    from django.core.files.uploadedfile import InMemoryUploadedFile
+    from io import BytesIO
+    
+    # 如果已經是 InMemoryUploadedFile 或 SimpleUploadedFile，直接返回
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    if isinstance(file_obj, (InMemoryUploadedFile, SimpleUploadedFile)):
+        # 但需要檢查內部文件對象
+        if hasattr(file_obj, 'file'):
+            if isinstance(file_obj.file, (io.BufferedRandom, io.BufferedReader)):
+                # 內部文件對象仍然是不可序列化的，需要轉換
+                logger.warning(f"[convert_file_to_uploaded_file] 檢測到包裝的不可序列化文件對象，類型: {type(file_obj.file)}")
+                file_obj.seek(0)
+                file_content = file_obj.read()
+                file_obj.seek(0)
+                
+                return InMemoryUploadedFile(
+                    BytesIO(file_content),
+                    'photo',
+                    getattr(file_obj, 'name', 'photo.jpg'),
+                    getattr(file_obj, 'content_type', 'image/jpeg'),
+                    len(file_content),
+                    None
+                )
+        return file_obj
+    
+    # 檢查是否直接是 BufferedRandom 或 BufferedReader
+    if isinstance(file_obj, (io.BufferedRandom, io.BufferedReader)):
+        logger.warning(f"[convert_file_to_uploaded_file] 檢測到直接的文件對象，類型: {type(file_obj)}")
+        file_obj.seek(0)
+        file_content = file_obj.read()
+        file_obj.seek(0)
+        
+        return InMemoryUploadedFile(
+            BytesIO(file_content),
+            'photo',
+            getattr(file_obj, 'name', 'photo.jpg'),
+            'image/jpeg',
+            len(file_content),
+            None
+        )
+    
+    # 檢查是否包裝在 UploadedFile 中
+    if hasattr(file_obj, 'file'):
+        if isinstance(file_obj.file, (io.BufferedRandom, io.BufferedReader)):
+            logger.warning(f"[convert_file_to_uploaded_file] 檢測到包裝的不可序列化文件對象，類型: {type(file_obj.file)}")
+            if hasattr(file_obj, 'seek'):
+                file_obj.seek(0)
+            file_content = file_obj.read()
+            if hasattr(file_obj, 'seek'):
+                file_obj.seek(0)
+            
+            return InMemoryUploadedFile(
+                BytesIO(file_content),
+                'photo',
+                getattr(file_obj, 'name', 'photo.jpg'),
+                getattr(file_obj, 'content_type', 'image/jpeg'),
+                len(file_content),
+                None
+            )
+    
+    # 如果都不匹配，嘗試讀取內容並創建新文件（安全起見）
+    try:
+        if hasattr(file_obj, 'read'):
+            if hasattr(file_obj, 'seek'):
+                file_obj.seek(0)
+            file_content = file_obj.read()
+            if hasattr(file_obj, 'seek'):
+                file_obj.seek(0)
+            
+            return InMemoryUploadedFile(
+                BytesIO(file_content),
+                'photo',
+                getattr(file_obj, 'name', 'photo.jpg'),
+                getattr(file_obj, 'content_type', 'image/jpeg'),
+                len(file_content),
+                None
+            )
+    except Exception as e:
+        logger.error(f"[convert_file_to_uploaded_file] 轉換文件對象時發生錯誤: {e}")
+        # 如果轉換失敗，返回原對象（可能會導致 pickle 錯誤，但至少不會崩潰）
+        return file_obj
+    
+    # 如果無法處理，返回原對象
+    logger.warning(f"[convert_file_to_uploaded_file] 無法識別文件對象類型: {type(file_obj)}，返回原對象")
+    return file_obj
+
+
 class ScoreSerializer(serializers.ModelSerializer):
     member_name = serializers.CharField(source='member.name', read_only=True)
     member_id = serializers.IntegerField(source='member.id', read_only=True)
@@ -592,58 +696,13 @@ class RouteCreateSerializer(serializers.ModelSerializer):
             logger.debug(f"[RouteCreateSerializer.create] 照片類型: {type(photo_data)}")
             logger.debug(f"[RouteCreateSerializer.create] 照片名稱: {getattr(photo_data, 'name', 'N/A')}")
             
-            # 確保文件對象可以被 Django 處理（避免 pickle 錯誤）
-            # 如果文件對象是 BufferedRandom 或其他不可序列化的類型，需要確保它可以被重新讀取
+            # 強制轉換文件對象為可序列化的類型（避免 pickle 錯誤）
             try:
-                # 嘗試重置文件指針，確保可以重新讀取
-                if hasattr(photo_data, 'seek'):
-                    photo_data.seek(0)
-                    logger.debug(f"[RouteCreateSerializer.create] 文件指針已重置")
-                
-                # 檢查文件對象類型，如果是不可序列化的類型，需要轉換
-                import io
-                # 檢查文件對象本身或其內部文件對象是否為不可序列化類型
-                is_buffered_random = isinstance(photo_data, io.BufferedRandom) or isinstance(photo_data, io.BufferedReader)
-                # 檢查是否有 file 屬性且為不可序列化類型（UploadedFile 包裝的情況）
-                if hasattr(photo_data, 'file'):
-                    is_buffered_random = is_buffered_random or isinstance(photo_data.file, io.BufferedRandom) or isinstance(photo_data.file, io.BufferedReader)
-                
-                if is_buffered_random:
-                    logger.warning(f"[RouteCreateSerializer.create] 檢測到不可序列化的文件對象類型: {type(photo_data)}")
-                    if hasattr(photo_data, 'file'):
-                        logger.warning(f"[RouteCreateSerializer.create] 內部文件對象類型: {type(photo_data.file)}")
-                    logger.warning(f"[RouteCreateSerializer.create] 嘗試將文件內容讀取並創建新的 InMemoryUploadedFile")
-                    
-                    # 讀取文件內容
-                    if hasattr(photo_data, 'seek'):
-                        photo_data.seek(0)
-                    file_content = photo_data.read()
-                    if hasattr(photo_data, 'seek'):
-                        photo_data.seek(0)
-                    
-                    # 創建新的 InMemoryUploadedFile
-                    from django.core.files.uploadedfile import InMemoryUploadedFile
-                    from io import BytesIO
-                    import os
-                    
-                    file_name = getattr(photo_data, 'name', 'photo.jpg')
-                    content_type = getattr(photo_data, 'content_type', 'image/jpeg')
-                    
-                    new_file = InMemoryUploadedFile(
-                        BytesIO(file_content),
-                        'photo',
-                        file_name,
-                        content_type,
-                        len(file_content),
-                        None
-                    )
-                    
-                    logger.debug(f"[RouteCreateSerializer.create] 已創建新的 InMemoryUploadedFile，大小: {len(file_content)} 字節")
-                    route.photo = new_file
-                else:
-                    # 文件對象類型正常，直接使用
-                    logger.debug(f"[RouteCreateSerializer.create] 文件對象類型正常，直接使用")
-                    route.photo = photo_data
+                logger.debug(f"[RouteCreateSerializer.create] 開始轉換文件對象，原始類型: {type(photo_data)}")
+                # 使用統一的轉換函數，確保所有不可序列化的文件對象都被轉換
+                converted_photo = convert_file_to_uploaded_file(photo_data)
+                logger.debug(f"[RouteCreateSerializer.create] 文件對象轉換完成，新類型: {type(converted_photo)}")
+                route.photo = converted_photo
             except Exception as e:
                 import traceback
                 import sys
@@ -921,58 +980,13 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
                 logger.debug(f"[RouteUpdateSerializer.update] 照片類型: {type(photo)}")
                 logger.debug(f"[RouteUpdateSerializer.update] 照片名稱: {getattr(photo, 'name', 'N/A')}")
                 
-                # 確保文件對象可以被 Django 處理（避免 pickle 錯誤）
-                # 如果文件對象是 BufferedRandom 或其他不可序列化的類型，需要確保它可以被重新讀取
+                # 強制轉換文件對象為可序列化的類型（避免 pickle 錯誤）
                 try:
-                    # 嘗試重置文件指針，確保可以重新讀取
-                    if hasattr(photo, 'seek'):
-                        photo.seek(0)
-                        logger.debug(f"[RouteUpdateSerializer.update] 文件指針已重置")
-                    
-                    # 檢查文件對象類型，如果是不可序列化的類型，需要轉換
-                    import io
-                    # 檢查文件對象本身或其內部文件對象是否為不可序列化類型
-                    is_buffered_random = isinstance(photo, io.BufferedRandom) or isinstance(photo, io.BufferedReader)
-                    # 檢查是否有 file 屬性且為不可序列化類型（UploadedFile 包裝的情況）
-                    if hasattr(photo, 'file'):
-                        is_buffered_random = is_buffered_random or isinstance(photo.file, io.BufferedRandom) or isinstance(photo.file, io.BufferedReader)
-                    
-                    if is_buffered_random:
-                        logger.warning(f"[RouteUpdateSerializer.update] 檢測到不可序列化的文件對象類型: {type(photo)}")
-                        if hasattr(photo, 'file'):
-                            logger.warning(f"[RouteUpdateSerializer.update] 內部文件對象類型: {type(photo.file)}")
-                        logger.warning(f"[RouteUpdateSerializer.update] 嘗試將文件內容讀取並創建新的 InMemoryUploadedFile")
-                        
-                        # 讀取文件內容
-                        if hasattr(photo, 'seek'):
-                            photo.seek(0)
-                        file_content = photo.read()
-                        if hasattr(photo, 'seek'):
-                            photo.seek(0)
-                        
-                        # 創建新的 InMemoryUploadedFile
-                        from django.core.files.uploadedfile import InMemoryUploadedFile
-                        from io import BytesIO
-                        import os
-                        
-                        file_name = getattr(photo, 'name', 'photo.jpg')
-                        content_type = getattr(photo, 'content_type', 'image/jpeg')
-                        
-                        new_file = InMemoryUploadedFile(
-                            BytesIO(file_content),
-                            'photo',
-                            file_name,
-                            content_type,
-                            len(file_content),
-                            None
-                        )
-                        
-                        logger.debug(f"[RouteUpdateSerializer.update] 已創建新的 InMemoryUploadedFile，大小: {len(file_content)} 字節")
-                        instance.photo = new_file
-                    else:
-                        # 文件對象類型正常，直接使用
-                        logger.debug(f"[RouteUpdateSerializer.update] 文件對象類型正常，直接使用")
-                        instance.photo = photo
+                    logger.debug(f"[RouteUpdateSerializer.update] 開始轉換文件對象，原始類型: {type(photo)}")
+                    # 使用統一的轉換函數，確保所有不可序列化的文件對象都被轉換
+                    converted_photo = convert_file_to_uploaded_file(photo)
+                    logger.debug(f"[RouteUpdateSerializer.update] 文件對象轉換完成，新類型: {type(converted_photo)}")
+                    instance.photo = converted_photo
                 except Exception as e:
                     import traceback
                     import sys

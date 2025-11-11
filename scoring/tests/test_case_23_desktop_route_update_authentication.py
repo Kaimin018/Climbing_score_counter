@@ -55,7 +55,8 @@ class TestCaseDesktopRouteUpdateAuthentication(TestCase):
     
     def tearDown(self):
         """清理測試數據"""
-        cleanup_test_data(room=self.room)
+        # 使用 cleanup_test_data 的 cleanup_photos 參數自動清理圖片
+        cleanup_test_data(room=self.room, cleanup_photos=True)
     
     def _create_test_image(self, name_prefix, format='JPEG', color='red', size=(800, 600)):
         """創建測試圖片"""

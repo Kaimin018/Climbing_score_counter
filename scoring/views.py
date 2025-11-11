@@ -14,6 +14,7 @@ from .serializers import (
 )
 from .permissions import IsAuthenticatedOrReadOnlyForCreate
 from .utils import get_log_file_path, get_logs_directory, get_platform_info, is_mobile_device
+from .serializers import convert_file_to_uploaded_file
 
 logger = logging.getLogger(__name__)
 
@@ -209,7 +210,36 @@ class RouteViewSet(viewsets.ModelViewSet):
             route = self.get_object()
             logger.debug(f"[RouteViewSet.update] 獲取路線對象成功: {route.id}, 名稱: {route.name}")
             
-            data = request.data.copy()
+            # 在複製 request.data 之前，先處理文件對象（避免 pickle 錯誤）
+            # 如果直接使用 request.data.copy()，Django 會嘗試深拷貝，導致 BufferedRandom 無法序列化
+            data = {}
+            for key in request.data.keys():
+                # QueryDict 的 getlist 方法可以獲取所有值（包括列表）
+                values = request.data.getlist(key)
+                
+                # 如果是文件對象（photo 字段），只取第一個值並轉換
+                if key == 'photo' and values:
+                    photo_value = values[0] if values else None
+                    if photo_value:
+                        logger.debug(f"[RouteViewSet.update] 檢測到照片文件，原始類型: {type(photo_value)}")
+                        try:
+                            # 轉換文件對象為 InMemoryUploadedFile
+                            converted_photo = convert_file_to_uploaded_file(photo_value)
+                            logger.debug(f"[RouteViewSet.update] 照片文件已轉換，新類型: {type(converted_photo)}")
+                            data[key] = converted_photo
+                        except Exception as e:
+                            logger.error(f"[RouteViewSet.update] 轉換照片文件時發生錯誤: {e}")
+                            # 如果轉換失敗，仍然嘗試使用原文件（可能會導致錯誤，但至少記錄了錯誤）
+                            data[key] = photo_value
+                    else:
+                        data[key] = None
+                else:
+                    # 非文件字段，處理列表值（QueryDict 可能返回列表）
+                    if len(values) == 1:
+                        data[key] = values[0]
+                    else:
+                        data[key] = values
+            
             logger.debug(f"[RouteViewSet.update] 接收到的數據字段: {list(data.keys())}")
             
             # 清理用戶輸入，防止 XSS

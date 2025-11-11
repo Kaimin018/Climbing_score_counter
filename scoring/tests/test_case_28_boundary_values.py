@@ -39,7 +39,11 @@ class TestCaseBoundaryValues(TestCase):
     
     def tearDown(self):
         """清理測試數據"""
-        Room.objects.all().delete()
+        # 使用 cleanup_test_data 清理所有房間（包括照片）
+        # 注意：這裡使用 Room.objects.all() 來清理所有測試創建的房間
+        rooms = Room.objects.all()
+        for room in rooms:
+            cleanup_test_data(room=room, cleanup_photos=True)
     
     def test_room_name_empty_string(self):
         """測試：房間名稱不能為空字符串"""
