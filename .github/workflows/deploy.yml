@@ -100,15 +100,93 @@ jobs:
           echo "=== 開始部署 ==="
           echo "時間: $(date)"
           echo "當前目錄: $(pwd)"
+          echo "當前用戶: $(whoami)"
+          echo "用戶組: $(groups)"
+          
+          # 診斷環境信息
+          echo ""
+          echo "🔍 環境診斷:"
+          echo "   HOME: $HOME"
+          echo "   PATH: $PATH"
+          echo "   SHELL: $SHELL"
+          
+          # 檢查 Git 配置
+          if [ -d ".git" ]; then
+            echo ""
+            echo "🔍 Git 配置檢查:"
+            echo "   遠程倉庫 URL:"
+            git remote -v || echo "   無法獲取遠程倉庫信息"
+            echo "   Git 用戶名: $(git config user.name 2>/dev/null || echo '未設置')"
+            echo "   Git 郵箱: $(git config user.email 2>/dev/null || echo '未設置')"
+            
+            # 檢查是否需要配置 Git 認證
+            REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
+            if echo "$REMOTE_URL" | grep -q "^https://"; then
+              echo "   ⚠️  檢測到 HTTPS URL，可能需要認證"
+              echo "   建議使用 SSH URL 或配置 Git 憑證"
+            elif echo "$REMOTE_URL" | grep -q "^git@"; then
+              echo "   ✅ 使用 SSH URL"
+            fi
+          fi
           
           # 記錄部署前的代碼版本
           OLD_COMMIT=""
           if [ -d ".git" ]; then
             OLD_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            echo ""
             echo "📌 部署前代碼版本: $OLD_COMMIT"
+            
+            # 檢查 Git 權限
+            echo "🔍 檢查 Git 權限..."
+            CURRENT_USER=$(whoami)
+            if [ ! -w ".git" ] 2>/dev/null; then
+              echo "   ⚠️  .git 目錄無寫權限，嘗試修復..."
+              sudo chown -R $CURRENT_USER:$CURRENT_USER .git 2>/dev/null || {
+                echo "   ❌ 無法修復 .git 目錄權限"
+              }
+            fi
+            
+            # 配置 Git 安全目錄（如果尚未配置）
+            if ! git config --global --get safe.directory | grep -q "/var/www/Climbing_score_counter"; then
+              echo "   🔧 配置 Git 安全目錄..."
+              git config --global --add safe.directory /var/www/Climbing_score_counter || true
+            fi
+          fi
+          
+          # 測試 Git 連接（在執行部署腳本前）
+          if [ -d ".git" ]; then
+            echo ""
+            echo "🔍 測試 Git 連接..."
+            REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
+            
+            # 如果是 HTTPS URL，可能需要配置認證
+            if echo "$REMOTE_URL" | grep -q "^https://"; then
+              echo "   ℹ️  使用 HTTPS URL，測試連接..."
+              # 嘗試 fetch（可能會失敗，但不影響後續）
+              if git fetch origin --dry-run 2>&1 | head -5; then
+                echo "   ✅ Git fetch 測試成功"
+              else
+                echo "   ⚠️  Git fetch 測試失敗（可能需要認證）"
+                echo "   這可能導致部署腳本中的 git fetch 失敗"
+                echo "   建議："
+                echo "   1. 將遠程 URL 改為 SSH 格式 (git@...)"
+                echo "   2. 或在服務器上配置 Git 憑證助手"
+              fi
+            elif echo "$REMOTE_URL" | grep -q "^git@"; then
+              echo "   ℹ️  使用 SSH URL，測試連接..."
+              # 測試 SSH 連接
+              GIT_HOST=$(echo "$REMOTE_URL" | sed -E 's|git@([^:]+):.*|\1|')
+              if ssh -o ConnectTimeout=5 -o BatchMode=yes "$GIT_HOST" exit 2>/dev/null; then
+                echo "   ✅ SSH 連接測試成功"
+              else
+                echo "   ⚠️  SSH 連接測試失敗"
+                echo "   可能需要配置 SSH key 或 known_hosts"
+              fi
+            fi
           fi
           
           # 執行部署腳本（部署腳本會處理 Git 更新）
+          echo ""
           echo "🚀 執行部署腳本..."
           DEPLOY_SCRIPT="Deployment/scripts/tools/deploy.sh"
           
@@ -149,36 +227,117 @@ jobs:
           if [ -d ".git" ]; then
             NEW_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
             echo "📌 部署後代碼版本: $NEW_COMMIT"
-            if [ "$OLD_COMMIT" != "unknown" ] && [ "$NEW_COMMIT" != "unknown" ] && [ "$OLD_COMMIT" = "$NEW_COMMIT" ]; then
-              echo "⚠️  警告: 代碼版本未變更，可能未拉取到最新代碼"
-              echo "檢查遠程分支..."
-              git fetch origin 2>&1 || true
-              REMOTE_COMMIT=$(git rev-parse --short origin/main 2>/dev/null || git rev-parse --short origin/master 2>/dev/null || echo "unknown")
-              echo "遠程最新版本: $REMOTE_COMMIT"
-              if [ "$REMOTE_COMMIT" != "unknown" ] && [ "$REMOTE_COMMIT" != "$NEW_COMMIT" ]; then
-                echo "⚠️  檢測到遠程有新版本，但本地未更新"
-                echo "嘗試手動更新..."
-                git reset --hard origin/main 2>/dev/null || git reset --hard origin/master 2>/dev/null || true
-                NEW_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-                echo "更新後版本: $NEW_COMMIT"
-                
-                # 如果代碼更新了，需要重新執行部署步驟
-                if [ "$NEW_COMMIT" != "$OLD_COMMIT" ]; then
-                  echo "🔄 代碼已更新，重新執行部署步驟..."
-                  source venv/bin/activate 2>/dev/null || true
-                  python manage.py migrate --noinput || true
-                  python manage.py collectstatic --noinput --clear || true
-                  sudo systemctl daemon-reload
-                  sudo systemctl restart climbing_system || {
-                    echo "❌ 服務重啟失敗"
-                    sudo journalctl -u climbing_system --no-pager -n 30
-                    exit 1
-                  }
+            
+            # 獲取遠程最新版本（多次嘗試）
+            echo "📥 獲取遠程最新版本..."
+            FETCH_SUCCESS=false
+            for i in 1 2 3; do
+              echo "   嘗試 $i/3..."
+              if git fetch origin 2>&1; then
+                FETCH_SUCCESS=true
+                echo "   ✅ Git fetch 成功"
+                break
+              else
+                FETCH_ERROR=$?
+                echo "   ⚠️  嘗試 $i 失敗，退出碼: $FETCH_ERROR"
+                if [ $i -lt 3 ]; then
+                  echo "   等待 2 秒後重試..."
+                  sleep 2
                 fi
               fi
-            else
-              echo "✅ 代碼已更新: $OLD_COMMIT -> $NEW_COMMIT"
+            done
+            
+            if [ "$FETCH_SUCCESS" = "false" ]; then
+              echo "   ❌ 所有 Git fetch 嘗試都失敗"
+              echo "   診斷信息:"
+              echo "   遠程 URL: $(git remote get-url origin 2>/dev/null || echo '無法獲取')"
+              echo "   當前分支: $(git branch --show-current 2>/dev/null || echo 'unknown')"
+              echo "   Git 狀態:"
+              git status --short 2>/dev/null | head -5 || echo "   無法獲取狀態"
+              echo ""
+              echo "   ⚠️  繼續執行，但代碼可能不是最新版本"
             fi
+            
+            REMOTE_MAIN_COMMIT=$(git rev-parse --short origin/main 2>/dev/null || echo "unknown")
+            REMOTE_MASTER_COMMIT=$(git rev-parse --short origin/master 2>/dev/null || echo "unknown")
+            REMOTE_COMMIT="$REMOTE_MAIN_COMMIT"
+            if [ "$REMOTE_COMMIT" = "unknown" ]; then
+              REMOTE_COMMIT="$REMOTE_MASTER_COMMIT"
+            fi
+            
+            echo "📌 遠程最新版本: $REMOTE_COMMIT"
+            echo "📌 本地當前版本: $NEW_COMMIT"
+            echo "📌 部署前版本: $OLD_COMMIT"
+            
+            # 檢查是否需要更新
+            if [ "$REMOTE_COMMIT" != "unknown" ] && [ "$NEW_COMMIT" != "unknown" ] && [ "$REMOTE_COMMIT" != "$NEW_COMMIT" ]; then
+              echo "⚠️  警告: 本地版本與遠程版本不一致"
+              echo "   遠程: $REMOTE_COMMIT"
+              echo "   本地: $NEW_COMMIT"
+              echo "   強制更新到遠程版本..."
+              
+              # 備份數據庫
+              if [ -f "db.sqlite3" ]; then
+                mkdir -p backups
+                cp db.sqlite3 "backups/db_backup_before_force_update_$(date +%Y%m%d_%H%M%S).sqlite3" 2>/dev/null || true
+              fi
+              
+              # 強制重置
+              if [ "$REMOTE_MAIN_COMMIT" != "unknown" ]; then
+                git reset --hard origin/main || {
+                  echo "❌ 錯誤: 無法重置到 origin/main"
+                  exit 1
+                }
+              elif [ "$REMOTE_MASTER_COMMIT" != "unknown" ]; then
+                git reset --hard origin/master || {
+                  echo "❌ 錯誤: 無法重置到 origin/master"
+                  exit 1
+                }
+              fi
+              
+              NEW_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+              echo "✅ 已強制更新到: $NEW_COMMIT"
+              
+              # 如果代碼更新了，需要重新執行部署步驟
+              if [ "$NEW_COMMIT" != "$OLD_COMMIT" ]; then
+                echo "🔄 代碼已更新，重新執行部署步驟..."
+                source venv/bin/activate 2>/dev/null || true
+                python manage.py migrate --noinput || true
+                python manage.py collectstatic --noinput --clear || true
+                sudo systemctl daemon-reload
+                sudo systemctl restart climbing_system || {
+                  echo "❌ 服務重啟失敗"
+                  sudo journalctl -u climbing_system --no-pager -n 30
+                  exit 1
+                }
+              fi
+            elif [ "$OLD_COMMIT" != "unknown" ] && [ "$NEW_COMMIT" != "unknown" ] && [ "$OLD_COMMIT" = "$NEW_COMMIT" ]; then
+              echo "ℹ️  代碼版本未變更（已是最新版本）"
+              if [ "$REMOTE_COMMIT" != "unknown" ] && [ "$REMOTE_COMMIT" = "$NEW_COMMIT" ]; then
+                echo "✅ 確認: 本地版本與遠程版本一致"
+              fi
+            else
+              if [ "$OLD_COMMIT" != "unknown" ] && [ "$NEW_COMMIT" != "unknown" ]; then
+                echo "✅ 代碼已更新: $OLD_COMMIT -> $NEW_COMMIT"
+              fi
+            fi
+            
+            # 顯示最新提交信息
+            echo ""
+            echo "📋 最新提交信息:"
+            git log -1 --oneline --decorate 2>/dev/null || echo "無法獲取提交信息"
+            
+            # 檢查工作區狀態
+            echo ""
+            echo "📋 工作區狀態:"
+            if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+              echo "⚠️  警告: 檢測到未提交的修改"
+              git status --short | head -10
+            else
+              echo "✅ 工作區乾淨"
+            fi
+          else
+            echo "⚠️  警告: 未檢測到 Git 倉庫"
           fi
           
           # 等待服務啟動

@@ -636,6 +636,9 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                     f'無法驗證圖片格式。錯誤: {str(e)}。'
                     f'支持的格式: jpg, jpeg, png, gif, bmp, webp, heic, heif'
                 )
+        except serializers.ValidationError:
+            # 如果是 ValidationError，直接重新抛出（例如文件大小超限等驗證錯誤）
+            raise
         except Exception as e:
             # 如果所有驗證都失敗，返回錯誤
             logger.exception(f"[RouteCreateSerializer.validate_photo] 驗證圖片時發生未預期的錯誤")

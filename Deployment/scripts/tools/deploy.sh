@@ -100,21 +100,31 @@ apply_server_config
 
 # Git 更新
 if [ -d ".git" ]; then
+    echo "📥 開始 Git 更新..."
+    
+    # 記錄當前版本
+    OLD_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    echo "   當前版本: $OLD_COMMIT"
+    
     # 配置 Git 安全目錄
     if ! git config --global --get safe.directory | grep -q "$PROJECT_DIR"; then
         git config --global --add safe.directory "$PROJECT_DIR"
+        echo "   ✅ Git 安全目錄已配置"
     fi
     
     # 修復 .git 目錄權限（僅在服務器上執行）
     if [ "$PROJECT_DIR" = "/var/www/Climbing_score_counter" ]; then
+        CURRENT_USER=$(whoami)
         if [ ! -w ".git/FETCH_HEAD" ] 2>/dev/null; then
-            CURRENT_USER=$(whoami)
-            sudo chown -R $CURRENT_USER:$CURRENT_USER .git 2>/dev/null || true
+            echo "   🔧 修復 .git 目錄權限..."
+            sudo chown -R $CURRENT_USER:$CURRENT_USER .git 2>/dev/null || {
+                echo "   ⚠️  警告: 無法修復 .git 目錄權限"
+            }
         fi
         
         # 修復項目文件權限
-        CURRENT_USER=$(whoami)
         if [ ! -w "." ] 2>/dev/null || [ ! -w "Deployment" ] 2>/dev/null; then
+            echo "   🔧 修復項目文件權限..."
             if ! groups | grep -q www-data; then
                 sudo usermod -a -G www-data $CURRENT_USER 2>/dev/null || true
             fi
@@ -122,27 +132,133 @@ if [ -d ".git" ]; then
         fi
     fi
     
-    git fetch origin
+    # 檢查遠程配置
+    echo "   🔍 檢查遠程倉庫配置..."
+    if ! git remote get-url origin >/dev/null 2>&1; then
+        echo "   ❌ 錯誤: 未配置遠程倉庫 origin"
+        exit 1
+    fi
+    REMOTE_URL=$(git remote get-url origin)
+    echo "   遠程倉庫: $REMOTE_URL"
+    
+    # 獲取最新代碼
+    echo "   📥 從遠程獲取最新代碼..."
+    if git fetch origin 2>&1; then
+        echo "   ✅ Git fetch 成功"
+    else
+        FETCH_EXIT_CODE=$?
+        echo "   ❌ 錯誤: Git fetch 失敗，退出碼: $FETCH_EXIT_CODE"
+        echo "   嘗試診斷問題..."
+        git remote -v
+        echo "   檢查網絡連接..."
+        ping -c 2 github.com 2>/dev/null || ping -c 2 gitlab.com 2>/dev/null || echo "   ⚠️  無法連接到 Git 服務器"
+        exit $FETCH_EXIT_CODE
+    fi
+    
+    # 檢查遠程分支
+    echo "   🔍 檢查遠程分支..."
+    REMOTE_MAIN_COMMIT=""
+    REMOTE_MASTER_COMMIT=""
+    if git rev-parse --verify origin/main >/dev/null 2>&1; then
+        REMOTE_MAIN_COMMIT=$(git rev-parse --short origin/main)
+        echo "   ✅ 找到遠程分支 main: $REMOTE_MAIN_COMMIT"
+    fi
+    if git rev-parse --verify origin/master >/dev/null 2>&1; then
+        REMOTE_MASTER_COMMIT=$(git rev-parse --short origin/master)
+        echo "   ✅ 找到遠程分支 master: $REMOTE_MASTER_COMMIT"
+    fi
+    
+    if [ -z "$REMOTE_MAIN_COMMIT" ] && [ -z "$REMOTE_MASTER_COMMIT" ]; then
+        echo "   ❌ 錯誤: 未找到遠程分支 main 或 master"
+        echo "   可用的遠程分支:"
+        git branch -r | head -10
+        exit 1
+    fi
     
     # 處理數據庫文件衝突
+    echo "   🔍 檢查數據庫文件狀態..."
     if git diff --quiet db.sqlite3 2>/dev/null; then
-        git reset --hard origin/main || git reset --hard origin/master
+        echo "   ✅ 數據庫文件無衝突"
+        if [ -n "$REMOTE_MAIN_COMMIT" ]; then
+            echo "   🔄 重置到 origin/main ($REMOTE_MAIN_COMMIT)..."
+            if git reset --hard origin/main; then
+                echo "   ✅ 已重置到 origin/main"
+            else
+                echo "   ❌ 錯誤: 無法重置到 origin/main"
+                exit 1
+            fi
+        elif [ -n "$REMOTE_MASTER_COMMIT" ]; then
+            echo "   🔄 重置到 origin/master ($REMOTE_MASTER_COMMIT)..."
+            if git reset --hard origin/master; then
+                echo "   ✅ 已重置到 origin/master"
+            else
+                echo "   ❌ 錯誤: 無法重置到 origin/master"
+                exit 1
+            fi
+        fi
     else
+        echo "   ⚠️  檢測到數據庫文件有本地修改"
         if [ -f "db.sqlite3" ]; then
             mkdir -p backups
-            cp db.sqlite3 backups/db_local_backup_$(date +%Y%m%d_%H%M%S).sqlite3 2>/dev/null || true
+            BACKUP_NAME="backups/db_local_backup_$(date +%Y%m%d_%H%M%S).sqlite3"
+            cp db.sqlite3 "$BACKUP_NAME" 2>/dev/null || true
+            echo "   💾 數據庫已備份到: $BACKUP_NAME"
         fi
+        echo "   🔄 重置數據庫文件..."
         git checkout -- db.sqlite3 2>/dev/null || true
-        git reset --hard origin/main || git reset --hard origin/master
-        if [ "$PROJECT_DIR" = "/var/www/Climbing_score_counter" ]; then
-            echo "ℹ️  提示：從服務器同步數據庫: bash Deployment/scripts/tools/sync_database_from_server.sh"
+        
+        if [ -n "$REMOTE_MAIN_COMMIT" ]; then
+            echo "   🔄 重置到 origin/main ($REMOTE_MAIN_COMMIT)..."
+            if git reset --hard origin/main; then
+                echo "   ✅ 已重置到 origin/main"
+            else
+                echo "   ❌ 錯誤: 無法重置到 origin/main"
+                exit 1
+            fi
+        elif [ -n "$REMOTE_MASTER_COMMIT" ]; then
+            echo "   🔄 重置到 origin/master ($REMOTE_MASTER_COMMIT)..."
+            if git reset --hard origin/master; then
+                echo "   ✅ 已重置到 origin/master"
+            else
+                echo "   ❌ 錯誤: 無法重置到 origin/master"
+                exit 1
+            fi
         fi
+        
+        if [ "$PROJECT_DIR" = "/var/www/Climbing_score_counter" ]; then
+            echo "   ℹ️  提示：從服務器同步數據庫: bash Deployment/scripts/tools/sync_database_from_server.sh"
+        fi
+    fi
+    
+    # 驗證更新結果
+    NEW_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    echo "   更新後版本: $NEW_COMMIT"
+    
+    if [ "$OLD_COMMIT" != "unknown" ] && [ "$NEW_COMMIT" != "unknown" ]; then
+        if [ "$OLD_COMMIT" = "$NEW_COMMIT" ]; then
+            echo "   ℹ️  代碼版本未變更（已是最新版本）"
+        else
+            echo "   ✅ 代碼已更新: $OLD_COMMIT -> $NEW_COMMIT"
+            echo "   最新提交信息:"
+            git log -1 --oneline 2>/dev/null || true
+        fi
+    fi
+    
+    # 檢查是否有未提交的修改
+    if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+        echo "   ⚠️  警告: 檢測到未提交的修改"
+        echo "   未提交的文件:"
+        git status --short | head -10
     fi
     
     # 重新應用配置（模板文件可能已更新）- 僅在服務器上執行
     if [ "$PROJECT_DIR" = "/var/www/Climbing_score_counter" ]; then
         apply_server_config
     fi
+    
+    echo "✅ Git 更新完成"
+else
+    echo "⚠️  警告: 未檢測到 Git 倉庫，跳過代碼更新"
 fi
 
 # 創建虛擬環境
