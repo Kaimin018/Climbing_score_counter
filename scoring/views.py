@@ -13,6 +13,7 @@ from .serializers import (
     RouteCreateSerializer, RouteUpdateSerializer, LeaderboardSerializer, ScoreUpdateSerializer
 )
 from .permissions import IsAuthenticatedOrReadOnlyForCreate
+from .utils import get_log_file_path, get_logs_directory, get_platform_info, is_mobile_device
 
 logger = logging.getLogger(__name__)
 
@@ -356,6 +357,42 @@ class RouteViewSet(viewsets.ModelViewSet):
         update_scores(room_id)
         
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=False, methods=['get'], url_path='log-info')
+    def log_info(self, request):
+        """
+        獲取日誌文件信息（用於移動設備調試）
+        返回日誌文件位置和平台信息
+        """
+        try:
+            log_file_path = get_log_file_path()
+            logs_dir = get_logs_directory()
+            
+            # 檢查日誌文件是否存在
+            from pathlib import Path
+            log_file = Path(log_file_path)
+            file_exists = log_file.exists()
+            file_size = log_file.stat().st_size if file_exists else 0
+            
+            # 獲取平台信息
+            platform_info = get_platform_info()
+            
+            return Response({
+                'log_file_path': log_file_path,
+                'logs_directory': str(logs_dir),
+                'file_exists': file_exists,
+                'file_size': file_size,
+                'file_size_mb': round(file_size / (1024 * 1024), 2) if file_size > 0 else 0,
+                'is_mobile': is_mobile_device(),
+                'platform_info': platform_info,
+                'message': '日誌文件已配置。在移動設備上，日誌文件會自動保存到應用數據目錄。'
+            })
+        except Exception as e:
+            logger.exception(f"[RouteViewSet.log_info] 獲取日誌信息時發生錯誤")
+            return Response({
+                'error': str(e),
+                'message': '無法獲取日誌文件信息'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class MemberViewSet(viewsets.ModelViewSet):

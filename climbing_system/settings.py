@@ -225,27 +225,101 @@ LOGGING = {
     },
 }
 
-# 生產環境添加文件日誌（僅在非 DEBUG 模式下）
-if not DEBUG:
-    # 確保日誌目錄存在
-    logs_dir = BASE_DIR / 'logs'
+# 配置文件日誌（支持桌面和移動設備）
+def get_logs_directory():
+    """
+    獲取日誌目錄路徑，支持多種平台：
+    - 桌面/服務器：使用項目根目錄下的 logs/ 目錄
+    - Android：使用應用數據目錄
+    - iOS：使用 Documents 目錄
+    - 其他：嘗試使用項目目錄，失敗則使用臨時目錄
+    """
+    import os
+    import platform
+    from pathlib import Path
+    
+    # 檢查是否為移動設備環境
+    is_mobile = False
+    mobile_logs_dir = None
+    
+    # Android 環境檢測
+    android_data_dir = os.environ.get('ANDROID_DATA')
+    if android_data_dir:
+        try:
+            # Android 應用數據目錄
+            app_data_dir = Path(android_data_dir) / 'data' / 'climbing_system' / 'logs'
+            app_data_dir.mkdir(parents=True, exist_ok=True)
+            mobile_logs_dir = app_data_dir
+            is_mobile = True
+        except:
+            pass
+    
+    # iOS 環境檢測（通過環境變數或路徑判斷）
+    ios_documents = os.environ.get('IOS_DOCUMENTS_DIR')
+    if ios_documents:
+        try:
+            ios_logs_dir = Path(ios_documents) / 'logs'
+            ios_logs_dir.mkdir(parents=True, exist_ok=True)
+            mobile_logs_dir = ios_logs_dir
+            is_mobile = True
+        except:
+            pass
+    
+    # 如果檢測到移動設備，使用移動設備目錄
+    if is_mobile and mobile_logs_dir:
+        return mobile_logs_dir
+    
+    # 桌面/服務器環境：使用項目根目錄
     try:
+        logs_dir = BASE_DIR / 'logs'
         logs_dir.mkdir(exist_ok=True)
-        # 只有在目錄成功創建或已存在時才添加文件日誌處理器
-        LOGGING['handlers']['file'] = {
-            'class': 'logging.FileHandler',
-            'filename': logs_dir / 'django.log',
-            'formatter': 'detailed',
-            'level': 'DEBUG',
-        }
-        
-        # 為生產環境添加文件日誌處理器
-        LOGGING['loggers']['scoring']['handlers'].append('file')
-        LOGGING['loggers']['django']['handlers'].append('file')
-    except (OSError, PermissionError) as e:
-        # 如果無法創建目錄，只使用控制台日誌
-        import warnings
-        warnings.warn(f"無法創建日誌目錄 {logs_dir}: {e}。將只使用控制台日誌。")
+        return logs_dir
+    except (OSError, PermissionError):
+        # 如果無法創建項目目錄，使用臨時目錄
+        import tempfile
+        temp_logs_dir = Path(tempfile.gettempdir()) / 'climbing_system_logs'
+        try:
+            temp_logs_dir.mkdir(parents=True, exist_ok=True)
+            return temp_logs_dir
+        except:
+            # 最後的備選方案：使用當前工作目錄
+            return Path.cwd() / 'logs'
+
+# 嘗試創建日誌目錄並添加文件日誌處理器
+# 在 DEBUG 模式下也生成日誌文件（方便調試，特別是移動設備）
+try:
+    logs_dir = get_logs_directory()
+    log_file_path = logs_dir / 'django.log'
+    
+    # 確保目錄存在
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 添加文件日誌處理器（支持日誌輪轉，避免文件過大）
+    from logging.handlers import RotatingFileHandler
+    
+    LOGGING['handlers']['file'] = {
+        'class': 'logging.handlers.RotatingFileHandler',
+        'filename': str(log_file_path),
+        'formatter': 'detailed',
+        'level': 'DEBUG',
+        'maxBytes': 10 * 1024 * 1024,  # 10MB
+        'backupCount': 5,  # 保留 5 個備份文件
+        'encoding': 'utf-8',  # 支持中文日誌
+    }
+    
+    # 為所有環境添加文件日誌處理器（包括 DEBUG 模式）
+    LOGGING['loggers']['scoring']['handlers'].append('file')
+    LOGGING['loggers']['django']['handlers'].append('file')
+    
+    # 記錄日誌文件位置（僅在首次配置時）
+    import logging
+    logger = logging.getLogger('scoring')
+    logger.info(f"日誌文件已配置，保存位置: {log_file_path}")
+    
+except (OSError, PermissionError) as e:
+    # 如果無法創建日誌文件，只使用控制台日誌
+    import warnings
+    warnings.warn(f"無法創建日誌文件 {log_file_path if 'log_file_path' in locals() else 'logs/django.log'}: {e}。將只使用控制台日誌。")
 
 # Session 配置（適用於所有環境）
 # 確保 session cookie 可以正常工作
