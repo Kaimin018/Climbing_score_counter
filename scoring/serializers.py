@@ -767,7 +767,64 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
             instance.grade = validated_data['grade']
         # 如果提供了新照片，更新照片
         if 'photo' in validated_data:
-            instance.photo = validated_data.get('photo')
+            photo = validated_data.get('photo')
+            if photo:
+                logger.debug(f"[RouteUpdateSerializer.update] 處理照片文件更新")
+                logger.debug(f"[RouteUpdateSerializer.update] 照片類型: {type(photo)}")
+                logger.debug(f"[RouteUpdateSerializer.update] 照片名稱: {getattr(photo, 'name', 'N/A')}")
+                
+                # 確保文件對象可以被 Django 處理（避免 pickle 錯誤）
+                # 如果文件對象是 BufferedRandom 或其他不可序列化的類型，需要確保它可以被重新讀取
+                try:
+                    # 嘗試重置文件指針，確保可以重新讀取
+                    if hasattr(photo, 'seek'):
+                        photo.seek(0)
+                        logger.debug(f"[RouteUpdateSerializer.update] 文件指針已重置")
+                    
+                    # 檢查文件對象類型，如果是不可序列化的類型，需要轉換
+                    import io
+                    if isinstance(photo, io.BufferedRandom) or isinstance(photo, io.BufferedReader):
+                        logger.warning(f"[RouteUpdateSerializer.update] 檢測到不可序列化的文件對象類型: {type(photo)}")
+                        logger.warning(f"[RouteUpdateSerializer.update] 嘗試將文件內容讀取並創建新的 InMemoryUploadedFile")
+                        
+                        # 讀取文件內容
+                        if hasattr(photo, 'seek'):
+                            photo.seek(0)
+                        file_content = photo.read()
+                        photo.seek(0)
+                        
+                        # 創建新的 InMemoryUploadedFile
+                        from django.core.files.uploadedfile import InMemoryUploadedFile
+                        from io import BytesIO
+                        import os
+                        
+                        file_name = getattr(photo, 'name', 'photo.jpg')
+                        content_type = getattr(photo, 'content_type', 'image/jpeg')
+                        
+                        new_file = InMemoryUploadedFile(
+                            BytesIO(file_content),
+                            'photo',
+                            file_name,
+                            content_type,
+                            len(file_content),
+                            None
+                        )
+                        
+                        logger.debug(f"[RouteUpdateSerializer.update] 已創建新的 InMemoryUploadedFile，大小: {len(file_content)} 字節")
+                        instance.photo = new_file
+                    else:
+                        # 文件對象類型正常，直接使用
+                        logger.debug(f"[RouteUpdateSerializer.update] 文件對象類型正常，直接使用")
+                        instance.photo = photo
+                except Exception as e:
+                    logger.exception(f"[RouteUpdateSerializer.update] 處理照片文件時發生錯誤")
+                    logger.error(f"[RouteUpdateSerializer.update] 錯誤類型: {type(e).__name__}, 錯誤信息: {str(e)}")
+                    import traceback
+                    logger.error(f"[RouteUpdateSerializer.update] 錯誤堆棧:\n{traceback.format_exc()}")
+                    # 如果處理失敗，仍然嘗試使用原始文件對象
+                    instance.photo = photo
+            else:
+                logger.debug(f"[RouteUpdateSerializer.update] photo 字段存在但為 None，跳過更新")
         # 向後兼容：如果提供了 photo_url（舊版），保留它
         # 注意：photo_url 已經在 validate_photo_url 中驗證和清理
         if 'photo_url' in validated_data:
