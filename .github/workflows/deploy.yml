@@ -101,44 +101,14 @@ jobs:
           echo "時間: $(date)"
           echo "當前目錄: $(pwd)"
           
-          # 拉取最新代碼
-          echo "📥 拉取最新代碼..."
+          # 記錄部署前的代碼版本
+          OLD_COMMIT=""
           if [ -d ".git" ]; then
-            # 確保 Git 安全目錄配置
-            git config --global --add safe.directory /var/www/Climbing_score_counter || true
-            
-            # 修復 .git 目錄權限
-            CURRENT_USER=$(whoami)
-            if [ ! -w ".git" ] 2>/dev/null; then
-              sudo chown -R $CURRENT_USER:$CURRENT_USER .git 2>/dev/null || true
-            fi
-            
-            git fetch origin || {
-              echo "⚠️  警告: git fetch 失敗，繼續執行部署"
-            }
-            
-            CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
-            echo "當前分支: $CURRENT_BRANCH"
-            
-            # 處理數據庫文件衝突
-            if [ -f "db.sqlite3" ] && ! git diff --quiet db.sqlite3 2>/dev/null; then
-              echo "ℹ️  檢測到數據庫文件變更，備份後重置"
-              mkdir -p backups
-              cp db.sqlite3 backups/db_backup_$(date +%Y%m%d_%H%M%S).sqlite3 2>/dev/null || true
-              git checkout -- db.sqlite3 2>/dev/null || true
-            fi
-            
-            git reset --hard origin/main || git reset --hard origin/master || {
-              echo "⚠️  警告: git reset 失敗，繼續執行部署"
-            }
-            
-            echo "已更新到最新版本: $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
-            echo "最新提交: $(git log -1 --oneline 2>/dev/null || echo 'unknown')"
-          else
-            echo "⚠️  警告: 未檢測到 Git 倉庫，跳過代碼更新"
+            OLD_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            echo "📌 部署前代碼版本: $OLD_COMMIT"
           fi
           
-          # 執行部署腳本
+          # 執行部署腳本（部署腳本會處理 Git 更新）
           echo "🚀 執行部署腳本..."
           DEPLOY_SCRIPT="Deployment/scripts/tools/deploy.sh"
           
@@ -163,31 +133,119 @@ jobs:
           chmod +x "$DEPLOY_SCRIPT"
           
           # 執行部署腳本並捕獲錯誤
+          echo "執行: bash $DEPLOY_SCRIPT"
           if bash "$DEPLOY_SCRIPT"; then
             echo "✅ 部署腳本執行成功"
           else
             EXIT_CODE=$?
             echo "❌ 部署腳本執行失敗，退出碼: $EXIT_CODE"
+            echo "查看部署腳本錯誤日誌..."
             exit $EXIT_CODE
           fi
           
-          echo "=== 部署完成 ==="
-          echo "時間: $(date)"
+          # 驗證代碼是否更新
+          echo ""
+          echo "🔍 驗證代碼更新..."
+          if [ -d ".git" ]; then
+            NEW_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            echo "📌 部署後代碼版本: $NEW_COMMIT"
+            if [ "$OLD_COMMIT" != "unknown" ] && [ "$NEW_COMMIT" != "unknown" ] && [ "$OLD_COMMIT" = "$NEW_COMMIT" ]; then
+              echo "⚠️  警告: 代碼版本未變更，可能未拉取到最新代碼"
+              echo "檢查遠程分支..."
+              git fetch origin 2>&1 || true
+              REMOTE_COMMIT=$(git rev-parse --short origin/main 2>/dev/null || git rev-parse --short origin/master 2>/dev/null || echo "unknown")
+              echo "遠程最新版本: $REMOTE_COMMIT"
+              if [ "$REMOTE_COMMIT" != "unknown" ] && [ "$REMOTE_COMMIT" != "$NEW_COMMIT" ]; then
+                echo "⚠️  檢測到遠程有新版本，但本地未更新"
+                echo "嘗試手動更新..."
+                git reset --hard origin/main 2>/dev/null || git reset --hard origin/master 2>/dev/null || true
+                NEW_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+                echo "更新後版本: $NEW_COMMIT"
+                
+                # 如果代碼更新了，需要重新執行部署步驟
+                if [ "$NEW_COMMIT" != "$OLD_COMMIT" ]; then
+                  echo "🔄 代碼已更新，重新執行部署步驟..."
+                  source venv/bin/activate 2>/dev/null || true
+                  python manage.py migrate --noinput || true
+                  python manage.py collectstatic --noinput --clear || true
+                  sudo systemctl daemon-reload
+                  sudo systemctl restart climbing_system || {
+                    echo "❌ 服務重啟失敗"
+                    sudo journalctl -u climbing_system --no-pager -n 30
+                    exit 1
+                  }
+                fi
+              fi
+            else
+              echo "✅ 代碼已更新: $OLD_COMMIT -> $NEW_COMMIT"
+            fi
+          fi
+          
+          # 等待服務啟動
+          echo ""
+          echo "⏳ 等待服務啟動（5秒）..."
+          sleep 5
+          
+          # 驗證服務狀態
           echo ""
           echo "📊 服務狀態檢查:"
-          sudo systemctl status climbing_system --no-pager -l || {
-            echo "⚠️  警告: 無法獲取服務狀態"
-          }
-          echo ""
-          echo "🔍 驗證服務是否運行:"
           if sudo systemctl is-active --quiet climbing_system; then
             echo "✅ climbing_system 服務正在運行"
           else
             echo "❌ climbing_system 服務未運行"
-            echo "嘗試查看服務日誌:"
-            sudo journalctl -u climbing_system --no-pager -n 20 || true
-            exit 1
+            echo "嘗試啟動服務..."
+            sudo systemctl start climbing_system || true
+            sleep 3
+            if sudo systemctl is-active --quiet climbing_system; then
+              echo "✅ 服務已啟動"
+            else
+              echo "❌ 服務啟動失敗"
+              echo "服務狀態:"
+              sudo systemctl status climbing_system --no-pager -l || true
+              echo ""
+              echo "服務日誌（最近30行）:"
+              sudo journalctl -u climbing_system --no-pager -n 30 || true
+              exit 1
+            fi
           fi
+          
+          # 檢查服務詳細狀態
+          echo ""
+          echo "📋 服務詳細狀態:"
+          sudo systemctl status climbing_system --no-pager -l | head -20 || true
+          
+          # 驗證端口監聽
+          echo ""
+          echo "🔌 檢查端口監聽狀態:"
+          if sudo netstat -tlnp 2>/dev/null | grep -q ':8000 ' || sudo ss -tlnp 2>/dev/null | grep -q ':8000 '; then
+            echo "✅ 端口 8000 正在監聽"
+            sudo netstat -tlnp 2>/dev/null | grep ':8000 ' || sudo ss -tlnp 2>/dev/null | grep ':8000 '
+          else
+            echo "⚠️  警告: 端口 8000 未監聽"
+            echo "嘗試重啟服務..."
+            sudo systemctl restart climbing_system
+            sleep 3
+            if sudo netstat -tlnp 2>/dev/null | grep -q ':8000 ' || sudo ss -tlnp 2>/dev/null | grep -q ':8000 '; then
+              echo "✅ 端口現在正在監聽"
+            else
+              echo "❌ 端口仍未監聽"
+            fi
+          fi
+          
+          # 測試本地連接
+          echo ""
+          echo "🌐 測試本地連接:"
+          LOCAL_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 http://127.0.0.1:8000/ 2>/dev/null || echo "000")
+          if [ "$LOCAL_RESPONSE" = "200" ] || [ "$LOCAL_RESPONSE" = "301" ] || [ "$LOCAL_RESPONSE" = "302" ] || [ "$LOCAL_RESPONSE" = "400" ]; then
+            echo "✅ 本地連接正常 (HTTP $LOCAL_RESPONSE)"
+          else
+            echo "⚠️  警告: 本地連接異常 (HTTP $LOCAL_RESPONSE)"
+          fi
+          
+          echo ""
+          echo "=== 部署完成 ==="
+          echo "時間: $(date)"
+          echo "✅ 所有檢查完成"
         ENDSSH
     
     - name: Skip deployment notice
