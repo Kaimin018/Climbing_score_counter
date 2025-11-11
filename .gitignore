@@ -67,8 +67,9 @@ test_output.txt
 *.cache
 
 # Backup directories
-/backups/
 backups/
+/backups/
+**/backups/
 
 # Media files (user uploads)
 /media/
