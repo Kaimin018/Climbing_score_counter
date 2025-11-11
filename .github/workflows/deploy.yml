@@ -89,46 +89,105 @@ jobs:
         ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
           ${EC2_USER}@${EC2_HOST} << 'ENDSSH'
           set -e
+          set -o pipefail
+          
+          # 進入項目目錄
           cd /var/www/Climbing_score_counter || {
-            echo "錯誤: 無法進入項目目錄"
+            echo "❌ 錯誤: 無法進入項目目錄 /var/www/Climbing_score_counter"
             exit 1
           }
           
           echo "=== 開始部署 ==="
           echo "時間: $(date)"
+          echo "當前目錄: $(pwd)"
           
           # 拉取最新代碼
-          echo "拉取最新代碼..."
+          echo "📥 拉取最新代碼..."
           if [ -d ".git" ]; then
-            git fetch origin
+            # 確保 Git 安全目錄配置
+            git config --global --add safe.directory /var/www/Climbing_score_counter || true
+            
+            # 修復 .git 目錄權限
+            CURRENT_USER=$(whoami)
+            if [ ! -w ".git" ] 2>/dev/null; then
+              sudo chown -R $CURRENT_USER:$CURRENT_USER .git 2>/dev/null || true
+            fi
+            
+            git fetch origin || {
+              echo "⚠️  警告: git fetch 失敗，繼續執行部署"
+            }
+            
             CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
             echo "當前分支: $CURRENT_BRANCH"
-            git reset --hard origin/main || git reset --hard origin/master
-            echo "已更新到最新版本: $(git rev-parse --short HEAD)"
-            echo "最新提交: $(git log -1 --oneline)"
+            
+            # 處理數據庫文件衝突
+            if [ -f "db.sqlite3" ] && ! git diff --quiet db.sqlite3 2>/dev/null; then
+              echo "ℹ️  檢測到數據庫文件變更，備份後重置"
+              mkdir -p backups
+              cp db.sqlite3 backups/db_backup_$(date +%Y%m%d_%H%M%S).sqlite3 2>/dev/null || true
+              git checkout -- db.sqlite3 2>/dev/null || true
+            fi
+            
+            git reset --hard origin/main || git reset --hard origin/master || {
+              echo "⚠️  警告: git reset 失敗，繼續執行部署"
+            }
+            
+            echo "已更新到最新版本: $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
+            echo "最新提交: $(git log -1 --oneline 2>/dev/null || echo 'unknown')"
           else
-            echo "警告: 未檢測到 Git 倉庫，跳過代碼更新"
+            echo "⚠️  警告: 未檢測到 Git 倉庫，跳過代碼更新"
           fi
           
           # 執行部署腳本
-          echo "執行部署腳本..."
-          if [ -f "Deployment/deploy.sh" ]; then
-            chmod +x Deployment/deploy.sh
-            bash Deployment/deploy.sh
-          else
-            echo "錯誤: 找不到 Deployment/deploy.sh 腳本"
+          echo "🚀 執行部署腳本..."
+          DEPLOY_SCRIPT="Deployment/scripts/tools/deploy.sh"
+          
+          if [ ! -f "$DEPLOY_SCRIPT" ]; then
+            echo "❌ 錯誤: 找不到部署腳本 $DEPLOY_SCRIPT"
             echo "當前目錄: $(pwd)"
             echo "目錄內容:"
-            ls -la
+            ls -la | head -20
+            echo ""
             echo "Deployment 目錄內容:"
-            ls -la Deployment/ || echo "Deployment 目錄不存在"
+            ls -la Deployment/ 2>/dev/null || echo "Deployment 目錄不存在"
+            echo ""
+            echo "Deployment/scripts 目錄內容:"
+            ls -la Deployment/scripts/ 2>/dev/null || echo "Deployment/scripts 目錄不存在"
+            echo ""
+            echo "Deployment/scripts/tools 目錄內容:"
+            ls -la Deployment/scripts/tools/ 2>/dev/null || echo "Deployment/scripts/tools 目錄不存在"
             exit 1
+          fi
+          
+          # 確保腳本有執行權限
+          chmod +x "$DEPLOY_SCRIPT"
+          
+          # 執行部署腳本並捕獲錯誤
+          if bash "$DEPLOY_SCRIPT"; then
+            echo "✅ 部署腳本執行成功"
+          else
+            EXIT_CODE=$?
+            echo "❌ 部署腳本執行失敗，退出碼: $EXIT_CODE"
+            exit $EXIT_CODE
           fi
           
           echo "=== 部署完成 ==="
           echo "時間: $(date)"
-          echo "服務狀態檢查:"
-          sudo systemctl status climbing_system --no-pager -l || true
+          echo ""
+          echo "📊 服務狀態檢查:"
+          sudo systemctl status climbing_system --no-pager -l || {
+            echo "⚠️  警告: 無法獲取服務狀態"
+          }
+          echo ""
+          echo "🔍 驗證服務是否運行:"
+          if sudo systemctl is-active --quiet climbing_system; then
+            echo "✅ climbing_system 服務正在運行"
+          else
+            echo "❌ climbing_system 服務未運行"
+            echo "嘗試查看服務日誌:"
+            sudo journalctl -u climbing_system --no-pager -n 20 || true
+            exit 1
+          fi
         ENDSSH
     
     - name: Skip deployment notice

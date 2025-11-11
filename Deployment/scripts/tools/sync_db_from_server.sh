@@ -479,13 +479,202 @@ else
             fi
         fi
         
-        # 同步 route_photos
+        # 同步 route_photos（使用壓縮打包方式，加快同步速度）
         echo ""
-        echo "同步 route_photos..."
+        echo "同步 route_photos（使用壓縮打包方式）..."
         echo "   從: $EC2_USER@$EC2_HOST:$REMOTE_ROUTE_PHOTOS/"
         echo "   到: $LOCAL_ROUTE_PHOTOS/"
         
-        if [ "$USE_RSYNC" = true ]; then
+        # 創建臨時壓縮包文件名
+        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+        REMOTE_ARCHIVE="/tmp/route_photos_${TIMESTAMP}.tar.gz"
+        LOCAL_ARCHIVE="$PROJECT_ROOT/route_photos_${TIMESTAMP}.tar.gz"
+        
+        # 步驟1: 在遠程服務器上創建壓縮包
+        echo ""
+        echo "   步驟 1/3: 在遠程服務器上創建壓縮包..."
+        echo "   壓縮包路徑: $REMOTE_ARCHIVE"
+        
+        # 檢查遠程目錄是否有文件
+        REMOTE_FILE_COUNT_CMD="find '$REMOTE_ROUTE_PHOTOS' -type f 2>/dev/null | wc -l"
+        REMOTE_FILE_COUNT=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_FILE_COUNT_CMD" 2>/dev/null || echo "0")
+        
+        if [ "$REMOTE_FILE_COUNT" = "0" ] || [ -z "$REMOTE_FILE_COUNT" ]; then
+            echo "   ⚠️  警告: 遠程目錄為空，跳過同步"
+            SYNC_EXIT_CODE=0
+        else
+            echo "   遠程文件數量: $REMOTE_FILE_COUNT"
+            
+            # 在遠程服務器上創建壓縮包
+            # 使用 tar 壓縮，保留目錄結構
+            # 轉義路徑中的特殊字符
+            ESCAPED_REMOTE_ROUTE_PHOTOS=$(printf '%q' "$REMOTE_ROUTE_PHOTOS")
+            ESCAPED_REMOTE_ARCHIVE=$(printf '%q' "$REMOTE_ARCHIVE")
+            TAR_CMD="cd $(printf '%q' "$(dirname "$REMOTE_ROUTE_PHOTOS")") && tar -czf $ESCAPED_REMOTE_ARCHIVE -C $(printf '%q' "$(dirname "$REMOTE_ROUTE_PHOTOS")") $(printf '%q' "$(basename "$REMOTE_ROUTE_PHOTOS")") 2>&1"
+            TAR_OUTPUT=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$TAR_CMD" 2>&1)
+            TAR_EXIT_CODE=$?
+            
+            if [ $TAR_EXIT_CODE -ne 0 ]; then
+                echo "   ❌ 遠程壓縮失敗"
+                if [ -n "$TAR_OUTPUT" ]; then
+                    echo "   錯誤: $TAR_OUTPUT"
+                fi
+                SYNC_EXIT_CODE=1
+            else
+                # 獲取壓縮包大小
+                REMOTE_ARCHIVE_SIZE_CMD="stat -c%s '$REMOTE_ARCHIVE' 2>/dev/null || stat -f%z '$REMOTE_ARCHIVE' 2>/dev/null || echo '0'"
+                REMOTE_ARCHIVE_SIZE=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_ARCHIVE_SIZE_CMD" 2>/dev/null || echo "0")
+                
+                if [ "$REMOTE_ARCHIVE_SIZE" != "0" ] && [ "$REMOTE_ARCHIVE_SIZE" -gt 0 ] 2>/dev/null; then
+                    REMOTE_ARCHIVE_SIZE_MB=$((REMOTE_ARCHIVE_SIZE / 1024 / 1024))
+                    REMOTE_ARCHIVE_SIZE_KB=$((REMOTE_ARCHIVE_SIZE / 1024))
+                    if [ $REMOTE_ARCHIVE_SIZE_MB -gt 0 ]; then
+                        echo "   ✅ 壓縮包創建成功（大小: ${REMOTE_ARCHIVE_SIZE_MB} MB）"
+                    else
+                        echo "   ✅ 壓縮包創建成功（大小: ${REMOTE_ARCHIVE_SIZE_KB} KB）"
+                    fi
+                    
+                    # 步驟2: 下載壓縮包
+                    echo ""
+                    echo "   步驟 2/3: 下載壓縮包..."
+                    echo "   從: $EC2_USER@$EC2_HOST:$REMOTE_ARCHIVE"
+                    echo "   到: $LOCAL_ARCHIVE"
+                    
+                    # 下載壓縮包（帶進度顯示）
+                    if command -v pv &> /dev/null && [ "$REMOTE_ARCHIVE_SIZE" -gt 0 ] 2>/dev/null; then
+                        # 使用 pv 顯示進度
+                        ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "cat '$REMOTE_ARCHIVE'" 2>/dev/null | \
+                            pv -s "$REMOTE_ARCHIVE_SIZE" -p -t -e -r -b > "$LOCAL_ARCHIVE" 2>&1
+                        DOWNLOAD_EXIT_CODE=$?
+                    else
+                        # 使用 scp 下載
+                        scp -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                            "$EC2_USER@$EC2_HOST:$REMOTE_ARCHIVE" "$LOCAL_ARCHIVE" 2>&1
+                        DOWNLOAD_EXIT_CODE=$?
+                    fi
+                    
+                    if [ $DOWNLOAD_EXIT_CODE -ne 0 ] || [ ! -f "$LOCAL_ARCHIVE" ]; then
+                        echo "   ❌ 壓縮包下載失敗"
+                        SYNC_EXIT_CODE=1
+                    else
+                        LOCAL_ARCHIVE_SIZE=$(stat -f%z "$LOCAL_ARCHIVE" 2>/dev/null || stat -c%s "$LOCAL_ARCHIVE" 2>/dev/null || echo "0")
+                        if [ "$LOCAL_ARCHIVE_SIZE" = "$REMOTE_ARCHIVE_SIZE" ] && [ "$LOCAL_ARCHIVE_SIZE" -gt 0 ] 2>/dev/null; then
+                            echo "   ✅ 壓縮包下載成功"
+                            
+                            # 步驟3: 在本地解壓縮
+                            echo ""
+                            echo "   步驟 3/3: 在本地解壓縮..."
+                            
+                            # 確保目標目錄存在
+                            mkdir -p "$LOCAL_ROUTE_PHOTOS"
+                            
+                            # 解壓縮到臨時目錄，然後移動到目標目錄
+                            TEMP_EXTRACT_DIR="$PROJECT_ROOT/.temp_extract_$$"
+                            mkdir -p "$TEMP_EXTRACT_DIR"
+                            
+                            # 解壓縮
+                            if command -v tar &> /dev/null; then
+                                EXTRACT_OUTPUT=$(tar -xzf "$LOCAL_ARCHIVE" -C "$TEMP_EXTRACT_DIR" 2>&1)
+                                EXTRACT_EXIT_CODE=$?
+                            else
+                                echo "   ❌ 錯誤: 未找到 tar 命令，無法解壓縮"
+                                EXTRACT_EXIT_CODE=1
+                            fi
+                            
+                            if [ $EXTRACT_EXIT_CODE -eq 0 ]; then
+                                # 查找解壓縮後的目錄（可能是 route_photos 或 media/route_photos）
+                                EXTRACTED_DIR=""
+                                if [ -d "$TEMP_EXTRACT_DIR/route_photos" ]; then
+                                    EXTRACTED_DIR="$TEMP_EXTRACT_DIR/route_photos"
+                                elif [ -d "$TEMP_EXTRACT_DIR/media/route_photos" ]; then
+                                    EXTRACTED_DIR="$TEMP_EXTRACT_DIR/media/route_photos"
+                                else
+                                    # 查找任何包含文件的目錄
+                                    EXTRACTED_DIR=$(find "$TEMP_EXTRACT_DIR" -type d -name "route_photos" 2>/dev/null | head -1)
+                                    if [ -z "$EXTRACTED_DIR" ]; then
+                                        # 如果找不到 route_photos 目錄，使用臨時目錄的第一個子目錄
+                                        FIRST_SUBDIR=$(find "$TEMP_EXTRACT_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1)
+                                        if [ -n "$FIRST_SUBDIR" ]; then
+                                            EXTRACTED_DIR="$FIRST_SUBDIR"
+                                        fi
+                                    fi
+                                fi
+                                
+                                if [ -n "$EXTRACTED_DIR" ] && [ -d "$EXTRACTED_DIR" ]; then
+                                    # 清空目標目錄（如果存在）
+                                    if [ -d "$LOCAL_ROUTE_PHOTOS" ]; then
+                                        rm -rf "$LOCAL_ROUTE_PHOTOS"/*
+                                    fi
+                                    # 移動文件（使用 find 來處理可能為空的情況）
+                                    if [ "$(ls -A "$EXTRACTED_DIR" 2>/dev/null)" ]; then
+                                        cp -r "$EXTRACTED_DIR"/* "$LOCAL_ROUTE_PHOTOS/" 2>/dev/null
+                                        if [ $? -eq 0 ]; then
+                                            echo "   ✅ 解壓縮成功"
+                                            SYNC_EXIT_CODE=0
+                                        else
+                                            echo "   ❌ 複製文件失敗"
+                                            SYNC_EXIT_CODE=1
+                                        fi
+                                    else
+                                        echo "   ⚠️  解壓縮目錄為空"
+                                        SYNC_EXIT_CODE=0
+                                    fi
+                                else
+                                    echo "   ❌ 解壓縮目錄結構不正確（未找到 route_photos 目錄）"
+                                    echo "   臨時目錄內容:"
+                                    ls -la "$TEMP_EXTRACT_DIR" 2>/dev/null | sed 's/^/      /' || echo "      無法列出目錄"
+                                    SYNC_EXIT_CODE=1
+                                fi
+                                
+                                # 清理臨時目錄
+                                rm -rf "$TEMP_EXTRACT_DIR"
+                            else
+                                echo "   ❌ 解壓縮失敗"
+                                if [ -n "$EXTRACT_OUTPUT" ]; then
+                                    echo "   錯誤: $(echo "$EXTRACT_OUTPUT" | head -3 | sed 's/^/      /')"
+                                fi
+                                SYNC_EXIT_CODE=1
+                                rm -rf "$TEMP_EXTRACT_DIR"
+                            fi
+                            
+                            # 清理本地壓縮包
+                            rm -f "$LOCAL_ARCHIVE"
+                        else
+                            echo "   ❌ 壓縮包大小不匹配（本地: $LOCAL_ARCHIVE_SIZE vs 遠程: $REMOTE_ARCHIVE_SIZE）"
+                            rm -f "$LOCAL_ARCHIVE"
+                            SYNC_EXIT_CODE=1
+                        fi
+                    fi
+                    
+                    # 清理遠程壓縮包
+                    ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "rm -f '$REMOTE_ARCHIVE'" 2>/dev/null
+                else
+                    echo "   ❌ 壓縮包大小為 0 或無法獲取"
+                    SYNC_EXIT_CODE=1
+                fi
+            fi
+            
+            # 顯示同步結果
+            if [ $SYNC_EXIT_CODE -eq 0 ]; then
+                echo ""
+                echo "✅ route_photos 同步成功！"
+                # 統計同步的文件數量
+                FILE_COUNT=$(find "$LOCAL_ROUTE_PHOTOS" -type f 2>/dev/null | wc -l | tr -d ' ')
+                echo "   文件數量: $FILE_COUNT"
+                
+                # 計算總大小
+                if command -v du &> /dev/null; then
+                    TOTAL_SIZE=$(du -sh "$LOCAL_ROUTE_PHOTOS" 2>/dev/null | cut -f1)
+                    echo "   總大小: $TOTAL_SIZE"
+                fi
+            else
+                echo ""
+                echo "❌ route_photos 同步失敗"
+            fi
+        fi
+        
+        # 保留原有的 rsync 和 scp 代碼作為備用（註釋掉）
+        if false && [ "$USE_RSYNC" = true ]; then
             # 使用 rsync（支持增量同步，更高效，帶進度顯示）
             echo "   使用 rsync 同步（顯示進度）..."
             
