@@ -560,6 +560,8 @@ else
                 if [ -n "$TAR_OUTPUT" ]; then
                     echo "   錯誤: $TAR_OUTPUT"
                 fi
+                # 清理遠程壓縮包（如果存在）
+                ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "rm -f '$REMOTE_ARCHIVE'" 2>/dev/null
                 SYNC_EXIT_CODE=1
             else
                 # 獲取壓縮包大小
@@ -596,6 +598,8 @@ else
                     
                     if [ $DOWNLOAD_EXIT_CODE -ne 0 ] || [ ! -f "$LOCAL_ARCHIVE" ]; then
                         echo "   ❌ 壓縮包下載失敗"
+                        # 清理遠程壓縮包
+                        ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "rm -f '$REMOTE_ARCHIVE'" 2>/dev/null
                         SYNC_EXIT_CODE=1
                     else
                         LOCAL_ARCHIVE_SIZE=$(stat -f%z "$LOCAL_ARCHIVE" 2>/dev/null || stat -c%s "$LOCAL_ARCHIVE" 2>/dev/null || echo "0")
@@ -652,19 +656,27 @@ else
                                         if [ $? -eq 0 ]; then
                                             echo "   ✅ 解壓縮成功"
                                             SYNC_EXIT_CODE=0
+                                            # 清理遠程壓縮包（下載成功後）
+                                            ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "rm -f '$REMOTE_ARCHIVE'" 2>/dev/null
                                         else
                                             echo "   ❌ 複製文件失敗"
                                             SYNC_EXIT_CODE=1
+                                            # 清理遠程壓縮包（即使失敗也要清理）
+                                            ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "rm -f '$REMOTE_ARCHIVE'" 2>/dev/null
                                         fi
                                     else
                                         echo "   ⚠️  解壓縮目錄為空"
                                         SYNC_EXIT_CODE=0
+                                        # 清理遠程壓縮包
+                                        ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "rm -f '$REMOTE_ARCHIVE'" 2>/dev/null
                                     fi
                                 else
                                     echo "   ❌ 解壓縮目錄結構不正確（未找到 route_photos 目錄）"
                                     echo "   臨時目錄內容:"
                                     ls -la "$TEMP_EXTRACT_DIR" 2>/dev/null | sed 's/^/      /' || echo "      無法列出目錄"
                                     SYNC_EXIT_CODE=1
+                                    # 清理遠程壓縮包
+                                    ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "rm -f '$REMOTE_ARCHIVE'" 2>/dev/null
                                 fi
                                 
                                 # 清理臨時目錄
@@ -676,6 +688,8 @@ else
                                 fi
                                 SYNC_EXIT_CODE=1
                                 rm -rf "$TEMP_EXTRACT_DIR"
+                                # 清理遠程壓縮包
+                                ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "rm -f '$REMOTE_ARCHIVE'" 2>/dev/null
                             fi
                             
                             # 清理本地壓縮包
@@ -683,14 +697,15 @@ else
                         else
                             echo "   ❌ 壓縮包大小不匹配（本地: $LOCAL_ARCHIVE_SIZE vs 遠程: $REMOTE_ARCHIVE_SIZE）"
                             rm -f "$LOCAL_ARCHIVE"
+                            # 清理遠程壓縮包
+                            ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "rm -f '$REMOTE_ARCHIVE'" 2>/dev/null
                             SYNC_EXIT_CODE=1
                         fi
                     fi
-                    
-                    # 清理遠程壓縮包
-                    ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "rm -f '$REMOTE_ARCHIVE'" 2>/dev/null
                 else
                     echo "   ❌ 壓縮包大小為 0 或無法獲取"
+                    # 清理遠程壓縮包（如果存在）
+                    ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "rm -f '$REMOTE_ARCHIVE'" 2>/dev/null
                     SYNC_EXIT_CODE=1
                 fi
             fi
@@ -712,270 +727,38 @@ else
                 echo ""
                 echo "❌ route_photos 同步失敗"
             fi
-        fi
-        
-        # 保留原有的 rsync 和 scp 代碼作為備用（註釋掉）
-        if false && [ "$USE_RSYNC" = true ]; then
-            # 使用 rsync（支持增量同步，更高效，帶進度顯示）
-            echo "   使用 rsync 同步（顯示進度）..."
             
-            # 先獲取遠程目錄的總大小和文件數量（用於顯示總體進度）
-            echo "   正在計算需要同步的文件..."
-            REMOTE_TOTAL_SIZE_CMD="du -sb '$REMOTE_ROUTE_PHOTOS' 2>/dev/null | cut -f1"
-            REMOTE_TOTAL_SIZE=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_TOTAL_SIZE_CMD" 2>/dev/null || echo "0")
-            REMOTE_FILE_COUNT_CMD="find '$REMOTE_ROUTE_PHOTOS' -type f 2>/dev/null | wc -l"
-            REMOTE_FILE_COUNT=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_FILE_COUNT_CMD" 2>/dev/null || echo "0")
-            
-            if [ "$REMOTE_TOTAL_SIZE" -gt 0 ] 2>/dev/null && [ "$REMOTE_FILE_COUNT" -gt 0 ] 2>/dev/null; then
-                REMOTE_SIZE_MB=$((REMOTE_TOTAL_SIZE / 1024 / 1024))
-                echo "   總文件數: $REMOTE_FILE_COUNT"
-                echo "   總大小: ${REMOTE_SIZE_MB} MB"
-                echo ""
-            fi
-            
-            # 執行 rsync 並顯示進度
-            # 注意：源路徑帶 / 表示同步目錄內容，目標路徑不帶 / 表示同步到該目錄
-            CURRENT_SIZE=0
-            CURRENT_FILE=0
-            rsync -avz --progress --delete \
-                -e "ssh -i $EC2_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
-                "$EC2_USER@$EC2_HOST:$REMOTE_ROUTE_PHOTOS/" \
-                "$LOCAL_ROUTE_PHOTOS" 2>&1 | \
-                while IFS= read -r line; do
-                    # 顯示文件傳輸進度
-                    if [[ "$line" =~ ^[a-zA-Z0-9_/.-]+[[:space:]]+[0-9]+%[[:space:]]+[0-9]+\.[0-9]+[KMGT]?B/s ]]; then
-                        # 文件級別的進度
-                        echo "   $line"
-                    elif [[ "$line" =~ ^[0-9]+/[0-9]+[[:space:]]+[0-9]+% ]] || [[ "$line" =~ ^[0-9]+% ]]; then
-                        # 百分比進度
-                        echo "   $line"
-                    elif [[ "$line" =~ ^[0-9]+\.[0-9]+[KMGT]?B/s ]]; then
-                        # 速度信息
-                        echo "   速度: $line"
-                    elif [[ "$line" =~ ^[a-zA-Z] ]] && [[ ! "$line" =~ ^(sending|receiving|building|deleting) ]]; then
-                        # 文件名信息
-                        echo "   $line"
+            # 同步完成後清理本地臨時壓縮包和臨時目錄
+            echo ""
+            echo "   清理本地臨時文件..."
+            ARCHIVE_COUNT=0
+            if [ -d "$PROJECT_ROOT" ]; then
+                # 清理所有臨時壓縮包文件（包括當前和下載失敗留下的）
+                for old_file in "$PROJECT_ROOT"/route_photos_*.tar.gz; do
+                    if [ -f "$old_file" ]; then
+                        rm -f "$old_file" 2>/dev/null
+                        ARCHIVE_COUNT=$((ARCHIVE_COUNT + 1))
                     fi
                 done
-            SYNC_EXIT_CODE=${PIPESTATUS[0]}
-            RSYNC_OUTPUT=""
-            
-            if [ $SYNC_EXIT_CODE -eq 0 ]; then
-                echo ""
-                echo "✅ route_photos 同步成功！"
-                # 統計同步的文件數量
-                FILE_COUNT=$(find "$LOCAL_ROUTE_PHOTOS" -type f 2>/dev/null | wc -l | tr -d ' ')
-                echo "   文件數量: $FILE_COUNT"
-                
-                # 計算總大小
-                if command -v du &> /dev/null; then
-                    TOTAL_SIZE=$(du -sh "$LOCAL_ROUTE_PHOTOS" 2>/dev/null | cut -f1)
-                    echo "   總大小: $TOTAL_SIZE"
-                fi
-            else
-                echo ""
-                echo "❌ route_photos 同步失敗，退出代碼: $SYNC_EXIT_CODE"
-                if [ -n "$RSYNC_OUTPUT" ]; then
-                    echo "   RSYNC 錯誤輸出:"
-                    echo "$RSYNC_OUTPUT" | sed 's/^/   /'
-                fi
-            fi
-        else
-            # 使用 scp（備用方案，添加進度顯示）
-            echo "   使用 scp 同步（顯示進度）..."
-            
-            # 先獲取遠程文件列表和總大小
-            echo "   正在獲取文件列表..."
-            # 使用 find -print0 和 null 分隔符來處理包含空格或特殊字符的文件名
-            REMOTE_FILES_CMD="find '$REMOTE_ROUTE_PHOTOS' -type f -print0 2>/dev/null"
-            
-            # 創建臨時文件來存儲文件列表（兼容 Windows 和 Linux）
-            if command -v mktemp &> /dev/null; then
-                TEMP_FILE_LIST=$(mktemp)
-            else
-                # Windows 環境下使用項目目錄
-                TEMP_FILE_LIST="$PROJECT_ROOT/.sync_file_list_$$"
-            fi
-            ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_FILES_CMD" > "$TEMP_FILE_LIST" 2>/dev/null
-            
-            # 計算文件數量（使用 null 分隔符）
-            REMOTE_FILE_COUNT=0
-            if [ -s "$TEMP_FILE_LIST" ]; then
-                REMOTE_FILE_COUNT=$(tr '\0' '\n' < "$TEMP_FILE_LIST" | grep -v '^$' | wc -l | tr -d ' ')
-            fi
-            
-            if [ "$REMOTE_FILE_COUNT" = "0" ] || [ -z "$REMOTE_FILE_COUNT" ]; then
-                echo "   ⚠️  警告: 遠程目錄為空或無法讀取文件列表"
-                rm -f "$TEMP_FILE_LIST"
-                SYNC_EXIT_CODE=1
-            else
-                # 計算總大小
-                REMOTE_TOTAL_SIZE=0
-                while IFS= read -r -d '' remote_file; do
-                    [ -z "$remote_file" ] && continue
-                    # 使用 printf %q 來正確轉義文件路徑
-                    ESCAPED_FILE=$(printf '%q' "$remote_file")
-                    SIZE_CMD="stat -c%s $ESCAPED_FILE 2>/dev/null || stat -f%z $ESCAPED_FILE 2>/dev/null || echo '0'"
-                    FILE_SIZE=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$SIZE_CMD" 2>/dev/null || echo "0")
-                    REMOTE_TOTAL_SIZE=$((REMOTE_TOTAL_SIZE + FILE_SIZE))
-                done < "$TEMP_FILE_LIST"
-                
-                if [ "$REMOTE_TOTAL_SIZE" -gt 0 ] 2>/dev/null && [ "$REMOTE_FILE_COUNT" -gt 0 ] 2>/dev/null; then
-                    REMOTE_SIZE_MB=$((REMOTE_TOTAL_SIZE / 1024 / 1024))
-                    echo "   總文件數: $REMOTE_FILE_COUNT"
-                    echo "   總大小: ${REMOTE_SIZE_MB} MB"
-                    echo ""
+                if [ $ARCHIVE_COUNT -gt 0 ]; then
+                    echo "   ✅ 已清理 $ARCHIVE_COUNT 個臨時壓縮包文件"
                 fi
                 
-                # 逐個文件下載並顯示進度
-                CURRENT_FILE=0
-                CURRENT_SIZE=0
-                SYNC_EXIT_CODE=0
-                FAILED_FILES=()
-                SUCCESS_COUNT=0
-                SKIP_COUNT=0
-                
-                # 重新讀取文件列表（確保從頭開始）
-                # 使用重定向而不是管道，避免子shell問題
-                exec 3< "$TEMP_FILE_LIST"
-                while IFS= read -r -d '' remote_file <&3 || [ -n "$remote_file" ]; do
-                    # 跳過空行
-                    [ -z "$remote_file" ] && continue
-                    
-                    CURRENT_FILE=$((CURRENT_FILE + 1))
-                    
-                    # 計算相對路徑（移除遠程路徑前綴）
-                    # 處理可能的尾隨斜杠
-                    REMOTE_PREFIX="${REMOTE_ROUTE_PHOTOS%/}"
-                    RELATIVE_PATH="${remote_file#$REMOTE_PREFIX/}"
-                    # 如果移除前綴後路徑未改變，說明路徑不匹配，使用完整路徑的basename
-                    if [ "$RELATIVE_PATH" = "$remote_file" ]; then
-                        RELATIVE_PATH=$(basename "$remote_file")
-                    fi
-                    LOCAL_FILE="$LOCAL_ROUTE_PHOTOS/$RELATIVE_PATH"
-                    LOCAL_DIR=$(dirname "$LOCAL_FILE")
-                    mkdir -p "$LOCAL_DIR"
-                    
-                    # 使用 printf %q 來正確轉義文件路徑
-                    ESCAPED_REMOTE_FILE=$(printf '%q' "$remote_file")
-                    
-                    # 獲取文件大小
-                    SIZE_CMD="stat -c%s $ESCAPED_REMOTE_FILE 2>/dev/null || stat -f%z $ESCAPED_REMOTE_FILE 2>/dev/null || echo '0'"
-                    FILE_SIZE=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$SIZE_CMD" 2>/dev/null || echo "0")
-                    
-                    # 如果無法獲取文件大小，跳過該文件並記錄
-                    if [ "$FILE_SIZE" = "0" ] || [ -z "$FILE_SIZE" ]; then
-                        FILE_NAME=$(basename "$remote_file")
-                        printf "   [%d/%d] %s - ⚠️  跳過（無法獲取文件大小或文件為空）\n" "$CURRENT_FILE" "$REMOTE_FILE_COUNT" "$FILE_NAME"
-                        SKIP_COUNT=$((SKIP_COUNT + 1))
-                        FAILED_FILES+=("$remote_file (無法獲取文件大小)")
-                        SYNC_EXIT_CODE=1
-                        continue
-                    fi
-                    
-                    # 顯示文件名和進度
-                    FILE_NAME=$(basename "$remote_file")
-                    printf "   [%d/%d] %s" "$CURRENT_FILE" "$REMOTE_FILE_COUNT" "$FILE_NAME"
-                    
-                    # 下載文件並顯示進度
-                    FILE_EXIT_CODE=1
-                    DOWNLOAD_ERROR=""
-                    
-                    if command -v pv &> /dev/null && [ "$FILE_SIZE" != "0" ] && [ "$FILE_SIZE" -gt 0 ] 2>/dev/null; then
-                        # 使用 pv 顯示進度條
-                        # pv 的進度信息會顯示在 stderr，文件內容寫入文件
-                        # 創建臨時文件來捕獲錯誤
-                        TEMP_ERROR_FILE=$(mktemp 2>/dev/null || echo "$PROJECT_ROOT/.sync_error_$$")
-                        ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "cat $ESCAPED_REMOTE_FILE" 2>"$TEMP_ERROR_FILE" | \
-                            pv -s "$FILE_SIZE" -p -t -e -r -b > "$LOCAL_FILE" 2>&1
-                        FILE_EXIT_CODE=$?
-                        # 讀取錯誤輸出
-                        if [ -s "$TEMP_ERROR_FILE" ]; then
-                            DOWNLOAD_OUTPUT=$(cat "$TEMP_ERROR_FILE")
-                        else
-                            DOWNLOAD_OUTPUT=""
-                        fi
-                        rm -f "$TEMP_ERROR_FILE"
-                    else
-                        # 使用 scp 下載（保留錯誤輸出用於調試）
-                        DOWNLOAD_OUTPUT=$(scp -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                            "$EC2_USER@$EC2_HOST:$ESCAPED_REMOTE_FILE" "$LOCAL_FILE" 2>&1)
-                        FILE_EXIT_CODE=$?
-                    fi
-                    
-                    # 驗證下載的文件是否存在且大小正確
-                    if [ $FILE_EXIT_CODE -eq 0 ] && [ -f "$LOCAL_FILE" ]; then
-                        LOCAL_FILE_SIZE=$(stat -f%z "$LOCAL_FILE" 2>/dev/null || stat -c%s "$LOCAL_FILE" 2>/dev/null || echo "0")
-                        if [ "$LOCAL_FILE_SIZE" = "$FILE_SIZE" ] && [ "$FILE_SIZE" != "0" ] && [ "$LOCAL_FILE_SIZE" != "0" ]; then
-                            CURRENT_SIZE=$((CURRENT_SIZE + FILE_SIZE))
-                            SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
-                            if [ "$REMOTE_TOTAL_SIZE" -gt 0 ] 2>/dev/null; then
-                                PERCENT=$((CURRENT_SIZE * 100 / REMOTE_TOTAL_SIZE))
-                                if [ $PERCENT -gt 100 ]; then
-                                    PERCENT=100
-                                fi
-                                FILE_SIZE_KB=$((FILE_SIZE / 1024))
-                                printf " - %d KB - 總進度: %d%%\n" "$FILE_SIZE_KB" "$PERCENT"
-                            else
-                                FILE_SIZE_KB=$((FILE_SIZE / 1024))
-                                printf " - %d KB\n" "$FILE_SIZE_KB"
-                            fi
-                        else
-                            echo " - ❌ 下載失敗（文件大小不匹配：本地 $LOCAL_FILE_SIZE vs 遠程 $FILE_SIZE）"
-                            FAILED_FILES+=("$remote_file")
-                            SYNC_EXIT_CODE=1
-                        fi
-                    else
-                        echo " - ❌ 下載失敗"
-                        if [ -n "$DOWNLOAD_OUTPUT" ]; then
-                            echo "      錯誤: $(echo "$DOWNLOAD_OUTPUT" | head -1 | sed 's/^[[:space:]]*//')"
-                        fi
-                        FAILED_FILES+=("$remote_file")
-                        SYNC_EXIT_CODE=1
+                # 清理所有臨時解壓目錄（包括當前和之前失敗留下的）
+                DIR_COUNT=0
+                for old_dir in "$PROJECT_ROOT"/.temp_extract_*; do
+                    if [ -d "$old_dir" ]; then
+                        rm -rf "$old_dir" 2>/dev/null
+                        DIR_COUNT=$((DIR_COUNT + 1))
                     fi
                 done
-                exec 3<&-
-                
-                # 清理臨時文件
-                rm -f "$TEMP_FILE_LIST"
-                
-                # 顯示同步統計
-                echo ""
-                echo "   同步統計："
-                echo "     總文件數: $REMOTE_FILE_COUNT"
-                echo "     成功下載: $SUCCESS_COUNT"
-                if [ $SKIP_COUNT -gt 0 ]; then
-                    echo "     跳過文件: $SKIP_COUNT"
-                fi
-                if [ ${#FAILED_FILES[@]} -gt 0 ]; then
-                    echo "     失敗文件: ${#FAILED_FILES[@]}"
+                if [ $DIR_COUNT -gt 0 ]; then
+                    echo "   ✅ 已清理 $DIR_COUNT 個臨時解壓目錄"
                 fi
                 
-                # 如果有失敗的文件，顯示列表
-                if [ ${#FAILED_FILES[@]} -gt 0 ]; then
-                    echo ""
-                    echo "   ⚠️  以下文件下載失敗（共 ${#FAILED_FILES[@]} 個）："
-                    for failed_file in "${FAILED_FILES[@]}"; do
-                        echo "      - $failed_file"
-                    done
+                if [ $ARCHIVE_COUNT -eq 0 ] && [ $DIR_COUNT -eq 0 ]; then
+                    echo "   ℹ️  沒有需要清理的臨時文件"
                 fi
-            fi
-            
-            if [ $SYNC_EXIT_CODE -eq 0 ]; then
-                echo ""
-                echo "✅ route_photos 同步成功！"
-                # 統計同步的文件數量
-                FILE_COUNT=$(find "$LOCAL_ROUTE_PHOTOS" -type f 2>/dev/null | wc -l | tr -d ' ')
-                echo "   文件數量: $FILE_COUNT"
-                
-                # 計算總大小
-                if command -v du &> /dev/null; then
-                    TOTAL_SIZE=$(du -sh "$LOCAL_ROUTE_PHOTOS" 2>/dev/null | cut -f1)
-                    echo "   總大小: $TOTAL_SIZE"
-                fi
-            else
-                echo ""
-                echo "❌ route_photos 同步失敗，退出代碼: $SYNC_EXIT_CODE"
             fi
         fi
     else
