@@ -212,10 +212,22 @@ class RouteViewSet(viewsets.ModelViewSet):
             
             # 在複製 request.data 之前，先處理文件對象（避免 pickle 錯誤）
             # 如果直接使用 request.data.copy()，Django 會嘗試深拷貝，導致 BufferedRandom 無法序列化
+            # 需要同時支持 JSON 格式（普通字典）和 FormData 格式（QueryDict）
+            from django.http import QueryDict
+            
             data = {}
+            # 檢查 request.data 是 QueryDict（FormData）還是普通字典（JSON）
+            is_querydict = isinstance(request.data, QueryDict)
+            
             for key in request.data.keys():
                 # QueryDict 的 getlist 方法可以獲取所有值（包括列表）
-                values = request.data.getlist(key)
+                # 如果是普通字典，直接獲取值
+                if is_querydict:
+                    values = request.data.getlist(key)
+                else:
+                    # JSON 格式：直接獲取值，如果是列表則保持列表，否則包裝成列表以便統一處理
+                    value = request.data.get(key)
+                    values = [value] if value is not None else []
                 
                 # 如果是文件對象（photo 字段），只取第一個值並轉換
                 if key == 'photo' and values:
@@ -245,11 +257,23 @@ class RouteViewSet(viewsets.ModelViewSet):
             # 清理用戶輸入，防止 XSS
             if 'name' in data:
                 original_name = data['name']
-                data['name'] = escape(data['name'])
+                # 確保 name 是字符串（如果是列表，取第一個元素）
+                if isinstance(original_name, list):
+                    original_name = original_name[0] if len(original_name) > 0 else ''
+                if isinstance(original_name, str):
+                    data['name'] = escape(original_name)
+                else:
+                    data['name'] = str(original_name)
                 logger.debug(f"[RouteViewSet.update] 清理路線名稱: '{original_name}' -> '{data['name']}'")
             if 'grade' in data:
                 original_grade = data['grade']
-                data['grade'] = escape(data['grade'])
+                # 確保 grade 是字符串（如果是列表，取第一個元素）
+                if isinstance(original_grade, list):
+                    original_grade = original_grade[0] if len(original_grade) > 0 else ''
+                if isinstance(original_grade, str):
+                    data['grade'] = escape(original_grade)
+                else:
+                    data['grade'] = str(original_grade)
                 logger.debug(f"[RouteViewSet.update] 清理難度等級: '{original_grade}' -> '{data['grade']}'")
             
             # 處理 member_completions：FormData 可能將值作為列表傳遞（QueryDict），取第一個元素
