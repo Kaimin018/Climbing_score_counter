@@ -183,27 +183,45 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'detailed': {
+            'format': '{levelname} {asctime} {name} {pathname}:{lineno} {funcName}() {process:d} {thread:d}\n{message}',
+            'style': '{',
+        },
+        'exception': {
+            'format': '{levelname} {asctime} {name} {pathname}:{lineno} {funcName}() {process:d} {thread:d}\n{message}\n{exc_info}',
             'style': '{',
         },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+            'formatter': 'detailed',
+            'level': 'DEBUG',
         },
     },
     'loggers': {
         'scoring': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'DEBUG',  # 改為 DEBUG 以顯示所有日誌
             'propagate': False,
         },
         'django': {
             'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
     },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
     },
 }
 
@@ -217,7 +235,8 @@ if not DEBUG:
         LOGGING['handlers']['file'] = {
             'class': 'logging.FileHandler',
             'filename': logs_dir / 'django.log',
-            'formatter': 'verbose',
+            'formatter': 'detailed',
+            'level': 'DEBUG',
         }
         
         # 為生產環境添加文件日誌處理器

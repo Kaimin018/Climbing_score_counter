@@ -295,11 +295,50 @@ class RouteViewSet(viewsets.ModelViewSet):
             return Response(route_serializer.data)
             
         except Exception as e:
+            import traceback
+            import sys
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            
             logger.exception(f"[RouteViewSet.update] 更新路線時發生未預期的錯誤！路線 ID: {route_id}")
             logger.error(f"[RouteViewSet.update] 錯誤類型: {type(e).__name__}")
             logger.error(f"[RouteViewSet.update] 錯誤信息: {str(e)}")
-            import traceback
-            logger.error(f"[RouteViewSet.update] 錯誤堆棧:\n{traceback.format_exc()}")
+            logger.error(f"[RouteViewSet.update] 錯誤模塊: {type(e).__module__}")
+            logger.error(f"[RouteViewSet.update] 錯誤文件: {exc_traceback.tb_frame.f_code.co_filename if exc_traceback else 'N/A'}")
+            logger.error(f"[RouteViewSet.update] 錯誤行號: {exc_traceback.tb_lineno if exc_traceback else 'N/A'}")
+            
+            # 記錄完整的堆棧跟踪
+            full_traceback = traceback.format_exception(exc_type, exc_value, exc_traceback)
+            logger.error(f"[RouteViewSet.update] 完整錯誤堆棧:\n{''.join(full_traceback)}")
+            
+            # 記錄所有堆棧幀
+            if exc_traceback:
+                logger.error(f"[RouteViewSet.update] 堆棧幀詳情:")
+                frame = exc_traceback
+                frame_num = 0
+                while frame:
+                    logger.error(f"  幀 {frame_num}: {frame.tb_frame.f_code.co_filename}:{frame.tb_lineno} in {frame.tb_frame.f_code.co_name}")
+                    # 記錄局部變量（如果可能）
+                    try:
+                        local_vars = frame.tb_frame.f_locals
+                        if 'photo' in local_vars:
+                            photo_obj = local_vars['photo']
+                            logger.error(f"    局部變量 'photo': 類型={type(photo_obj)}, 名稱={getattr(photo_obj, 'name', 'N/A')}")
+                        if 'validated_data' in local_vars:
+                            logger.error(f"    局部變量 'validated_data': 鍵={list(local_vars['validated_data'].keys())}")
+                    except:
+                        pass
+                    frame = frame.tb_next
+                    frame_num += 1
+                    if frame_num > 50:  # 限制最多50個幀
+                        logger.error(f"  ... (還有更多幀)")
+                        break
+            
+            # 檢查是否為 pickle 錯誤
+            if 'pickle' in str(e).lower() or 'BufferedRandom' in str(e) or 'BufferedReader' in str(e):
+                logger.critical(f"[RouteViewSet.update] ⚠️ 檢測到 PICKLE 錯誤！")
+                logger.critical(f"[RouteViewSet.update] 這通常發生在嘗試序列化 BufferedRandom 或 BufferedReader 對象時")
+                logger.critical(f"[RouteViewSet.update] 請檢查文件對象是否在保存前被正確轉換為 InMemoryUploadedFile")
+            
             return Response(
                 {'detail': f'更新路線時發生錯誤: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR

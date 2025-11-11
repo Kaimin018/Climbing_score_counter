@@ -645,16 +645,101 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                     logger.debug(f"[RouteCreateSerializer.create] 文件對象類型正常，直接使用")
                     route.photo = photo_data
             except Exception as e:
-                logger.exception(f"[RouteCreateSerializer.create] 處理照片文件時發生錯誤")
-                logger.error(f"[RouteCreateSerializer.create] 錯誤類型: {type(e).__name__}, 錯誤信息: {str(e)}")
                 import traceback
-                logger.error(f"[RouteCreateSerializer.create] 錯誤堆棧:\n{traceback.format_exc()}")
+                import sys
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                
+                logger.exception(f"[RouteCreateSerializer.create] 處理照片文件時發生錯誤")
+                logger.error(f"[RouteCreateSerializer.create] 錯誤類型: {type(e).__name__}")
+                logger.error(f"[RouteCreateSerializer.create] 錯誤信息: {str(e)}")
+                logger.error(f"[RouteCreateSerializer.create] 錯誤模塊: {type(e).__module__}")
+                logger.error(f"[RouteCreateSerializer.create] 錯誤文件: {exc_traceback.tb_frame.f_code.co_filename if exc_traceback else 'N/A'}")
+                logger.error(f"[RouteCreateSerializer.create] 錯誤行號: {exc_traceback.tb_lineno if exc_traceback else 'N/A'}")
+                
+                # 記錄完整的堆棧跟踪
+                full_traceback = traceback.format_exception(exc_type, exc_value, exc_traceback)
+                logger.error(f"[RouteCreateSerializer.create] 完整錯誤堆棧:\n{''.join(full_traceback)}")
+                
+                # 記錄所有堆棧幀
+                if exc_traceback:
+                    logger.error(f"[RouteCreateSerializer.create] 堆棧幀詳情:")
+                    frame = exc_traceback
+                    frame_num = 0
+                    while frame:
+                        logger.error(f"  幀 {frame_num}: {frame.tb_frame.f_code.co_filename}:{frame.tb_lineno} in {frame.tb_frame.f_code.co_name}")
+                        frame = frame.tb_next
+                        frame_num += 1
+                        if frame_num > 50:  # 限制最多50個幀
+                            logger.error(f"  ... (還有更多幀)")
+                            break
+                
+                # 檢查是否為 pickle 錯誤
+                if 'pickle' in str(e).lower() or 'BufferedRandom' in str(e) or 'BufferedReader' in str(e):
+                    logger.critical(f"[RouteCreateSerializer.create] ⚠️ 檢測到 PICKLE 錯誤！")
+                    logger.critical(f"[RouteCreateSerializer.create] 文件對象類型: {type(photo_data)}")
+                    if hasattr(photo_data, 'file'):
+                        logger.critical(f"[RouteCreateSerializer.create] 內部文件對象類型: {type(photo_data.file)}")
+                    logger.critical(f"[RouteCreateSerializer.create] 文件對象屬性: {dir(photo_data)}")
+                
                 # 如果處理失敗，仍然嘗試使用原始文件對象
                 route.photo = photo_data
             
             # 使用路線的 ID 來處理照片上傳
             # route_photo_upload_path 現在可以使用 route.id 而不是 'new'
-            route.save()
+            try:
+                logger.debug(f"[RouteCreateSerializer.create] 準備保存路線，ID: {route.id}")
+                logger.debug(f"[RouteCreateSerializer.create] 路線照片字段類型: {type(route.photo) if route.photo else 'None'}")
+                if route.photo:
+                    logger.debug(f"[RouteCreateSerializer.create] 路線照片名稱: {getattr(route.photo, 'name', 'N/A')}")
+                    logger.debug(f"[RouteCreateSerializer.create] 路線照片大小: {getattr(route.photo, 'size', 'N/A')}")
+                    # 檢查照片對象的內部文件對象
+                    if hasattr(route.photo, 'file'):
+                        logger.debug(f"[RouteCreateSerializer.create] 路線照片內部文件對象類型: {type(route.photo.file)}")
+                        import io
+                        if isinstance(route.photo.file, io.BufferedRandom) or isinstance(route.photo.file, io.BufferedReader):
+                            logger.critical(f"[RouteCreateSerializer.create] ⚠️ 警告：照片文件對象仍然是 BufferedRandom/BufferedReader！這會導致 pickle 錯誤！")
+                            logger.critical(f"[RouteCreateSerializer.create] 需要立即轉換為 InMemoryUploadedFile")
+                
+                route.save()
+                logger.debug(f"[RouteCreateSerializer.create] 路線保存成功")
+            except Exception as save_error:
+                import traceback
+                import sys
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                
+                logger.critical(f"[RouteCreateSerializer.create] ⚠️ 保存路線時發生錯誤！")
+                logger.critical(f"[RouteCreateSerializer.create] 錯誤類型: {type(save_error).__name__}")
+                logger.critical(f"[RouteCreateSerializer.create] 錯誤信息: {str(save_error)}")
+                
+                # 記錄完整的堆棧跟踪
+                full_traceback = traceback.format_exception(exc_type, exc_value, exc_traceback)
+                logger.critical(f"[RouteCreateSerializer.create] 完整錯誤堆棧:\n{''.join(full_traceback)}")
+                
+                # 記錄所有堆棧幀
+                if exc_traceback:
+                    logger.critical(f"[RouteCreateSerializer.create] 堆棧幀詳情:")
+                    frame = exc_traceback
+                    frame_num = 0
+                    while frame:
+                        logger.critical(f"  幀 {frame_num}: {frame.tb_frame.f_code.co_filename}:{frame.tb_lineno} in {frame.tb_frame.f_code.co_name}")
+                        frame = frame.tb_next
+                        frame_num += 1
+                        if frame_num > 50:
+                            logger.critical(f"  ... (還有更多幀)")
+                            break
+                
+                # 檢查是否為 pickle 錯誤
+                if 'pickle' in str(save_error).lower():
+                    logger.critical(f"[RouteCreateSerializer.create] ⚠️⚠️⚠️ 確認是 PICKLE 錯誤！⚠️⚠️⚠️")
+                    logger.critical(f"[RouteCreateSerializer.create] 這通常發生在 Django 嘗試序列化文件對象時")
+                    logger.critical(f"[RouteCreateSerializer.create] 當前照片對象類型: {type(route.photo) if route.photo else 'None'}")
+                    if route.photo:
+                        logger.critical(f"[RouteCreateSerializer.create] 照片對象屬性: {[attr for attr in dir(route.photo) if not attr.startswith('_')]}")
+                        if hasattr(route.photo, 'file'):
+                            logger.critical(f"[RouteCreateSerializer.create] 照片內部文件對象類型: {type(route.photo.file)}")
+                            logger.critical(f"[RouteCreateSerializer.create] 這就是問題所在！需要轉換為 InMemoryUploadedFile")
+                
+                raise  # 重新拋出異常
         
         # 批量創建所有成員的 Score 記錄
         members = room.members.all()
@@ -889,10 +974,42 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
                         logger.debug(f"[RouteUpdateSerializer.update] 文件對象類型正常，直接使用")
                         instance.photo = photo
                 except Exception as e:
-                    logger.exception(f"[RouteUpdateSerializer.update] 處理照片文件時發生錯誤")
-                    logger.error(f"[RouteUpdateSerializer.update] 錯誤類型: {type(e).__name__}, 錯誤信息: {str(e)}")
                     import traceback
-                    logger.error(f"[RouteUpdateSerializer.update] 錯誤堆棧:\n{traceback.format_exc()}")
+                    import sys
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    
+                    logger.exception(f"[RouteUpdateSerializer.update] 處理照片文件時發生錯誤")
+                    logger.error(f"[RouteUpdateSerializer.update] 錯誤類型: {type(e).__name__}")
+                    logger.error(f"[RouteUpdateSerializer.update] 錯誤信息: {str(e)}")
+                    logger.error(f"[RouteUpdateSerializer.update] 錯誤模塊: {type(e).__module__}")
+                    logger.error(f"[RouteUpdateSerializer.update] 錯誤文件: {exc_traceback.tb_frame.f_code.co_filename if exc_traceback else 'N/A'}")
+                    logger.error(f"[RouteUpdateSerializer.update] 錯誤行號: {exc_traceback.tb_lineno if exc_traceback else 'N/A'}")
+                    
+                    # 記錄完整的堆棧跟踪
+                    full_traceback = traceback.format_exception(exc_type, exc_value, exc_traceback)
+                    logger.error(f"[RouteUpdateSerializer.update] 完整錯誤堆棧:\n{''.join(full_traceback)}")
+                    
+                    # 記錄所有堆棧幀
+                    if exc_traceback:
+                        logger.error(f"[RouteUpdateSerializer.update] 堆棧幀詳情:")
+                        frame = exc_traceback
+                        frame_num = 0
+                        while frame:
+                            logger.error(f"  幀 {frame_num}: {frame.tb_frame.f_code.co_filename}:{frame.tb_lineno} in {frame.tb_frame.f_code.co_name}")
+                            frame = frame.tb_next
+                            frame_num += 1
+                            if frame_num > 50:  # 限制最多50個幀
+                                logger.error(f"  ... (還有更多幀)")
+                                break
+                    
+                    # 檢查是否為 pickle 錯誤
+                    if 'pickle' in str(e).lower() or 'BufferedRandom' in str(e) or 'BufferedReader' in str(e):
+                        logger.critical(f"[RouteUpdateSerializer.update] ⚠️ 檢測到 PICKLE 錯誤！")
+                        logger.critical(f"[RouteUpdateSerializer.update] 文件對象類型: {type(photo)}")
+                        if hasattr(photo, 'file'):
+                            logger.critical(f"[RouteUpdateSerializer.update] 內部文件對象類型: {type(photo.file)}")
+                        logger.critical(f"[RouteUpdateSerializer.update] 文件對象屬性: {dir(photo)}")
+                    
                     # 如果處理失敗，仍然嘗試使用原始文件對象
                     instance.photo = photo
             else:
@@ -903,7 +1020,62 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
             photo_url_value = validated_data.get('photo_url')
             # 確保空字符串被正確處理（URLField 允許 blank=True）
             instance.photo_url = photo_url_value if photo_url_value else ''
-        instance.save()
+        
+        # 保存更新後的路線
+        try:
+            logger.debug(f"[RouteUpdateSerializer.update] 準備保存路線，ID: {instance.id}")
+            logger.debug(f"[RouteUpdateSerializer.update] 路線照片字段類型: {type(instance.photo) if instance.photo else 'None'}")
+            if instance.photo:
+                logger.debug(f"[RouteUpdateSerializer.update] 路線照片名稱: {getattr(instance.photo, 'name', 'N/A')}")
+                logger.debug(f"[RouteUpdateSerializer.update] 路線照片大小: {getattr(instance.photo, 'size', 'N/A')}")
+                # 檢查照片對象的內部文件對象
+                if hasattr(instance.photo, 'file'):
+                    logger.debug(f"[RouteUpdateSerializer.update] 路線照片內部文件對象類型: {type(instance.photo.file)}")
+                    import io
+                    if isinstance(instance.photo.file, io.BufferedRandom) or isinstance(instance.photo.file, io.BufferedReader):
+                        logger.critical(f"[RouteUpdateSerializer.update] ⚠️ 警告：照片文件對象仍然是 BufferedRandom/BufferedReader！這會導致 pickle 錯誤！")
+                        logger.critical(f"[RouteUpdateSerializer.update] 需要立即轉換為 InMemoryUploadedFile")
+            
+            instance.save()
+            logger.debug(f"[RouteUpdateSerializer.update] 路線保存成功")
+        except Exception as save_error:
+            import traceback
+            import sys
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            
+            logger.critical(f"[RouteUpdateSerializer.update] ⚠️ 保存路線時發生錯誤！")
+            logger.critical(f"[RouteUpdateSerializer.update] 錯誤類型: {type(save_error).__name__}")
+            logger.critical(f"[RouteUpdateSerializer.update] 錯誤信息: {str(save_error)}")
+            
+            # 記錄完整的堆棧跟踪
+            full_traceback = traceback.format_exception(exc_type, exc_value, exc_traceback)
+            logger.critical(f"[RouteUpdateSerializer.update] 完整錯誤堆棧:\n{''.join(full_traceback)}")
+            
+            # 記錄所有堆棧幀
+            if exc_traceback:
+                logger.critical(f"[RouteUpdateSerializer.update] 堆棧幀詳情:")
+                frame = exc_traceback
+                frame_num = 0
+                while frame:
+                    logger.critical(f"  幀 {frame_num}: {frame.tb_frame.f_code.co_filename}:{frame.tb_lineno} in {frame.tb_frame.f_code.co_name}")
+                    frame = frame.tb_next
+                    frame_num += 1
+                    if frame_num > 50:
+                        logger.critical(f"  ... (還有更多幀)")
+                        break
+            
+            # 檢查是否為 pickle 錯誤
+            if 'pickle' in str(save_error).lower():
+                logger.critical(f"[RouteUpdateSerializer.update] ⚠️⚠️⚠️ 確認是 PICKLE 錯誤！⚠️⚠️⚠️")
+                logger.critical(f"[RouteUpdateSerializer.update] 這通常發生在 Django 嘗試序列化文件對象時")
+                logger.critical(f"[RouteUpdateSerializer.update] 當前照片對象類型: {type(instance.photo) if instance.photo else 'None'}")
+                if instance.photo:
+                    logger.critical(f"[RouteUpdateSerializer.update] 照片對象屬性: {[attr for attr in dir(instance.photo) if not attr.startswith('_')]}")
+                    if hasattr(instance.photo, 'file'):
+                        logger.critical(f"[RouteUpdateSerializer.update] 照片內部文件對象類型: {type(instance.photo.file)}")
+                        logger.critical(f"[RouteUpdateSerializer.update] 這就是問題所在！需要轉換為 InMemoryUploadedFile")
+            
+            raise  # 重新拋出異常
         
         # 如果提供了成員完成狀態，批量更新
         if member_completions is not None:
