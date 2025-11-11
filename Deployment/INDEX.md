@@ -77,6 +77,7 @@
 
 ### 🤖 CI/CD 自动部署
 
+- **[docs/guides/GITHUB_SECRETS_SETUP.md](docs/guides/GITHUB_SECRETS_SETUP.md)** - **GitHub Secrets 配置指南**（必读！如何安全配置敏感信息）
 - **[docs/guides/DEPLOYMENT_CI_CD.md](docs/guides/DEPLOYMENT_CI_CD.md)** - GitHub Actions 自动部署设置
 - **[docs/guides/DEPLOYMENT_CHANGES.md](docs/guides/DEPLOYMENT_CHANGES.md)** - 部署变更记录
 

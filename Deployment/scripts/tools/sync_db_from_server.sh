@@ -396,74 +396,115 @@ else
     # ============================================
     echo ""
     echo "比較本地和遠程媒體庫..."
-    NEED_MEDIA_UPDATE=true
     
-    # 確保 UNIFIED_BACKUP_DIR 已定義（如果數據庫不需要更新，則創建新的備份目錄）
-    if [ -z "$UNIFIED_BACKUP_DIR" ] || [ ! -d "$UNIFIED_BACKUP_DIR" ]; then
-        BACKUP_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-        UNIFIED_BACKUP_DIR="$BACKUP_DIR/local_backup_$BACKUP_TIMESTAMP"
-        mkdir -p "$UNIFIED_BACKUP_DIR"
-    fi
-    
-    if [ "$USE_RSYNC" = true ]; then
-        # 使用 rsync dry-run 檢查是否有差異
-        echo "   使用 rsync dry-run 檢查差異..."
-        RSYNC_CHECK_OUTPUT=$(rsync -avzn --delete \
-            -e "ssh -i $EC2_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
-            "$EC2_USER@$EC2_HOST:$REMOTE_ROUTE_PHOTOS/" \
-            "$LOCAL_ROUTE_PHOTOS" 2>&1)
-        RSYNC_CHECK_EXIT_CODE=$?
-        
-        # 檢查輸出中是否有文件變更（rsync dry-run 會列出需要同步的文件）
-        if [ $RSYNC_CHECK_EXIT_CODE -eq 0 ]; then
-            # 過濾掉目錄信息和空行，只檢查實際的文件變更
-            FILE_CHANGES=$(echo "$RSYNC_CHECK_OUTPUT" | grep -E "^[^d].*[^/]$" | grep -v "^$" | wc -l | tr -d ' ')
-            
-            if [ "$FILE_CHANGES" = "0" ] || [ -z "$FILE_CHANGES" ]; then
-                echo "   ✅ 本地和遠程媒體庫完全相同，跳過同步"
-                NEED_MEDIA_UPDATE=false
-            else
-                echo "   ℹ️  檢測到 $FILE_CHANGES 個文件需要同步"
-                NEED_MEDIA_UPDATE=true
-            fi
-        else
-            echo "   ⚠️  rsync 檢查失敗，將進行同步"
-            NEED_MEDIA_UPDATE=true
-        fi
+    # 檢查是否強制同步（通過環境變數 FORCE_MEDIA_SYNC=1）
+    if [ "$FORCE_MEDIA_SYNC" = "1" ]; then
+        echo "   ℹ️  檢測到 FORCE_MEDIA_SYNC=1，強制同步媒體庫"
+        NEED_MEDIA_UPDATE=true
     else
-        # 使用文件列表和大小比較（備用方案）
-        echo "   比較文件列表和大小..."
+        NEED_MEDIA_UPDATE=true
         
-        # 獲取遠程文件列表（相對路徑）
-        REMOTE_FILES_CMD="find '$REMOTE_ROUTE_PHOTOS' -type f -exec basename {} \\; 2>/dev/null | sort"
-        REMOTE_FILE_LIST=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_FILES_CMD" 2>/dev/null)
-        
-        # 獲取本地文件列表
-        if [ -d "$LOCAL_ROUTE_PHOTOS" ] && [ "$(ls -A $LOCAL_ROUTE_PHOTOS 2>/dev/null)" ]; then
-            LOCAL_FILE_LIST=$(find "$LOCAL_ROUTE_PHOTOS" -type f -exec basename {} \; 2>/dev/null | sort)
-        else
-            LOCAL_FILE_LIST=""
+        # 確保 UNIFIED_BACKUP_DIR 已定義（如果數據庫不需要更新，則創建新的備份目錄）
+        if [ -z "$UNIFIED_BACKUP_DIR" ] || [ ! -d "$UNIFIED_BACKUP_DIR" ]; then
+            BACKUP_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            UNIFIED_BACKUP_DIR="$BACKUP_DIR/local_backup_$BACKUP_TIMESTAMP"
+            mkdir -p "$UNIFIED_BACKUP_DIR"
         fi
         
-        if [ "$REMOTE_FILE_LIST" = "$LOCAL_FILE_LIST" ] && [ -n "$REMOTE_FILE_LIST" ]; then
-            echo "   ℹ️  文件列表相同，進一步比較文件大小..."
-            # 文件列表相同，比較總大小
-            REMOTE_TOTAL_SIZE_CMD="du -sb '$REMOTE_ROUTE_PHOTOS' 2>/dev/null | cut -f1"
-            REMOTE_TOTAL_SIZE=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_TOTAL_SIZE_CMD" 2>/dev/null || echo "0")
-            LOCAL_TOTAL_SIZE=$(du -sb "$LOCAL_ROUTE_PHOTOS" 2>/dev/null | cut -f1 || echo "0")
+        if [ "$USE_RSYNC" = true ]; then
+            # 使用 rsync dry-run 檢查是否有差異
+            echo "   使用 rsync dry-run 檢查差異..."
+            RSYNC_CHECK_OUTPUT=$(rsync -avzn --delete \
+                -e "ssh -i $EC2_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+                "$EC2_USER@$EC2_HOST:$REMOTE_ROUTE_PHOTOS/" \
+                "$LOCAL_ROUTE_PHOTOS" 2>&1)
+            RSYNC_CHECK_EXIT_CODE=$?
             
-            if [ "$REMOTE_TOTAL_SIZE" = "$LOCAL_TOTAL_SIZE" ] && [ "$REMOTE_TOTAL_SIZE" != "0" ] && [ "$LOCAL_TOTAL_SIZE" != "0" ]; then
-                echo "   ✅ 本地和遠程媒體庫完全相同（文件列表和總大小匹配），跳過同步"
-                NEED_MEDIA_UPDATE=false
+            # 檢查輸出中是否有文件變更（rsync dry-run 會列出需要同步的文件）
+            if [ $RSYNC_CHECK_EXIT_CODE -eq 0 ]; then
+                # 過濾掉目錄信息和空行，只檢查實際的文件變更
+                FILE_CHANGES=$(echo "$RSYNC_CHECK_OUTPUT" | grep -E "^[^d].*[^/]$" | grep -v "^$" | wc -l | tr -d ' ')
+                
+                if [ "$FILE_CHANGES" = "0" ] || [ -z "$FILE_CHANGES" ]; then
+                    echo "   ✅ 本地和遠程媒體庫完全相同，跳過同步"
+                    NEED_MEDIA_UPDATE=false
+                else
+                    echo "   ℹ️  檢測到 $FILE_CHANGES 個文件需要同步"
+                    NEED_MEDIA_UPDATE=true
+                fi
             else
-                echo "   ℹ️  總大小不同，需要同步"
+                echo "   ⚠️  rsync 檢查失敗，將進行同步"
                 NEED_MEDIA_UPDATE=true
             fi
         else
-            echo "   ℹ️  文件列表不同，需要同步"
-            NEED_MEDIA_UPDATE=true
-        fi
-    fi
+            # 使用文件列表、大小和修改時間比較（備用方案）
+            echo "   比較文件列表、大小和修改時間..."
+            
+            # 獲取遠程文件列表（包含文件名和修改時間）
+            REMOTE_FILES_CMD="find '$REMOTE_ROUTE_PHOTOS' -type f -printf '%f %T@\n' 2>/dev/null | sort"
+            REMOTE_FILE_INFO=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_FILES_CMD" 2>/dev/null)
+            
+            # 如果遠程不支持 -printf，使用備用方案
+            if [ -z "$REMOTE_FILE_INFO" ]; then
+                REMOTE_FILES_CMD="find '$REMOTE_ROUTE_PHOTOS' -type f -exec basename {} \\; -exec stat -c%Y {} \\; 2>/dev/null | paste - - | sort"
+                REMOTE_FILE_INFO=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_FILES_CMD" 2>/dev/null)
+            fi
+            
+            # 獲取本地文件列表（包含文件名和修改時間）
+            if [ -d "$LOCAL_ROUTE_PHOTOS" ] && [ "$(ls -A $LOCAL_ROUTE_PHOTOS 2>/dev/null)" ]; then
+                if command -v stat &> /dev/null; then
+                    LOCAL_FILE_INFO=$(find "$LOCAL_ROUTE_PHOTOS" -type f -exec basename {} \; -exec stat -c%Y {} \; 2>/dev/null | paste - - | sort)
+                else
+                    # macOS 使用 stat -f
+                    LOCAL_FILE_INFO=$(find "$LOCAL_ROUTE_PHOTOS" -type f -exec basename {} \; -exec stat -f%m {} \; 2>/dev/null | paste - - | sort)
+                fi
+            else
+                LOCAL_FILE_INFO=""
+            fi
+            
+            # 比較文件信息
+            # 先比較文件數量（快速檢查）
+            REMOTE_FILE_COUNT=$(echo "$REMOTE_FILE_INFO" | grep -v '^$' | wc -l | tr -d ' ')
+            LOCAL_FILE_COUNT=$(echo "$LOCAL_FILE_INFO" | grep -v '^$' | wc -l | tr -d ' ')
+            
+            echo "   遠程文件數: $REMOTE_FILE_COUNT, 本地文件數: $LOCAL_FILE_COUNT"
+            
+            if [ "$REMOTE_FILE_COUNT" != "$LOCAL_FILE_COUNT" ]; then
+                echo "   ℹ️  文件數量不同，需要同步"
+                NEED_MEDIA_UPDATE=true
+            elif [ "$REMOTE_FILE_INFO" = "$LOCAL_FILE_INFO" ] && [ -n "$REMOTE_FILE_INFO" ]; then
+                echo "   ℹ️  文件列表和修改時間相同，進一步比較總大小..."
+                # 文件列表和修改時間相同，比較總大小
+                REMOTE_TOTAL_SIZE_CMD="du -sb '$REMOTE_ROUTE_PHOTOS' 2>/dev/null | cut -f1"
+                REMOTE_TOTAL_SIZE=$(ssh -i "$EC2_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$EC2_USER@$EC2_HOST" "$REMOTE_TOTAL_SIZE_CMD" 2>/dev/null || echo "0")
+                LOCAL_TOTAL_SIZE=$(du -sb "$LOCAL_ROUTE_PHOTOS" 2>/dev/null | cut -f1 || echo "0")
+                
+                echo "   遠程總大小: $REMOTE_TOTAL_SIZE 字節, 本地總大小: $LOCAL_TOTAL_SIZE 字節"
+                
+                if [ "$REMOTE_TOTAL_SIZE" = "$LOCAL_TOTAL_SIZE" ] && [ "$REMOTE_TOTAL_SIZE" != "0" ] && [ "$LOCAL_TOTAL_SIZE" != "0" ]; then
+                    echo "   ✅ 本地和遠程媒體庫完全相同（文件列表、修改時間、總大小和文件數量都匹配）"
+                    echo "      跳過同步"
+                    NEED_MEDIA_UPDATE=false
+                else
+                    echo "   ℹ️  總大小不同，需要同步"
+                    NEED_MEDIA_UPDATE=true
+                fi
+            else
+                if [ -z "$REMOTE_FILE_INFO" ] && [ -z "$LOCAL_FILE_INFO" ]; then
+                    echo "   ℹ️  遠程和本地目錄都為空，跳過同步"
+                    NEED_MEDIA_UPDATE=false
+                else
+                    echo "   ℹ️  文件列表或修改時間不同，需要同步"
+                    if [ -n "$REMOTE_FILE_INFO" ] && [ -n "$LOCAL_FILE_INFO" ]; then
+                        REMOTE_COUNT=$(echo "$REMOTE_FILE_INFO" | wc -l | tr -d ' ')
+                        LOCAL_COUNT=$(echo "$LOCAL_FILE_INFO" | wc -l | tr -d ' ')
+                        echo "      遠程文件數: $REMOTE_COUNT, 本地文件數: $LOCAL_COUNT"
+                    fi
+                    NEED_MEDIA_UPDATE=true
+                fi
+            fi
+        fi  # 結束 USE_RSYNC 檢查
+    fi  # 結束 FORCE_MEDIA_SYNC 檢查
     
     # 只有在需要更新時才進行備份和同步
     if [ "$NEED_MEDIA_UPDATE" = true ]; then

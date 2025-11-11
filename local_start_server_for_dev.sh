@@ -153,6 +153,8 @@ fi
 
 # 從服務器同步數據庫和媒體庫（如果配置了）
 echo "[1/4] 同步數據庫和媒體庫..."
+# 提示：如果需要強制同步媒體庫，可以設置環境變數 FORCE_MEDIA_SYNC=1
+# 例如：FORCE_MEDIA_SYNC=1 bash local_start_server_for_dev.sh
 if [ -f "security/EC2_security_config" ]; then
     # 檢查同步腳本是否存在
     if [ -f "Deployment/scripts/tools/sync_db_from_server.sh" ]; then
@@ -164,6 +166,11 @@ if [ -f "security/EC2_security_config" ]; then
         fi
         
         # 執行同步腳本（直接輸出，不捕獲）
+        # 傳遞 FORCE_MEDIA_SYNC 環境變數（如果設置了）
+        if [ -n "$FORCE_MEDIA_SYNC" ]; then
+            export FORCE_MEDIA_SYNC
+            echo "   ℹ️  強制同步媒體庫模式已啟用"
+        fi
         bash "Deployment/scripts/tools/sync_db_from_server.sh"
         SYNC_EXIT_CODE=$?
         

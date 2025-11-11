@@ -1,0 +1,296 @@
+# ============================================================================
+# 快速部署工作流 (Quick Deploy Workflow)
+# ============================================================================
+#
+# 用途说明：
+#   这是一个快速部署工作流，主要用于测试环境或需要快速部署的场景。
+#   相比 deploy.yml，它跳过了测试步骤，部署速度更快。
+#
+# 与 deploy.yml 的主要差异：
+#
+#   1. 触发方式：
+#      - deploy.yml: 自动触发（push 到 main/master）+ 手动触发
+#      - deploy-quick.yml: 仅手动触发
+#
+#   2. 测试执行：
+#      - deploy.yml: 必须运行测试（确保代码质量）
+#      - deploy-quick.yml: 默认跳过测试（快速部署）
+#
+#   3. 分支选择：
+#      - deploy.yml: 固定部署 main/master 分支
+#      - deploy-quick.yml: 可选择分支（main/master/develop）
+#
+#   4. 诊断详细程度：
+#      - deploy.yml: 详细的诊断、验证和错误处理
+#      - deploy-quick.yml: 基本的诊断和验证（保持简单快速）
+#
+#   5. 适用场景：
+#      - deploy.yml: 生产环境自动部署、正式发布
+#      - deploy-quick.yml: 测试环境部署、开发分支部署、紧急修复
+#
+# 使用建议：
+#   - 生产环境：使用 deploy.yml（自动部署，包含完整测试）
+#   - 测试环境：使用 deploy-quick.yml（快速部署，跳过测试）
+#   - 开发分支：使用 deploy-quick.yml（可选择分支）
+#
+# ============================================================================
+
+name: Quick Deploy to AWS EC2 (Skip Tests)
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: '要部署的分支'
+        required: true
+        default: 'main'
+        type: choice
+        options:
+          - main
+          - master
+          - develop
+      skip_tests:
+        description: '跳過測試（快速部署）'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy:
+    name: Quick Deploy (Skip Tests)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.inputs.branch }}
+        fetch-depth: 0
+    
+    - name: Set up Python
+      if: ${{ github.event.inputs.skip_tests != 'true' }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install system dependencies
+      if: ${{ github.event.inputs.skip_tests != 'true' }}
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libjpeg-dev zlib1g-dev libheif-dev libde265-dev
+    
+    - name: Install Python dependencies
+      if: ${{ github.event.inputs.skip_tests != 'true' }}
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run migrations
+      if: ${{ github.event.inputs.skip_tests != 'true' }}
+      env:
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        DEBUG: 'True'
+      run: |
+        export SECRET_KEY=${SECRET_KEY:-django-insecure-climbing-score-system-dev-key-change-in-production}
+        python manage.py migrate --noinput
+    
+    - name: Run tests
+      if: ${{ github.event.inputs.skip_tests != 'true' }}
+      env:
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        DEBUG: 'True'
+      run: |
+        export SECRET_KEY=${SECRET_KEY:-django-insecure-climbing-score-system-dev-key-change-in-production}
+        python manage.py test scoring.tests --verbosity=0
+    
+    - name: Configure SSH
+      env:
+        EC2_HOST: ${{ secrets.EC2_HOST }}
+        EC2_USER: ${{ secrets.EC2_USER }}
+        EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      run: |
+        if [ -z "$EC2_HOST" ] || [ -z "$EC2_USER" ] || [ -z "$EC2_SSH_KEY" ]; then
+          echo "⚠️  跳過 SSH 配置：未配置 EC2 secrets"
+          exit 0
+        fi
+        mkdir -p ~/.ssh
+        echo "$EC2_SSH_KEY" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts || true
+    
+    - name: Quick Deploy to EC2
+      env:
+        EC2_USER: ${{ secrets.EC2_USER }}
+        EC2_HOST: ${{ secrets.EC2_HOST }}
+        EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        DEPLOY_BRANCH: ${{ github.event.inputs.branch }}
+      run: |
+        if [ -z "$EC2_HOST" ] || [ -z "$EC2_USER" ] || [ -z "$EC2_SSH_KEY" ]; then
+          echo "⚠️  跳過部署：未配置 EC2 secrets"
+          echo "請檢查 GitHub Secrets 配置："
+          echo "  - EC2_HOST: ${EC2_HOST:-未設置}"
+          echo "  - EC2_USER: ${EC2_USER:-未設置}"
+          echo "  - EC2_SSH_KEY: ${EC2_SSH_KEY:+已設置}${EC2_SSH_KEY:-未設置}"
+          exit 0
+        fi
+        echo "開始快速部署到 EC2..."
+        echo "目標: ${EC2_USER}@${EC2_HOST}"
+        echo "分支: ${DEPLOY_BRANCH}"
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+          ${EC2_USER}@${EC2_HOST} << 'ENDSSH'
+          set -e
+          set -o pipefail
+          
+          # 進入項目目錄
+          cd /var/www/Climbing_score_counter || {
+            echo "❌ 錯誤: 無法進入項目目錄 /var/www/Climbing_score_counter"
+            exit 1
+          }
+          
+          echo "=== 開始快速部署 ==="
+          echo "分支: ${DEPLOY_BRANCH}"
+          echo "時間: $(date)"
+          echo "當前目錄: $(pwd)"
+          echo "當前用戶: $(whoami)"
+          
+          # 記錄部署前的代碼版本
+          OLD_COMMIT=""
+          if [ -d ".git" ]; then
+            OLD_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            echo "📌 部署前代碼版本: $OLD_COMMIT"
+            
+            # 配置 Git 安全目錄
+            git config --global --add safe.directory /var/www/Climbing_score_counter || true
+            
+            # 修復 .git 目錄權限
+            CURRENT_USER=$(whoami)
+            if [ ! -w ".git" ] 2>/dev/null; then
+              sudo chown -R $CURRENT_USER:$CURRENT_USER .git 2>/dev/null || true
+            fi
+          fi
+          
+          # 拉取指定分支的最新代碼
+          if [ -d ".git" ]; then
+            echo "📥 拉取分支 ${DEPLOY_BRANCH} 的最新代碼..."
+            git fetch origin || {
+              echo "⚠️  警告: git fetch 失敗，繼續執行部署"
+            }
+            
+            # 切換到指定分支
+            CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
+            if [ "$CURRENT_BRANCH" != "${DEPLOY_BRANCH}" ]; then
+              echo "🔄 切換分支: $CURRENT_BRANCH -> ${DEPLOY_BRANCH}"
+              git checkout ${DEPLOY_BRANCH} 2>/dev/null || git checkout -b ${DEPLOY_BRANCH} origin/${DEPLOY_BRANCH} 2>/dev/null || {
+                echo "⚠️  警告: 無法切換到分支 ${DEPLOY_BRANCH}，繼續使用當前分支"
+              }
+            fi
+            
+            # 處理數據庫文件衝突
+            if [ -f "db.sqlite3" ] && ! git diff --quiet db.sqlite3 2>/dev/null; then
+              echo "ℹ️  檢測到數據庫文件變更，備份後重置"
+              mkdir -p backups
+              cp db.sqlite3 backups/db_backup_$(date +%Y%m%d_%H%M%S).sqlite3 2>/dev/null || true
+              git checkout -- db.sqlite3 2>/dev/null || true
+            fi
+            
+            # 重置到遠程分支
+            echo "🔄 重置到 origin/${DEPLOY_BRANCH}..."
+            if git reset --hard origin/${DEPLOY_BRANCH} 2>/dev/null; then
+              echo "✅ 已重置到 origin/${DEPLOY_BRANCH}"
+            else
+              echo "⚠️  警告: git reset 失敗，繼續執行部署"
+            fi
+            
+            NEW_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            echo "📌 部署後代碼版本: $NEW_COMMIT"
+            if [ "$OLD_COMMIT" != "unknown" ] && [ "$NEW_COMMIT" != "unknown" ] && [ "$OLD_COMMIT" != "$NEW_COMMIT" ]; then
+              echo "✅ 代碼已更新: $OLD_COMMIT -> $NEW_COMMIT"
+            fi
+          else
+            echo "⚠️  警告: 未檢測到 Git 倉庫，跳過代碼更新"
+          fi
+          
+          # 執行部署腳本
+          echo ""
+          echo "🚀 執行部署腳本..."
+          DEPLOY_SCRIPT="Deployment/scripts/tools/deploy.sh"
+          
+          if [ ! -f "$DEPLOY_SCRIPT" ]; then
+            echo "❌ 錯誤: 找不到部署腳本 $DEPLOY_SCRIPT"
+            echo "當前目錄: $(pwd)"
+            echo "目錄內容:"
+            ls -la | head -20
+            echo ""
+            echo "Deployment 目錄內容:"
+            ls -la Deployment/ 2>/dev/null || echo "Deployment 目錄不存在"
+            echo ""
+            echo "Deployment/scripts 目錄內容:"
+            ls -la Deployment/scripts/ 2>/dev/null || echo "Deployment/scripts 目錄不存在"
+            echo ""
+            echo "Deployment/scripts/tools 目錄內容:"
+            ls -la Deployment/scripts/tools/ 2>/dev/null || echo "Deployment/scripts/tools 目錄不存在"
+            exit 1
+          fi
+          
+          # 確保腳本有執行權限
+          chmod +x "$DEPLOY_SCRIPT"
+          
+          # 執行部署腳本（但跳過 Git 更新，因為我們已經在上面處理了）
+          # 注意：deploy.sh 會執行 Git 更新，但我們已經處理過了，所以會很快
+          echo "執行: bash $DEPLOY_SCRIPT"
+          if bash "$DEPLOY_SCRIPT"; then
+            echo "✅ 部署腳本執行成功"
+          else
+            EXIT_CODE=$?
+            echo "❌ 部署腳本執行失敗，退出碼: $EXIT_CODE"
+            exit $EXIT_CODE
+          fi
+          
+          # 等待服務啟動
+          echo ""
+          echo "⏳ 等待服務啟動（3秒）..."
+          sleep 3
+          
+          # 驗證服務狀態
+          echo ""
+          echo "📊 服務狀態檢查:"
+          if sudo systemctl is-active --quiet climbing_system; then
+            echo "✅ climbing_system 服務正在運行"
+          else
+            echo "⚠️  警告: climbing_system 服務未運行，嘗試啟動..."
+            sudo systemctl start climbing_system || true
+            sleep 2
+            if sudo systemctl is-active --quiet climbing_system; then
+              echo "✅ 服務已啟動"
+            else
+              echo "❌ 服務啟動失敗"
+              sudo journalctl -u climbing_system --no-pager -n 20 || true
+              exit 1
+            fi
+          fi
+          
+          echo ""
+          echo "=== 快速部署完成 ==="
+          echo "時間: $(date)"
+          echo "✅ 部署完成"
+        ENDSSH
+    
+    - name: Skip deployment notice
+      env:
+        EC2_HOST: ${{ secrets.EC2_HOST }}
+        EC2_USER: ${{ secrets.EC2_USER }}
+        EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      if: env.EC2_HOST == '' || env.EC2_USER == '' || env.EC2_SSH_KEY == ''
+      run: |
+        echo "⚠️  跳過部署：未配置 EC2 secrets"
+        echo "請在 GitHub 倉庫設置中配置以下 secrets："
+        echo "  - EC2_HOST: EC2 實例 IP 或域名"
+        echo "  - EC2_USER: SSH 用戶名（通常是 ubuntu）"
+        echo "  - EC2_SSH_KEY: SSH 私鑰內容"
+        echo ""
+        echo "快速部署已跳過。"
+
