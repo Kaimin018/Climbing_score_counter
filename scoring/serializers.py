@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from django.utils.html import escape
+import logging
 from .models import Room, Member, Route, Score
+
+logger = logging.getLogger(__name__)
 
 
 class ScoreSerializer(serializers.ModelSerializer):
@@ -77,104 +80,96 @@ class RouteCreateSerializer(serializers.ModelSerializer):
     
     def validate_photo(self, value):
         """驗證圖片文件"""
-        if value is None:
-            return value
+        logger.debug(f"[RouteCreateSerializer.validate_photo] 開始驗證照片")
         
-        # 檢查文件大小（限制為 10MB）
-        if value.size > 10 * 1024 * 1024:
-            raise serializers.ValidationError('圖片文件大小不能超過 10MB')
-        
-        # 獲取文件名和 content_type
-        file_name = getattr(value, 'name', '') or ''
-        content_type = getattr(value, 'content_type', None)
-        
-        # 檢查是否為 HEIC/HEIF 格式（iPhone 默認格式）
-        # Django 的 ImageField 使用 Pillow 驗證，Pillow 不支持 HEIC
-        # 我們需要將 HEIC 轉換為 JPEG 以通過驗證
-        is_heic = False
-        if content_type:
-            content_type_lower = content_type.lower()
-            if 'heic' in content_type_lower or 'heif' in content_type_lower:
-                is_heic = True
-        
-        if not is_heic and file_name:
-            file_name_lower = file_name.lower()
-            if file_name_lower.endswith('.heic') or file_name_lower.endswith('.heif'):
-                is_heic = True
-        
-        # 如果是 HEIC 格式，先使用 pyheif 轉換為 JPEG，再用 Pillow 處理
-        # 這個方案可以確保第一次拍照時也能正確處理 HEIC 格式
-        if is_heic:
-            try:
-                from PIL import Image
-                from io import BytesIO
-                from django.core.files.uploadedfile import InMemoryUploadedFile
-                import os
-                
-                # 讀取文件內容
-                if hasattr(value, 'seek'):
-                    value.seek(0)
-                file_content = value.read()
-                
-                # 方案1：嘗試使用 pyheif 將 HEIC 轉換為 JPEG
+        try:
+            if value is None:
+                logger.debug(f"[RouteCreateSerializer.validate_photo] 照片為 None，跳過驗證")
+                return value
+            
+            logger.debug(f"[RouteCreateSerializer.validate_photo] 照片信息: "
+                        f"名稱={getattr(value, 'name', 'N/A')}, "
+                        f"大小={getattr(value, 'size', 'N/A')}, "
+                        f"content_type={getattr(value, 'content_type', 'N/A')}")
+            
+            # 檢查文件大小（限制為 10MB）
+            file_size = getattr(value, 'size', 0)
+            if file_size > 10 * 1024 * 1024:
+                logger.error(f"[RouteCreateSerializer.validate_photo] 照片文件大小超過限制: {file_size} 字節 (限制: 10MB)")
+                raise serializers.ValidationError('圖片文件大小不能超過 10MB')
+            
+            logger.debug(f"[RouteCreateSerializer.validate_photo] 文件大小檢查通過: {file_size} 字節")
+            
+            # 獲取文件名和 content_type
+            file_name = getattr(value, 'name', '') or ''
+            content_type = getattr(value, 'content_type', None)
+            
+            logger.debug(f"[RouteCreateSerializer.validate_photo] 文件名: '{file_name}', content_type: '{content_type}'")
+            
+            # 檢查是否為 HEIC/HEIF 格式（iPhone 默認格式）
+            # Django 的 ImageField 使用 Pillow 驗證，Pillow 不支持 HEIC
+            # 我們需要將 HEIC 轉換為 JPEG 以通過驗證
+            is_heic = False
+            if content_type:
+                content_type_lower = content_type.lower()
+                if 'heic' in content_type_lower or 'heif' in content_type_lower:
+                    is_heic = True
+                    logger.debug(f"[RouteCreateSerializer.validate_photo] 從 content_type 檢測到 HEIC/HEIF 格式")
+            
+            if not is_heic and file_name:
+                file_name_lower = file_name.lower()
+                if file_name_lower.endswith('.heic') or file_name_lower.endswith('.heif'):
+                    is_heic = True
+                    logger.debug(f"[RouteCreateSerializer.validate_photo] 從文件名檢測到 HEIC/HEIF 格式")
+            
+            # 如果是 HEIC 格式，先使用 pyheif 轉換為 JPEG，再用 Pillow 處理
+            # 這個方案可以確保第一次拍照時也能正確處理 HEIC 格式
+            if is_heic:
+                logger.info(f"[RouteCreateSerializer.validate_photo] 檢測到 HEIC/HEIF 格式，開始轉換為 JPEG")
                 try:
-                    import pyheif
+                    from PIL import Image
+                    from io import BytesIO
+                    from django.core.files.uploadedfile import InMemoryUploadedFile
+                    import os
                     
-                    # 使用 pyheif 讀取 HEIC 文件（從 bytes 讀取）
-                    # pyheif.read_heif 可以接受 bytes 或文件路徑
-                    heif_file = pyheif.read_heif(BytesIO(file_content))
+                    logger.debug(f"[RouteCreateSerializer.validate_photo] 開始讀取 HEIC 文件內容")
+                    # 讀取文件內容
+                    if hasattr(value, 'seek'):
+                        value.seek(0)
+                    file_content = value.read()
+                    logger.debug(f"[RouteCreateSerializer.validate_photo] 文件內容讀取完成，大小: {len(file_content)} 字節")
                     
-                    # 將 HEIC 數據轉換為 Pillow Image
-                    img = Image.frombytes(
-                        heif_file.mode,
-                        heif_file.size,
-                        heif_file.data,
-                        "raw",
-                        heif_file.mode,
-                        heif_file.stride,
-                    )
-                    
-                    # 轉換為 RGB 模式（HEIC 可能是其他模式，如 RGBA）
-                    if img.mode != 'RGB':
-                        img = img.convert('RGB')
-                    
-                    # 將圖片保存為 JPEG
-                    output = BytesIO()
-                    img.save(output, format='JPEG', quality=95)
-                    output.seek(0)
-                    
-                    # 創建新的文件對象，使用 .jpg 擴展名
-                    new_name = file_name
-                    if new_name:
-                        base_name = os.path.splitext(new_name)[0]
-                        new_name = base_name + '.jpg'
-                    else:
-                        new_name = 'photo.jpg'
-                    
-                    # 創建新的 InMemoryUploadedFile 對象
-                    new_file = InMemoryUploadedFile(
-                        output,
-                        'photo',  # field_name
-                        new_name,
-                        'image/jpeg',  # 改為 image/jpeg
-                        len(output.getvalue()),
-                        None  # charset
-                    )
-                    
-                    return new_file
-                except ImportError:
-                    # pyheif 未安裝，嘗試使用 pillow-heif（如果已安裝）
+                    # 方案1：嘗試使用 pyheif 將 HEIC 轉換為 JPEG
                     try:
-                        # 嘗試使用 Pillow 打開（如果安裝了 pillow-heif，可以打開 HEIC）
-                        img = Image.open(BytesIO(file_content))
-                        # 轉換為 RGB 模式（HEIC 可能是其他模式）
+                        logger.debug(f"[RouteCreateSerializer.validate_photo] 嘗試使用 pyheif 轉換 HEIC")
+                        import pyheif
+                        
+                        # 使用 pyheif 讀取 HEIC 文件（從 bytes 讀取）
+                        # pyheif.read_heif 可以接受 bytes 或文件路徑
+                        heif_file = pyheif.read_heif(BytesIO(file_content))
+                        logger.debug(f"[RouteCreateSerializer.validate_photo] pyheif 讀取成功，模式: {heif_file.mode}, 大小: {heif_file.size}")
+                        
+                        # 將 HEIC 數據轉換為 Pillow Image
+                        img = Image.frombytes(
+                            heif_file.mode,
+                            heif_file.size,
+                            heif_file.data,
+                            "raw",
+                            heif_file.mode,
+                            heif_file.stride,
+                        )
+                        logger.debug(f"[RouteCreateSerializer.validate_photo] 轉換為 Pillow Image 成功，模式: {img.mode}")
+                        
+                        # 轉換為 RGB 模式（HEIC 可能是其他模式，如 RGBA）
                         if img.mode != 'RGB':
+                            logger.debug(f"[RouteCreateSerializer.validate_photo] 轉換圖片模式: {img.mode} -> RGB")
                             img = img.convert('RGB')
                         
                         # 將圖片保存為 JPEG
                         output = BytesIO()
                         img.save(output, format='JPEG', quality=95)
                         output.seek(0)
+                        logger.debug(f"[RouteCreateSerializer.validate_photo] JPEG 轉換完成，大小: {len(output.getvalue())} 字節")
                         
                         # 創建新的文件對象，使用 .jpg 擴展名
                         new_name = file_name
@@ -183,6 +178,8 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                             new_name = base_name + '.jpg'
                         else:
                             new_name = 'photo.jpg'
+                        
+                        logger.info(f"[RouteCreateSerializer.validate_photo] HEIC 轉換成功，新文件名: '{new_name}'")
                         
                         # 創建新的 InMemoryUploadedFile 對象
                         new_file = InMemoryUploadedFile(
@@ -195,57 +192,106 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                         )
                         
                         return new_file
-                    except Exception as pillow_error:
-                        # Pillow 也無法打開 HEIC（可能沒有安裝 pillow-heif）
-                        # 在這種情況下，我們仍然允許上傳，但將文件名改為 .jpg
-                        # 這樣 Django 的 ImageField 驗證就會通過
-                        # 注意：實際文件內容仍然是 HEIC，但文件名是 .jpg
-                        # 這是一個後備方案，不推薦使用
-                        from django.core.files.uploadedfile import InMemoryUploadedFile
-                        from io import BytesIO
-                        import os
-                        
-                        # 讀取原始文件內容
-                        if hasattr(value, 'seek'):
-                            value.seek(0)
-                        file_content = value.read()
-                        
-                        # 創建新的文件對象，使用 .jpg 擴展名
-                        new_name = file_name
-                        if new_name:
-                            base_name = os.path.splitext(new_name)[0]
-                            if not base_name:
-                                base_name = 'photo'
-                            new_name = base_name + '.jpg'
-                        else:
-                            new_name = 'photo.jpg'
-                        
-                        # 確保文件名以 .jpg 結尾
-                        if not new_name.lower().endswith(('.jpg', '.jpeg')):
-                            base_name = os.path.splitext(new_name)[0]
-                            if not base_name:
-                                base_name = 'photo'
-                            new_name = base_name + '.jpg'
-                        
-                        # 創建新的 InMemoryUploadedFile 對象
-                        new_file = InMemoryUploadedFile(
-                            BytesIO(file_content),
-                            'photo',  # field_name
-                            new_name,
-                            'image/jpeg',  # 改為 image/jpeg 以通過驗證
-                            len(file_content),
-                            None  # charset
-                        )
-                        
-                        # 在文件對象上添加標記，表示這是 HEIC 格式
-                        new_file._is_heic = True
-                        new_file._original_name = file_name
-                        new_file._original_content_type = content_type
-                        
-                        return new_file
+                    except ImportError as import_error:
+                        logger.warning(f"[RouteCreateSerializer.validate_photo] pyheif 未安裝，嘗試使用 pillow-heif: {str(import_error)}")
+                        # pyheif 未安裝，嘗試使用 pillow-heif（如果已安裝）
+                        try:
+                            logger.debug(f"[RouteCreateSerializer.validate_photo] 嘗試使用 Pillow (pillow-heif) 打開 HEIC")
+                            # 嘗試使用 Pillow 打開（如果安裝了 pillow-heif，可以打開 HEIC）
+                            img = Image.open(BytesIO(file_content))
+                            logger.debug(f"[RouteCreateSerializer.validate_photo] Pillow 打開成功，模式: {img.mode}, 格式: {img.format}")
+                            # 轉換為 RGB 模式（HEIC 可能是其他模式）
+                            if img.mode != 'RGB':
+                                logger.debug(f"[RouteCreateSerializer.validate_photo] 轉換圖片模式: {img.mode} -> RGB")
+                                img = img.convert('RGB')
+                            
+                            # 將圖片保存為 JPEG
+                            output = BytesIO()
+                            img.save(output, format='JPEG', quality=95)
+                            output.seek(0)
+                            logger.debug(f"[RouteCreateSerializer.validate_photo] JPEG 轉換完成，大小: {len(output.getvalue())} 字節")
+                            
+                            # 創建新的文件對象，使用 .jpg 擴展名
+                            new_name = file_name
+                            if new_name:
+                                base_name = os.path.splitext(new_name)[0]
+                                new_name = base_name + '.jpg'
+                            else:
+                                new_name = 'photo.jpg'
+                            
+                            logger.info(f"[RouteCreateSerializer.validate_photo] HEIC 轉換成功（使用 pillow-heif），新文件名: '{new_name}'")
+                            
+                            # 創建新的 InMemoryUploadedFile 對象
+                            new_file = InMemoryUploadedFile(
+                                output,
+                                'photo',  # field_name
+                                new_name,
+                                'image/jpeg',  # 改為 image/jpeg
+                                len(output.getvalue()),
+                                None  # charset
+                            )
+                            
+                            return new_file
+                        except Exception as pillow_error:
+                            logger.error(f"[RouteCreateSerializer.validate_photo] Pillow 也無法打開 HEIC: {str(pillow_error)}")
+                            logger.error(f"[RouteCreateSerializer.validate_photo] 錯誤類型: {type(pillow_error).__name__}")
+                            import traceback
+                            logger.error(f"[RouteCreateSerializer.validate_photo] 錯誤堆棧:\n{traceback.format_exc()}")
+                            # Pillow 也無法打開 HEIC（可能沒有安裝 pillow-heif）
+                            # 在這種情況下，我們仍然允許上傳，但將文件名改為 .jpg
+                            # 這樣 Django 的 ImageField 驗證就會通過
+                            # 注意：實際文件內容仍然是 HEIC，但文件名是 .jpg
+                            # 這是一個後備方案，不推薦使用
+                            from django.core.files.uploadedfile import InMemoryUploadedFile
+                            from io import BytesIO
+                            import os
+                            
+                            # 讀取原始文件內容
+                            if hasattr(value, 'seek'):
+                                value.seek(0)
+                            file_content = value.read()
+                            
+                            # 創建新的文件對象，使用 .jpg 擴展名
+                            new_name = file_name
+                            if new_name:
+                                base_name = os.path.splitext(new_name)[0]
+                                if not base_name:
+                                    base_name = 'photo'
+                                new_name = base_name + '.jpg'
+                            else:
+                                new_name = 'photo.jpg'
+                            
+                            # 確保文件名以 .jpg 結尾
+                            if not new_name.lower().endswith(('.jpg', '.jpeg')):
+                                base_name = os.path.splitext(new_name)[0]
+                                if not base_name:
+                                    base_name = 'photo'
+                                new_name = base_name + '.jpg'
+                            
+                            # 創建新的 InMemoryUploadedFile 對象
+                            new_file = InMemoryUploadedFile(
+                                BytesIO(file_content),
+                                'photo',  # field_name
+                                new_name,
+                                'image/jpeg',  # 改為 image/jpeg 以通過驗證
+                                len(file_content),
+                                None  # charset
+                            )
+                            
+                            # 在文件對象上添加標記，表示這是 HEIC 格式
+                            new_file._is_heic = True
+                            new_file._original_name = file_name
+                            new_file._original_content_type = content_type
+                            
+                            return new_file
                 except Exception as pyheif_error:
+                    logger.error(f"[RouteCreateSerializer.validate_photo] pyheif 轉換失敗: {str(pyheif_error)}")
+                    logger.error(f"[RouteCreateSerializer.validate_photo] 錯誤類型: {type(pyheif_error).__name__}")
+                    import traceback
+                    logger.error(f"[RouteCreateSerializer.validate_photo] pyheif 錯誤堆棧:\n{traceback.format_exc()}")
                     # pyheif 轉換失敗，嘗試使用 pillow-heif 作為後備
                     try:
+                        logger.debug(f"[RouteCreateSerializer.validate_photo] 嘗試使用 Pillow (pillow-heif) 作為後備方案")
                         img = Image.open(BytesIO(file_content))
                         if img.mode != 'RGB':
                             img = img.convert('RGB')
@@ -261,6 +307,8 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                         else:
                             new_name = 'photo.jpg'
                         
+                        logger.info(f"[RouteCreateSerializer.validate_photo] HEIC 轉換成功（後備方案），新文件名: '{new_name}'")
+                        
                         new_file = InMemoryUploadedFile(
                             output,
                             'photo',
@@ -272,6 +320,11 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                         
                         return new_file
                     except Exception as pillow_error:
+                        logger.error(f"[RouteCreateSerializer.validate_photo] 所有轉換方法都失敗")
+                        logger.error(f"[RouteCreateSerializer.validate_photo] Pillow 錯誤: {str(pillow_error)}")
+                        logger.error(f"[RouteCreateSerializer.validate_photo] Pillow 錯誤類型: {type(pillow_error).__name__}")
+                        import traceback
+                        logger.error(f"[RouteCreateSerializer.validate_photo] Pillow 錯誤堆棧:\n{traceback.format_exc()}")
                         # 所有轉換方法都失敗
                         raise serializers.ValidationError(
                             f'無法處理 HEIC 格式圖片。'
@@ -279,168 +332,61 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                             f'Pillow 錯誤: {str(pillow_error)}。'
                             f'請安裝 pyheif 或 pillow-heif 庫，或將圖片轉換為 JPEG/PNG 格式後再上傳。'
                         )
-            except Exception as e:
-                # 如果轉換失敗，返回原始錯誤
-                raise serializers.ValidationError(
-                    f'無法處理 HEIC 格式圖片。錯誤: {str(e)}。'
-                    f'請嘗試將圖片轉換為 JPEG 或 PNG 格式後再上傳。'
-                )
-        
-        # 對於非 HEIC 格式，嘗試使用 Pillow 驗證
-        try:
-            from PIL import Image
-            if hasattr(value, 'seek'):
-                value.seek(0)
-            img = Image.open(value)
-            img.verify()
-            if hasattr(value, 'seek'):
-                value.seek(0)
+                except Exception as e:
+                    logger.exception(f"[RouteCreateSerializer.validate_photo] HEIC 轉換時發生未預期的錯誤")
+                    logger.error(f"[RouteCreateSerializer.validate_photo] 錯誤類型: {type(e).__name__}, 錯誤信息: {str(e)}")
+                    import traceback
+                    logger.error(f"[RouteCreateSerializer.validate_photo] 錯誤堆棧:\n{traceback.format_exc()}")
+                    # 如果轉換失敗，返回原始錯誤
+                    raise serializers.ValidationError(
+                        f'無法處理 HEIC 格式圖片。錯誤: {str(e)}。'
+                        f'請嘗試將圖片轉換為 JPEG 或 PNG 格式後再上傳。'
+                    )
             
-            # 重新打開圖片以獲取格式信息（verify 後需要重新打開）
-            if hasattr(value, 'seek'):
-                value.seek(0)
-            img = Image.open(value)
-            
-            # 確保文件名有正確的擴展名（根據實際圖片格式）
-            format_ext_map = {
-                'JPEG': '.jpg',
-                'PNG': '.png',
-                'GIF': '.gif',
-                'BMP': '.bmp',
-                'WEBP': '.webp'
-            }
-            
-            # 根據 Pillow 檢測到的格式確定擴展名
-            detected_ext = format_ext_map.get(img.format, '.jpg')
-            
-            # 如果文件沒有擴展名或擴展名不正確，創建新的文件對象
-            if not file_name or '.' not in file_name or not file_name.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp')):
-                from django.core.files.uploadedfile import InMemoryUploadedFile
-                from io import BytesIO
-                import os
-                import re
-                
+            # 對於非 HEIC 格式，嘗試使用 Pillow 驗證
+            logger.debug(f"[RouteCreateSerializer.validate_photo] 開始使用 Pillow 驗證非 HEIC 格式圖片")
+            try:
+                from PIL import Image
                 if hasattr(value, 'seek'):
                     value.seek(0)
-                file_content = value.read()
-                
-                # 檢查文件名是否包含中文字符或特殊字符
-                # 如果包含，使用安全的默認文件名
-                base_name = os.path.splitext(file_name)[0] if file_name else 'photo'
-                
-                # 檢查是否包含非ASCII字符（包括中文）或特殊字符
-                has_non_ascii = any(ord(char) > 127 for char in base_name) if base_name else False
-                has_special_chars = bool(re.search(r'[^\w\-_\.]', base_name)) if base_name else False
-                
-                # 如果文件名包含中文字符、特殊字符、過長或為空，使用安全的默認文件名
-                if not base_name or len(base_name) > 50 or has_non_ascii or has_special_chars:
-                    base_name = 'photo'
-                
-                new_name = base_name + detected_ext
-                
-                new_file = InMemoryUploadedFile(
-                    BytesIO(file_content),
-                    'photo',
-                    new_name,
-                    content_type or f'image/{detected_ext[1:]}',  # 移除點號
-                    len(file_content),
-                    None
-                )
-                return new_file
-            
-            # 如果文件名已有擴展名，確保格式正確
-            current_ext = os.path.splitext(file_name)[1].lower()
-            if current_ext not in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
-                # 擴展名不正確，創建新的文件對象
-                from django.core.files.uploadedfile import InMemoryUploadedFile
-                from io import BytesIO
-                import os
-                import re
-                
-                if hasattr(value, 'seek'):
-                    value.seek(0)
-                file_content = value.read()
-                
-                base_name = os.path.splitext(file_name)[0] if file_name else 'photo'
-                
-                # 檢查是否包含非ASCII字符（包括中文）或特殊字符
-                has_non_ascii = any(ord(char) > 127 for char in base_name) if base_name else False
-                has_special_chars = bool(re.search(r'[^\w\-_\.]', base_name)) if base_name else False
-                
-                # 如果文件名包含中文字符、特殊字符、過長或為空，使用安全的默認文件名
-                if not base_name or len(base_name) > 50 or has_non_ascii or has_special_chars:
-                    base_name = 'photo'
-                
-                new_name = base_name + detected_ext
-                
-                new_file = InMemoryUploadedFile(
-                    BytesIO(file_content),
-                    'photo',
-                    new_name,
-                    content_type or f'image/{detected_ext[1:]}',
-                    len(file_content),
-                    None
-                )
-                return new_file
-            
-            # 即使擴展名正確，如果文件名包含中文字符或特殊字符，也應該使用安全的文件名
-            # 這可以避免 ImageField 驗證失敗（特別是 iPhone 屏幕截圖的情況）
-            import re
-            base_name = os.path.splitext(file_name)[0] if file_name else 'photo'
-            has_non_ascii = any(ord(char) > 127 for char in base_name) if base_name else False
-            has_special_chars = bool(re.search(r'[^\w\-_\.]', base_name)) if base_name else False
-            
-            if has_non_ascii or has_special_chars:
-                # 文件名包含中文字符或特殊字符，創建新的文件對象使用安全文件名
-                from django.core.files.uploadedfile import InMemoryUploadedFile
-                from io import BytesIO
-                
-                if hasattr(value, 'seek'):
-                    value.seek(0)
-                file_content = value.read()
-                
-                new_name = 'photo' + detected_ext
-                
-                new_file = InMemoryUploadedFile(
-                    BytesIO(file_content),
-                    'photo',
-                    new_name,
-                    content_type or f'image/{detected_ext[1:]}',
-                    len(file_content),
-                    None
-                )
-                return new_file
-            
-            return value
-        except Exception as e:
-            # 如果 Pillow 無法打開，但文件有有效的 content_type，仍然允許上傳
-            if content_type and any(ext in content_type.lower() for ext in ['jpeg', 'jpg', 'png', 'gif', 'bmp', 'webp']):
+                img = Image.open(value)
+                logger.debug(f"[RouteCreateSerializer.validate_photo] Pillow 打開圖片成功，格式: {img.format}, 模式: {img.mode}, 大小: {img.size}")
+                img.verify()
+                logger.debug(f"[RouteCreateSerializer.validate_photo] 圖片驗證通過")
                 if hasattr(value, 'seek'):
                     value.seek(0)
                 
-                # 如果沒有擴展名，根據 content_type 添加
-                if not file_name or '.' not in file_name:
+                # 重新打開圖片以獲取格式信息（verify 後需要重新打開）
+                if hasattr(value, 'seek'):
+                    value.seek(0)
+                img = Image.open(value)
+                logger.debug(f"[RouteCreateSerializer.validate_photo] 重新打開圖片成功")
+                
+                # 確保文件名有正確的擴展名（根據實際圖片格式）
+                format_ext_map = {
+                    'JPEG': '.jpg',
+                    'PNG': '.png',
+                    'GIF': '.gif',
+                    'BMP': '.bmp',
+                    'WEBP': '.webp'
+                }
+                
+                # 根據 Pillow 檢測到的格式確定擴展名
+                detected_ext = format_ext_map.get(img.format, '.jpg')
+                
+                # 如果文件沒有擴展名或擴展名不正確，創建新的文件對象
+                if not file_name or '.' not in file_name or not file_name.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp')):
                     from django.core.files.uploadedfile import InMemoryUploadedFile
                     from io import BytesIO
                     import os
                     import re
-                    
-                    content_type_lower = content_type.lower()
-                    ext = '.jpg'  # 默認使用 .jpg
-                    if 'png' in content_type_lower:
-                        ext = '.png'
-                    elif 'gif' in content_type_lower:
-                        ext = '.gif'
-                    elif 'bmp' in content_type_lower:
-                        ext = '.bmp'
-                    elif 'webp' in content_type_lower:
-                        ext = '.webp'
                     
                     if hasattr(value, 'seek'):
                         value.seek(0)
                     file_content = value.read()
                     
                     # 檢查文件名是否包含中文字符或特殊字符
+                    # 如果包含，使用安全的默認文件名
                     base_name = os.path.splitext(file_name)[0] if file_name else 'photo'
                     
                     # 檢查是否包含非ASCII字符（包括中文）或特殊字符
@@ -451,20 +397,144 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                     if not base_name or len(base_name) > 50 or has_non_ascii or has_special_chars:
                         base_name = 'photo'
                     
-                    new_name = base_name + ext
+                    new_name = base_name + detected_ext
                     
                     new_file = InMemoryUploadedFile(
                         BytesIO(file_content),
                         'photo',
                         new_name,
-                        content_type,
+                        content_type or f'image/{detected_ext[1:]}',  # 移除點號
+                        len(file_content),
+                        None
+                    )
+                    return new_file
+                
+                # 如果文件名已有擴展名，確保格式正確
+                current_ext = os.path.splitext(file_name)[1].lower()
+                if current_ext not in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
+                    # 擴展名不正確，創建新的文件對象
+                    from django.core.files.uploadedfile import InMemoryUploadedFile
+                    from io import BytesIO
+                    import os
+                    import re
+                    
+                    if hasattr(value, 'seek'):
+                        value.seek(0)
+                    file_content = value.read()
+                    
+                    base_name = os.path.splitext(file_name)[0] if file_name else 'photo'
+                    
+                    # 檢查是否包含非ASCII字符（包括中文）或特殊字符
+                    has_non_ascii = any(ord(char) > 127 for char in base_name) if base_name else False
+                    has_special_chars = bool(re.search(r'[^\w\-_\.]', base_name)) if base_name else False
+                    
+                    # 如果文件名包含中文字符、特殊字符、過長或為空，使用安全的默認文件名
+                    if not base_name or len(base_name) > 50 or has_non_ascii or has_special_chars:
+                        base_name = 'photo'
+                    
+                    new_name = base_name + detected_ext
+                    
+                    logger.debug(f"[RouteCreateSerializer.validate_photo] 創建新文件對象（修正擴展名），文件名: '{new_name}'")
+                    new_file = InMemoryUploadedFile(
+                        BytesIO(file_content),
+                        'photo',
+                        new_name,
+                        content_type or f'image/{detected_ext[1:]}',
+                        len(file_content),
+                        None
+                    )
+                    return new_file
+                
+                logger.debug(f"[RouteCreateSerializer.validate_photo] 文件名和擴展名都正確，直接返回")
+                # 即使擴展名正確，如果文件名包含中文字符或特殊字符，也應該使用安全的文件名
+                # 這可以避免 ImageField 驗證失敗（特別是 iPhone 屏幕截圖的情況）
+                import re
+                base_name = os.path.splitext(file_name)[0] if file_name else 'photo'
+                has_non_ascii = any(ord(char) > 127 for char in base_name) if base_name else False
+                has_special_chars = bool(re.search(r'[^\w\-_\.]', base_name)) if base_name else False
+                
+                if has_non_ascii or has_special_chars:
+                    # 文件名包含中文字符或特殊字符，創建新的文件對象使用安全文件名
+                    from django.core.files.uploadedfile import InMemoryUploadedFile
+                    from io import BytesIO
+                    
+                    if hasattr(value, 'seek'):
+                        value.seek(0)
+                    file_content = value.read()
+                    
+                    new_name = 'photo' + detected_ext
+                    
+                    new_file = InMemoryUploadedFile(
+                        BytesIO(file_content),
+                        'photo',
+                        new_name,
+                        content_type or f'image/{detected_ext[1:]}',
                         len(file_content),
                         None
                     )
                     return new_file
                 
                 return value
-            # 如果沒有有效的 content_type 且 Pillow 無法打開，拒絕上傳
+            except Exception as e:
+                # 如果 Pillow 無法打開，但文件有有效的 content_type，仍然允許上傳
+                if content_type and any(ext in content_type.lower() for ext in ['jpeg', 'jpg', 'png', 'gif', 'bmp', 'webp']):
+                    if hasattr(value, 'seek'):
+                        value.seek(0)
+                    
+                    # 如果沒有擴展名，根據 content_type 添加
+                    if not file_name or '.' not in file_name:
+                        from django.core.files.uploadedfile import InMemoryUploadedFile
+                        from io import BytesIO
+                        import os
+                        import re
+                        
+                        content_type_lower = content_type.lower()
+                        ext = '.jpg'  # 默認使用 .jpg
+                        if 'png' in content_type_lower:
+                            ext = '.png'
+                        elif 'gif' in content_type_lower:
+                            ext = '.gif'
+                        elif 'bmp' in content_type_lower:
+                            ext = '.bmp'
+                        elif 'webp' in content_type_lower:
+                            ext = '.webp'
+                        
+                        if hasattr(value, 'seek'):
+                            value.seek(0)
+                        file_content = value.read()
+                        
+                        # 檢查文件名是否包含中文字符或特殊字符
+                        base_name = os.path.splitext(file_name)[0] if file_name else 'photo'
+                        
+                        # 檢查是否包含非ASCII字符（包括中文）或特殊字符
+                        has_non_ascii = any(ord(char) > 127 for char in base_name) if base_name else False
+                        has_special_chars = bool(re.search(r'[^\w\-_\.]', base_name)) if base_name else False
+                        
+                        # 如果文件名包含中文字符、特殊字符、過長或為空，使用安全的默認文件名
+                        if not base_name or len(base_name) > 50 or has_non_ascii or has_special_chars:
+                            base_name = 'photo'
+                        
+                        new_name = base_name + ext
+                        
+                        new_file = InMemoryUploadedFile(
+                            BytesIO(file_content),
+                            'photo',
+                            new_name,
+                            content_type,
+                            len(file_content),
+                            None
+                        )
+                        return new_file
+                    
+                    return value
+                # 如果沒有有效的 content_type 且 Pillow 無法打開，拒絕上傳
+                raise serializers.ValidationError(
+                    f'無法驗證圖片格式。錯誤: {str(e)}。'
+                    f'支持的格式: jpg, jpeg, png, gif, bmp, webp, heic, heif'
+                )
+        except Exception as e:
+            # 如果所有驗證都失敗，返回錯誤
+            logger.exception(f"[RouteCreateSerializer.validate_photo] 驗證圖片時發生未預期的錯誤")
             raise serializers.ValidationError(
                 f'無法驗證圖片格式。錯誤: {str(e)}。'
                 f'支持的格式: jpg, jpeg, png, gif, bmp, webp, heic, heif'
@@ -583,11 +653,85 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
     
     def validate_photo(self, value):
         """驗證圖片文件（與 RouteCreateSerializer 相同）"""
-        # 重用 RouteCreateSerializer 的驗證邏輯
-        # 通過調用父類的方法來避免代碼重複
-        from .serializers import RouteCreateSerializer
-        create_serializer = RouteCreateSerializer()
-        return create_serializer.validate_photo(value)
+        logger.debug(f"[RouteUpdateSerializer.validate_photo] 開始驗證照片")
+        
+        try:
+            if value is None:
+                logger.debug(f"[RouteUpdateSerializer.validate_photo] 照片為 None，跳過驗證")
+                return value
+            
+            logger.debug(f"[RouteUpdateSerializer.validate_photo] 照片信息: "
+                        f"名稱={getattr(value, 'name', 'N/A')}, "
+                        f"大小={getattr(value, 'size', 'N/A')}, "
+                        f"content_type={getattr(value, 'content_type', 'N/A')}")
+            
+            # 重用 RouteCreateSerializer 的驗證邏輯
+            # 通過調用父類的方法來避免代碼重複
+            from .serializers import RouteCreateSerializer
+            create_serializer = RouteCreateSerializer()
+            
+            logger.debug(f"[RouteUpdateSerializer.validate_photo] 調用 RouteCreateSerializer.validate_photo")
+            result = create_serializer.validate_photo(value)
+            
+            if result:
+                logger.debug(f"[RouteUpdateSerializer.validate_photo] 照片驗證成功: "
+                            f"名稱={getattr(result, 'name', 'N/A')}, "
+                            f"content_type={getattr(result, 'content_type', 'N/A')}")
+            else:
+                logger.debug(f"[RouteUpdateSerializer.validate_photo] 照片驗證返回 None")
+            
+            return result
+            
+        except serializers.ValidationError as e:
+            logger.error(f"[RouteUpdateSerializer.validate_photo] 照片驗證失敗（ValidationError）: {str(e)}")
+            raise
+        except Exception as e:
+            logger.exception(f"[RouteUpdateSerializer.validate_photo] 照片驗證時發生未預期的錯誤")
+            logger.error(f"[RouteUpdateSerializer.validate_photo] 錯誤類型: {type(e).__name__}, 錯誤信息: {str(e)}")
+            import traceback
+            logger.error(f"[RouteUpdateSerializer.validate_photo] 錯誤堆棧:\n{traceback.format_exc()}")
+            raise serializers.ValidationError(f'照片驗證失敗: {str(e)}')
+    
+    def validate_photo_url(self, value):
+        """驗證 photo_url 字段，防止 URL 格式錯誤"""
+        logger.debug(f"[RouteUpdateSerializer.validate_photo_url] 開始驗證 photo_url，原始值類型: {type(value)}, 值: {value}")
+        
+        try:
+            # 如果值為 None 或空字符串，返回空字符串（允許空值）
+            if value is None or (isinstance(value, str) and value.strip() == ''):
+                logger.debug(f"[RouteUpdateSerializer.validate_photo_url] photo_url 為空，返回空字符串")
+                return ''
+            
+            # 如果是字符串，確保它是有效的 URL 格式
+            if isinstance(value, str):
+                value = value.strip()
+                logger.debug(f"[RouteUpdateSerializer.validate_photo_url] photo_url 清理後: '{value}'")
+                
+                # 如果為空，返回空字符串
+                if not value:
+                    logger.debug(f"[RouteUpdateSerializer.validate_photo_url] photo_url 清理後為空，返回空字符串")
+                    return ''
+                
+                # 基本 URL 格式驗證（簡單檢查）
+                # Django 的 URLField 會進行更嚴格的驗證，這裡先做基本檢查
+                if not (value.startswith('http://') or value.startswith('https://') or 
+                        value.startswith('/') or value.startswith('data:')):
+                    # 如果不是有效的 URL 格式，返回空字符串（而不是拋出錯誤）
+                    # 這樣可以避免 "The string did not match the expected pattern" 錯誤
+                    logger.warning(f"[RouteUpdateSerializer.validate_photo_url] photo_url 不符合 URL 格式: '{value}'，返回空字符串")
+                    return ''
+                
+                logger.debug(f"[RouteUpdateSerializer.validate_photo_url] photo_url 驗證通過: '{value}'")
+                return value
+            else:
+                logger.warning(f"[RouteUpdateSerializer.validate_photo_url] photo_url 類型不正確: {type(value)}，返回空字符串")
+                return ''
+                
+        except Exception as e:
+            logger.exception(f"[RouteUpdateSerializer.validate_photo_url] 驗證 photo_url 時發生錯誤")
+            logger.error(f"[RouteUpdateSerializer.validate_photo_url] 錯誤類型: {type(e).__name__}, 錯誤信息: {str(e)}")
+            # 發生錯誤時返回空字符串，避免驗證失敗
+            return ''
     
     def validate_member_completions(self, value):
         """驗證 member_completions 字段，防止 SQL 注入"""
@@ -625,8 +769,11 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
         if 'photo' in validated_data:
             instance.photo = validated_data.get('photo')
         # 向後兼容：如果提供了 photo_url（舊版），保留它
+        # 注意：photo_url 已經在 validate_photo_url 中驗證和清理
         if 'photo_url' in validated_data:
-            instance.photo_url = validated_data.get('photo_url', instance.photo_url)
+            photo_url_value = validated_data.get('photo_url')
+            # 確保空字符串被正確處理（URLField 允許 blank=True）
+            instance.photo_url = photo_url_value if photo_url_value else ''
         instance.save()
         
         # 如果提供了成員完成狀態，批量更新

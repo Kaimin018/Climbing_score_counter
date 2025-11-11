@@ -6,12 +6,15 @@ from django.shortcuts import get_object_or_404, render
 from django.utils.html import escape
 from django.conf import settings
 from django.views.decorators.csrf import ensure_csrf_cookie
+import logging
 from .models import Room, Member, Route, Score, update_scores
 from .serializers import (
     RoomSerializer, MemberSerializer, RouteSerializer,
     RouteCreateSerializer, RouteUpdateSerializer, LeaderboardSerializer, ScoreUpdateSerializer
 )
 from .permissions import IsAuthenticatedOrReadOnlyForCreate
+
+logger = logging.getLogger(__name__)
 
 
 class RoomViewSet(viewsets.ModelViewSet):
@@ -198,38 +201,109 @@ class RouteViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         """更新路線"""
-        route = self.get_object()
-        data = request.data.copy()
+        route_id = kwargs.get('pk')
+        logger.info(f"[RouteViewSet.update] 開始更新路線 ID: {route_id}")
         
-        # 清理用戶輸入，防止 XSS
-        if 'name' in data:
-            data['name'] = escape(data['name'])
-        if 'grade' in data:
-            data['grade'] = escape(data['grade'])
-        
-        # 處理 member_completions：FormData 可能將值作為列表傳遞（QueryDict），取第一個元素
-        # 如果已經是字典，轉換為 JSON 字符串（因為 serializer 期望字符串）
-        if 'member_completions' in data:
-            member_completions = data['member_completions']
-            if isinstance(member_completions, list):
-                member_completions = member_completions[0] if len(member_completions) > 0 else '{}'
-            if isinstance(member_completions, dict):
-                import json
-                member_completions = json.dumps(member_completions)
-            if not isinstance(member_completions, str):
-                member_completions = str(member_completions)
-            data['member_completions'] = member_completions
-        
-        serializer = self.get_serializer(route, data=data, partial=True, context={'request': request})
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        serializer.save()
-        
-        # 重新從數據庫獲取路線，確保包含最新的 scores
-        route.refresh_from_db()
-        route_serializer = RouteSerializer(route, context={'request': request})
-        return Response(route_serializer.data)
+        try:
+            route = self.get_object()
+            logger.debug(f"[RouteViewSet.update] 獲取路線對象成功: {route.id}, 名稱: {route.name}")
+            
+            data = request.data.copy()
+            logger.debug(f"[RouteViewSet.update] 接收到的數據字段: {list(data.keys())}")
+            
+            # 清理用戶輸入，防止 XSS
+            if 'name' in data:
+                original_name = data['name']
+                data['name'] = escape(data['name'])
+                logger.debug(f"[RouteViewSet.update] 清理路線名稱: '{original_name}' -> '{data['name']}'")
+            if 'grade' in data:
+                original_grade = data['grade']
+                data['grade'] = escape(data['grade'])
+                logger.debug(f"[RouteViewSet.update] 清理難度等級: '{original_grade}' -> '{data['grade']}'")
+            
+            # 處理 member_completions：FormData 可能將值作為列表傳遞（QueryDict），取第一個元素
+            # 如果已經是字典，轉換為 JSON 字符串（因為 serializer 期望字符串）
+            if 'member_completions' in data:
+                member_completions = data['member_completions']
+                logger.debug(f"[RouteViewSet.update] member_completions 原始類型: {type(member_completions)}, 值: {member_completions}")
+                
+                if isinstance(member_completions, list):
+                    member_completions = member_completions[0] if len(member_completions) > 0 else '{}'
+                    logger.debug(f"[RouteViewSet.update] member_completions 從列表提取: {member_completions}")
+                if isinstance(member_completions, dict):
+                    import json
+                    member_completions = json.dumps(member_completions)
+                    logger.debug(f"[RouteViewSet.update] member_completions 從字典轉換為 JSON: {member_completions}")
+                if not isinstance(member_completions, str):
+                    member_completions = str(member_completions)
+                    logger.debug(f"[RouteViewSet.update] member_completions 轉換為字符串: {member_completions}")
+                data['member_completions'] = member_completions
+            
+            # 處理 photo_url：如果存在但為空或無效，移除它（避免 URLField 驗證錯誤）
+            # 注意：如果前端沒有發送 photo_url，則不處理（保持現有值）
+            if 'photo_url' in data:
+                photo_url = data['photo_url']
+                logger.debug(f"[RouteViewSet.update] photo_url 原始值類型: {type(photo_url)}, 值: {photo_url}")
+                
+                # 如果是列表（FormData 可能將值作為列表），取第一個元素
+                if isinstance(photo_url, list):
+                    photo_url = photo_url[0] if len(photo_url) > 0 else ''
+                    logger.debug(f"[RouteViewSet.update] photo_url 從列表提取: {photo_url}")
+                
+                # 如果是空字符串或無效值，移除該字段（不更新 photo_url）
+                if not photo_url or (isinstance(photo_url, str) and photo_url.strip() == ''):
+                    logger.warning(f"[RouteViewSet.update] photo_url 為空或無效，移除該字段以避免驗證錯誤")
+                    data.pop('photo_url', None)
+                # 如果是字符串但不符合基本 URL 格式，也移除
+                elif isinstance(photo_url, str):
+                    photo_url = photo_url.strip()
+                    if not (photo_url.startswith('http://') or photo_url.startswith('https://') or 
+                            photo_url.startswith('/') or photo_url.startswith('data:')):
+                        logger.warning(f"[RouteViewSet.update] photo_url 不符合 URL 格式: '{photo_url}'，移除該字段")
+                        data.pop('photo_url', None)
+                    else:
+                        logger.debug(f"[RouteViewSet.update] photo_url 驗證通過: {photo_url}")
+            
+            # 處理照片文件
+            if 'photo' in data:
+                photo = data['photo']
+                if photo:
+                    logger.debug(f"[RouteViewSet.update] 收到照片文件: 名稱={getattr(photo, 'name', 'N/A')}, "
+                                f"大小={getattr(photo, 'size', 'N/A')}, "
+                                f"content_type={getattr(photo, 'content_type', 'N/A')}")
+                else:
+                    logger.debug(f"[RouteViewSet.update] photo 字段存在但為空")
+            
+            logger.debug(f"[RouteViewSet.update] 準備傳遞給 serializer 的數據字段: {list(data.keys())}")
+            
+            serializer = self.get_serializer(route, data=data, partial=True, context={'request': request})
+            
+            logger.debug(f"[RouteViewSet.update] 開始驗證數據...")
+            if not serializer.is_valid():
+                logger.error(f"[RouteViewSet.update] 數據驗證失敗！路線 ID: {route_id}")
+                logger.error(f"[RouteViewSet.update] 驗證錯誤詳情: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            logger.debug(f"[RouteViewSet.update] 數據驗證通過，開始保存...")
+            serializer.save()
+            logger.info(f"[RouteViewSet.update] 路線更新成功: {route_id}")
+            
+            # 重新從數據庫獲取路線，確保包含最新的 scores
+            route.refresh_from_db()
+            route_serializer = RouteSerializer(route, context={'request': request})
+            logger.debug(f"[RouteViewSet.update] 返回更新後的路線數據")
+            return Response(route_serializer.data)
+            
+        except Exception as e:
+            logger.exception(f"[RouteViewSet.update] 更新路線時發生未預期的錯誤！路線 ID: {route_id}")
+            logger.error(f"[RouteViewSet.update] 錯誤類型: {type(e).__name__}")
+            logger.error(f"[RouteViewSet.update] 錯誤信息: {str(e)}")
+            import traceback
+            logger.error(f"[RouteViewSet.update] 錯誤堆棧:\n{traceback.format_exc()}")
+            return Response(
+                {'detail': f'更新路線時發生錯誤: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def destroy(self, request, *args, **kwargs):
         """刪除路線"""

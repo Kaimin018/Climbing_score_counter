@@ -104,7 +104,7 @@ sudo journalctl -u climbing_system -f
 cd /var/www/Climbing_score_counter
 source venv/bin/activate
 # 拉取最新代碼或上傳新文件
-bash Deployment/deploy.sh
+bash Deployment/scripts/tools/deploy.sh
 ```
 
 ## 環境變數清單
