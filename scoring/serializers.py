@@ -318,15 +318,24 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                 from django.core.files.uploadedfile import InMemoryUploadedFile
                 from io import BytesIO
                 import os
+                import re
                 
                 if hasattr(value, 'seek'):
                     value.seek(0)
                 file_content = value.read()
                 
-                # 使用檢測到的格式擴展名
+                # 檢查文件名是否包含中文字符或特殊字符
+                # 如果包含，使用安全的默認文件名
                 base_name = os.path.splitext(file_name)[0] if file_name else 'photo'
-                if not base_name or len(base_name) > 50:
+                
+                # 檢查是否包含非ASCII字符（包括中文）或特殊字符
+                has_non_ascii = any(ord(char) > 127 for char in base_name) if base_name else False
+                has_special_chars = bool(re.search(r'[^\w\-_\.]', base_name)) if base_name else False
+                
+                # 如果文件名包含中文字符、特殊字符、過長或為空，使用安全的默認文件名
+                if not base_name or len(base_name) > 50 or has_non_ascii or has_special_chars:
                     base_name = 'photo'
+                
                 new_name = base_name + detected_ext
                 
                 new_file = InMemoryUploadedFile(
@@ -346,15 +355,51 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                 from django.core.files.uploadedfile import InMemoryUploadedFile
                 from io import BytesIO
                 import os
+                import re
                 
                 if hasattr(value, 'seek'):
                     value.seek(0)
                 file_content = value.read()
                 
                 base_name = os.path.splitext(file_name)[0] if file_name else 'photo'
-                if not base_name or len(base_name) > 50:
+                
+                # 檢查是否包含非ASCII字符（包括中文）或特殊字符
+                has_non_ascii = any(ord(char) > 127 for char in base_name) if base_name else False
+                has_special_chars = bool(re.search(r'[^\w\-_\.]', base_name)) if base_name else False
+                
+                # 如果文件名包含中文字符、特殊字符、過長或為空，使用安全的默認文件名
+                if not base_name or len(base_name) > 50 or has_non_ascii or has_special_chars:
                     base_name = 'photo'
+                
                 new_name = base_name + detected_ext
+                
+                new_file = InMemoryUploadedFile(
+                    BytesIO(file_content),
+                    'photo',
+                    new_name,
+                    content_type or f'image/{detected_ext[1:]}',
+                    len(file_content),
+                    None
+                )
+                return new_file
+            
+            # 即使擴展名正確，如果文件名包含中文字符或特殊字符，也應該使用安全的文件名
+            # 這可以避免 ImageField 驗證失敗（特別是 iPhone 屏幕截圖的情況）
+            import re
+            base_name = os.path.splitext(file_name)[0] if file_name else 'photo'
+            has_non_ascii = any(ord(char) > 127 for char in base_name) if base_name else False
+            has_special_chars = bool(re.search(r'[^\w\-_\.]', base_name)) if base_name else False
+            
+            if has_non_ascii or has_special_chars:
+                # 文件名包含中文字符或特殊字符，創建新的文件對象使用安全文件名
+                from django.core.files.uploadedfile import InMemoryUploadedFile
+                from io import BytesIO
+                
+                if hasattr(value, 'seek'):
+                    value.seek(0)
+                file_content = value.read()
+                
+                new_name = 'photo' + detected_ext
                 
                 new_file = InMemoryUploadedFile(
                     BytesIO(file_content),
@@ -378,6 +423,7 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                     from django.core.files.uploadedfile import InMemoryUploadedFile
                     from io import BytesIO
                     import os
+                    import re
                     
                     content_type_lower = content_type.lower()
                     ext = '.jpg'  # 默認使用 .jpg
@@ -394,11 +440,17 @@ class RouteCreateSerializer(serializers.ModelSerializer):
                         value.seek(0)
                     file_content = value.read()
                     
-                    new_name = file_name if file_name else 'photo'
-                    # 確保文件名以正確的擴展名結尾
-                    base_name = os.path.splitext(new_name)[0]
-                    if not base_name:
+                    # 檢查文件名是否包含中文字符或特殊字符
+                    base_name = os.path.splitext(file_name)[0] if file_name else 'photo'
+                    
+                    # 檢查是否包含非ASCII字符（包括中文）或特殊字符
+                    has_non_ascii = any(ord(char) > 127 for char in base_name) if base_name else False
+                    has_special_chars = bool(re.search(r'[^\w\-_\.]', base_name)) if base_name else False
+                    
+                    # 如果文件名包含中文字符、特殊字符、過長或為空，使用安全的默認文件名
+                    if not base_name or len(base_name) > 50 or has_non_ascii or has_special_chars:
                         base_name = 'photo'
+                    
                     new_name = base_name + ext
                     
                     new_file = InMemoryUploadedFile(
