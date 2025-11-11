@@ -6,6 +6,79 @@ echo "========================================"
 echo ""
 
 # ============================================
+# 檢查 Python 依賴（requirements.txt）
+# ============================================
+echo "[0/4] 檢查 Python 依賴..."
+if [ ! -f "requirements.txt" ]; then
+    echo "❌ 錯誤: 未找到 requirements.txt 文件"
+    echo "   請確保在項目根目錄運行此腳本"
+    exit 1
+fi
+
+# 檢查是否在虛擬環境中，優先使用虛擬環境的 Python（用於檢查依賴）
+if [ -d "venv" ]; then
+    if [ -f "venv/bin/python" ]; then
+        CHECK_PYTHON_CMD="venv/bin/python"
+    elif [ -f "venv/Scripts/python.exe" ]; then
+        CHECK_PYTHON_CMD="venv/Scripts/python.exe"
+    elif [ -f "venv/Scripts/python" ]; then
+        CHECK_PYTHON_CMD="venv/Scripts/python"
+    else
+        if command -v python3 &> /dev/null; then
+            CHECK_PYTHON_CMD="python3"
+        elif command -v python &> /dev/null; then
+            CHECK_PYTHON_CMD="python"
+        else
+            echo "❌ 錯誤: 未找到 Python 命令"
+            exit 1
+        fi
+    fi
+else
+    if command -v python3 &> /dev/null; then
+        CHECK_PYTHON_CMD="python3"
+    elif command -v python &> /dev/null; then
+        CHECK_PYTHON_CMD="python"
+    else
+        echo "❌ 錯誤: 未找到 Python 命令"
+        exit 1
+    fi
+fi
+
+# 檢查 pip 是否可用
+if ! $CHECK_PYTHON_CMD -m pip --version &> /dev/null; then
+    echo "❌ 錯誤: pip 未安裝或不可用"
+    echo "   請先安裝 pip: $CHECK_PYTHON_CMD -m ensurepip --upgrade"
+    exit 1
+fi
+
+# 檢查關鍵依賴是否已安裝
+echo "   檢查關鍵依賴..."
+MISSING_DEPS=()
+if ! $CHECK_PYTHON_CMD -c "import django" &> /dev/null; then
+    MISSING_DEPS+=("Django")
+fi
+if ! $CHECK_PYTHON_CMD -c "import rest_framework" &> /dev/null; then
+    MISSING_DEPS+=("djangorestframework")
+fi
+if ! $CHECK_PYTHON_CMD -c "import PIL" &> /dev/null; then
+    MISSING_DEPS+=("Pillow")
+fi
+
+if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
+    echo "   ⚠️  警告: 以下依賴未安裝: ${MISSING_DEPS[*]}"
+    echo "   正在安裝 requirements.txt 中的依賴..."
+    $CHECK_PYTHON_CMD -m pip install -r requirements.txt
+    if [ $? -ne 0 ]; then
+        echo "   ❌ 依賴安裝失敗，請手動執行: $CHECK_PYTHON_CMD -m pip install -r requirements.txt"
+        exit 1
+    fi
+    echo "   ✅ 依賴安裝完成"
+else
+    echo "   ✅ 關鍵依賴已安裝"
+fi
+echo ""
+
+# ============================================
 # 數據庫和媒體庫同步配置說明
 # ============================================
 # 如果需要在啟動前自動從服務器同步數據庫和媒體庫，請配置：
@@ -79,7 +152,7 @@ else
 fi
 
 # 從服務器同步數據庫和媒體庫（如果配置了）
-echo "[1/3] 同步數據庫和媒體庫..."
+echo "[1/4] 同步數據庫和媒體庫..."
 if [ -f "security/EC2_security_config" ]; then
     # 檢查同步腳本是否存在
     if [ -f "Deployment/scripts/tools/sync_db_from_server.sh" ]; then
@@ -128,11 +201,11 @@ if [ -f "security/EC2_security_config" ]; then
             else
                 echo "   ❌ 數據庫文件損壞或無效"
                 echo "   正在從備份恢復..."
-                # 查找最新的備份文件
-                LATEST_BACKUP=$(ls -t backups/db_local_backup_*.sqlite3 2>/dev/null | head -1)
-                if [ -n "$LATEST_BACKUP" ] && [ -f "$LATEST_BACKUP" ]; then
-                    cp "$LATEST_BACKUP" "db.sqlite3"
-                    echo "   ✅ 已從備份恢復: $LATEST_BACKUP"
+                # 查找最新的備份文件夾（統一備份格式）
+                LATEST_BACKUP_DIR=$(ls -td backups/local_backup_* 2>/dev/null | head -1)
+                if [ -n "$LATEST_BACKUP_DIR" ] && [ -d "$LATEST_BACKUP_DIR" ] && [ -f "$LATEST_BACKUP_DIR/db.sqlite3" ]; then
+                    cp "$LATEST_BACKUP_DIR/db.sqlite3" "db.sqlite3"
+                    echo "   ✅ 已從備份恢復: $LATEST_BACKUP_DIR/db.sqlite3"
                 else
                     echo "   ⚠️  未找到備份文件，將刪除損壞的數據庫文件"
                     rm -f "db.sqlite3"
@@ -149,10 +222,11 @@ else
         if ! $PYTHON_CMD -c "import sqlite3; conn = sqlite3.connect('db.sqlite3'); conn.execute('SELECT 1'); conn.close()" 2>/dev/null; then
             echo "   ❌ 本地數據庫文件損壞"
             echo "   正在從備份恢復..."
-            LATEST_BACKUP=$(ls -t backups/db_local_backup_*.sqlite3 2>/dev/null | head -1)
-            if [ -n "$LATEST_BACKUP" ] && [ -f "$LATEST_BACKUP" ]; then
-                cp "$LATEST_BACKUP" "db.sqlite3"
-                echo "   ✅ 已從備份恢復: $LATEST_BACKUP"
+            # 查找最新的備份文件夾（統一備份格式）
+            LATEST_BACKUP_DIR=$(ls -td backups/local_backup_* 2>/dev/null | head -1)
+            if [ -n "$LATEST_BACKUP_DIR" ] && [ -d "$LATEST_BACKUP_DIR" ] && [ -f "$LATEST_BACKUP_DIR/db.sqlite3" ]; then
+                cp "$LATEST_BACKUP_DIR/db.sqlite3" "db.sqlite3"
+                echo "   ✅ 已從備份恢復: $LATEST_BACKUP_DIR/db.sqlite3"
             else
                 echo "   ⚠️  未找到備份文件，將刪除損壞的數據庫文件"
                 rm -f "db.sqlite3"
@@ -165,7 +239,7 @@ else
 fi
 echo ""
 
-echo "[2/3] 運行數據庫遷移..."
+echo "[2/4] 運行數據庫遷移..."
 $PYTHON_CMD manage.py migrate
 if [ $? -ne 0 ]; then
     echo "遷移失敗！請檢查錯誤信息。"
@@ -202,7 +276,7 @@ else
 fi
 echo ""
 
-echo "[3/3] 啟動開發服務器..."
+echo "[3/4] 啟動開發服務器..."
 echo ""
 echo "========================================"
 echo "服務器將在 http://127.0.0.1:8000 啟動"

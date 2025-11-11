@@ -18,6 +18,16 @@ from .serializers import convert_file_to_uploaded_file
 
 logger = logging.getLogger(__name__)
 
+# Excel 导出相关导入
+try:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.drawing.image import Image as ExcelImage
+    OPENPYXL_AVAILABLE = True
+except ImportError:
+    OPENPYXL_AVAILABLE = False
+    logger.warning("openpyxl 未安装，Excel 导出功能将不可用。请运行: pip install openpyxl")
+
 
 class RoomViewSet(viewsets.ModelViewSet):
     queryset = Room.objects.all()
@@ -107,6 +117,256 @@ class RoomViewSet(viewsets.ModelViewSet):
         })
         
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='export-excel')
+    def export_excel(self, request, pk=None):
+        """導出排行榜Excel，包含照片和測項"""
+        if not OPENPYXL_AVAILABLE:
+            return Response(
+                {'detail': 'Excel 导出功能不可用，请安装 openpyxl: pip install openpyxl'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        
+        from openpyxl.utils import get_column_letter
+        from django.http import HttpResponse
+        from io import BytesIO
+        import os
+        
+        room = self.get_object()
+        
+        # 創建Excel工作簿
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "排行榜"
+        
+        # 設置標題樣式
+        title_font = Font(name='微軟正黑體', size=16, bold=True, color='FFFFFF')
+        title_fill = PatternFill(start_color='2C3E50', end_color='2C3E50', fill_type='solid')
+        title_alignment = Alignment(horizontal='center', vertical='center')
+        
+        # 設置表頭樣式
+        header_font = Font(name='微軟正黑體', size=12, bold=True, color='FFFFFF')
+        header_fill = PatternFill(start_color='34495E', end_color='34495E', fill_type='solid')
+        header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        
+        # 設置邊框
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # 寫入標題
+        ws.merge_cells('A1:E1')
+        title_cell = ws['A1']
+        title_cell.value = f"{room.name} - 排行榜"
+        title_cell.font = title_font
+        title_cell.fill = title_fill
+        title_cell.alignment = title_alignment
+        title_cell.border = thin_border
+        ws.row_dimensions[1].height = 30
+        
+        # 寫入房間信息
+        ws['A2'] = f"房間 ID: {room.id}"
+        ws['B2'] = f"每一條線總分 (L): {room.standard_line_score}"
+        ws.merge_cells('A2:B2')
+        info_cell = ws['A2']
+        info_cell.font = Font(name='微軟正黑體', size=11)
+        info_cell.alignment = Alignment(horizontal='left', vertical='center')
+        
+        # 寫入表頭
+        headers = ['排名', '成員', '總分', '完成條數', '是否客製化組']
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=3, column=col_num)
+            cell.value = header
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = thin_border
+        ws.row_dimensions[3].height = 25
+        
+        # 獲取成員數據（按總分降序）
+        members = room.members.all().order_by('-total_score', 'name')
+        
+        # 寫入成員數據
+        row_num = 4
+        for index, member in enumerate(members, 1):
+            ws.cell(row=row_num, column=1, value=index).font = Font(name='微軟正黑體', size=11)
+            ws.cell(row=row_num, column=1).alignment = Alignment(horizontal='center', vertical='center')
+            ws.cell(row=row_num, column=1).border = thin_border
+            
+            ws.cell(row=row_num, column=2, value=member.name).font = Font(name='微軟正黑體', size=11)
+            ws.cell(row=row_num, column=2).alignment = Alignment(horizontal='left', vertical='center')
+            ws.cell(row=row_num, column=2).border = thin_border
+            
+            ws.cell(row=row_num, column=3, value=float(member.total_score)).font = Font(name='微軟正黑體', size=11)
+            ws.cell(row=row_num, column=3).alignment = Alignment(horizontal='right', vertical='center')
+            ws.cell(row=row_num, column=3).border = thin_border
+            
+            completed_count = member.completed_routes_count
+            ws.cell(row=row_num, column=4, value=completed_count).font = Font(name='微軟正黑體', size=11)
+            ws.cell(row=row_num, column=4).alignment = Alignment(horizontal='center', vertical='center')
+            ws.cell(row=row_num, column=4).border = thin_border
+            
+            custom_text = '是' if member.is_custom_calc else '否'
+            ws.cell(row=row_num, column=5, value=custom_text).font = Font(name='微軟正黑體', size=11)
+            ws.cell(row=row_num, column=5).alignment = Alignment(horizontal='center', vertical='center')
+            ws.cell(row=row_num, column=5).border = thin_border
+            
+            # 設置行高
+            ws.row_dimensions[row_num].height = 20
+            row_num += 1
+        
+        # 設置列寬
+        ws.column_dimensions['A'].width = 10
+        ws.column_dimensions['B'].width = 20
+        ws.column_dimensions['C'].width = 15
+        ws.column_dimensions['D'].width = 15
+        ws.column_dimensions['E'].width = 15
+        
+        # 創建路線工作表（測項）
+        routes_ws = wb.create_sheet(title="路線列表")
+        
+        # 獲取所有成員（按名稱排序，保持一致性）
+        all_members = room.members.all().order_by('name')
+        member_names = [member.name for member in all_members]
+        member_dict = {member.id: member for member in all_members}
+        
+        # 路線表頭：基本信息 + 每個成員的列
+        route_headers = ['路線名稱', '難度等級', '完成人數', '照片'] + member_names
+        for col_num, header in enumerate(route_headers, 1):
+            cell = routes_ws.cell(row=1, column=col_num)
+            cell.value = header
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = thin_border
+        routes_ws.row_dimensions[1].height = 25
+        
+        # 獲取路線數據
+        routes = room.routes.all().order_by('created_at')
+        
+        # 用於保存所有臨時文件路徑，以便最後清理
+        temp_files = []
+        
+        # 寫入路線數據
+        route_row = 2
+        for route in routes:
+            routes_ws.cell(row=route_row, column=1, value=route.name).font = Font(name='微軟正黑體', size=11)
+            routes_ws.cell(row=route_row, column=1).alignment = Alignment(horizontal='left', vertical='center')
+            routes_ws.cell(row=route_row, column=1).border = thin_border
+            
+            routes_ws.cell(row=route_row, column=2, value=route.grade or '-').font = Font(name='微軟正黑體', size=11)
+            routes_ws.cell(row=route_row, column=2).alignment = Alignment(horizontal='center', vertical='center')
+            routes_ws.cell(row=route_row, column=2).border = thin_border
+            
+            # 計算完成人數
+            completed_count = route.scores.filter(is_completed=True).count()
+            total_count = route.scores.count()
+            routes_ws.cell(row=route_row, column=3, value=f"{completed_count}/{total_count}").font = Font(name='微軟正黑體', size=11)
+            routes_ws.cell(row=route_row, column=3).alignment = Alignment(horizontal='center', vertical='center')
+            routes_ws.cell(row=route_row, column=3).border = thin_border
+            
+            # 處理照片
+            if route.photo:
+                try:
+                    photo_path = route.photo.path
+                    if os.path.exists(photo_path):
+                        # 調整照片大小以適應Excel單元格
+                        from PIL import Image as PILImage
+                        img = PILImage.open(photo_path)
+                        # 限制照片大小（寬度不超過200像素）
+                        max_width = 200
+                        if img.width > max_width:
+                            ratio = max_width / img.width
+                            new_height = int(img.height * ratio)
+                            img = img.resize((max_width, new_height), PILImage.Resampling.LANCZOS)
+                        
+                        # 保存臨時圖片
+                        temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp_export')
+                        os.makedirs(temp_dir, exist_ok=True)
+                        temp_path = os.path.join(temp_dir, f'route_{route.id}.jpg')
+                        img.save(temp_path, 'JPEG', quality=85)
+                        
+                        # 記錄臨時文件路徑，稍後清理
+                        temp_files.append(temp_path)
+                        
+                        # 插入圖片到Excel
+                        excel_img = ExcelImage(temp_path)
+                        # 設置圖片位置和大小
+                        routes_ws.add_image(excel_img, f'D{route_row}')
+                        
+                        # 設置行高以適應圖片（轉換像素為點，1點約等於1.33像素）
+                        img_height_points = excel_img.height * 0.75 if hasattr(excel_img, 'height') else 80
+                        routes_ws.row_dimensions[route_row].height = max(80, img_height_points)
+                    else:
+                        routes_ws.cell(row=route_row, column=4, value='照片不存在').font = Font(name='微軟正黑體', size=10, color='999999')
+                        routes_ws.cell(row=route_row, column=4).alignment = Alignment(horizontal='center', vertical='center')
+                        routes_ws.cell(row=route_row, column=4).border = thin_border
+                except Exception as e:
+                    logger.error(f"處理路線照片時發生錯誤: {e}")
+                    routes_ws.cell(row=route_row, column=4, value='照片載入失敗').font = Font(name='微軟正黑體', size=10, color='FF0000')
+                    routes_ws.cell(row=route_row, column=4).alignment = Alignment(horizontal='center', vertical='center')
+                    routes_ws.cell(row=route_row, column=4).border = thin_border
+            else:
+                routes_ws.cell(row=route_row, column=4, value='無照片').font = Font(name='微軟正黑體', size=10, color='999999')
+                routes_ws.cell(row=route_row, column=4).alignment = Alignment(horizontal='center', vertical='center')
+                routes_ws.cell(row=route_row, column=4).border = thin_border
+            
+            # 添加每個成員的完成狀態（1=完成，0=未完成）
+            # 獲取該路線的所有成績記錄
+            route_scores = {score.member_id: score.is_completed for score in route.scores.all()}
+            
+            # 從第5列開始（前4列是：路線名稱、難度等級、完成人數、照片）
+            member_col = 5
+            for member in all_members:
+                # 檢查該成員是否完成此路線
+                is_completed = route_scores.get(member.id, False)
+                completion_value = 1 if is_completed else 0
+                
+                routes_ws.cell(row=route_row, column=member_col, value=completion_value).font = Font(name='微軟正黑體', size=11)
+                routes_ws.cell(row=route_row, column=member_col).alignment = Alignment(horizontal='center', vertical='center')
+                routes_ws.cell(row=route_row, column=member_col).border = thin_border
+                member_col += 1
+            
+            route_row += 1
+        
+        # 設置路線工作表列寬
+        routes_ws.column_dimensions['A'].width = 25  # 路線名稱
+        routes_ws.column_dimensions['B'].width = 15  # 難度等級
+        routes_ws.column_dimensions['C'].width = 15  # 完成人數
+        routes_ws.column_dimensions['D'].width = 30  # 照片
+        
+        # 設置成員列的寬度（從第5列開始）
+        for idx, member in enumerate(all_members, start=5):
+            col_letter = get_column_letter(idx)
+            routes_ws.column_dimensions[col_letter].width = 10  # 每個成員列寬度設為10
+        
+        # 保存到內存（在保存之前，臨時文件必須存在）
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        # 保存完成後，清理所有臨時文件
+        for temp_file in temp_files:
+            try:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+            except Exception as cleanup_error:
+                logger.warning(f"清理臨時文件失敗 {temp_file}: {cleanup_error}")
+        
+        # 創建HTTP響應
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        filename = f"{room.name}_排行榜_{room.id}.xlsx"
+        # 處理中文文件名
+        from urllib.parse import quote
+        response['Content-Disposition'] = f'attachment; filename="{quote(filename)}"; filename*=UTF-8\'\'{quote(filename)}'
+        
+        return response
 
     @action(detail=True, methods=['post'], url_path='routes')
     def create_route(self, request, pk=None):

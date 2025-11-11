@@ -25,6 +25,9 @@
                 <button class="btn btn-secondary btn-square" onclick="showEditRoomModal()" title="編輯房間" style="font-size: 1.3rem; line-height: 1;">
                     ✏️
                 </button>
+                <button class="btn btn-secondary btn-square" id="exportExcelBtn" onclick="exportToExcel()" title="導出Excel（包含照片和測項）" style="font-size: 1.3rem; line-height: 1;">
+                    💾
+                </button>
             </div>
         </div>
     </div>
@@ -43,6 +46,9 @@
                     </a>
                     <button class="btn btn-secondary btn-small" onclick="showEditRoomModal()" style="margin-left: 10px;">
                         編輯房間
+                    </button>
+                    <button class="btn btn-secondary btn-small" id="exportExcelBtnDesktop" onclick="exportToExcel()" title="導出Excel（包含照片和測項）" style="margin-left: 10px;">
+                        💾 導出Excel
                     </button>
                 </div>
                 <div class="room-info">
@@ -826,6 +832,111 @@
             // 然後載入排行榜
             loadLeaderboard();
         }
+    }
+
+    // 導出Excel功能
+    function exportToExcel() {
+        // 嘗試獲取按鈕（移動端或桌面端）
+        const exportBtn = document.getElementById('exportExcelBtn') || document.getElementById('exportExcelBtnDesktop');
+        if (!exportBtn) {
+            showToast('找不到導出按鈕', 'error');
+            return;
+        }
+
+        // 檢查房間ID
+        if (!ROOM_ID) {
+            showToast('無法獲取房間ID，請刷新頁面後重試', 'error');
+            return;
+        }
+
+        // 保存原始內容
+        const originalContent = exportBtn.innerHTML;
+        exportBtn.dataset.originalContent = originalContent;
+        
+        // 設置按鈕為加載狀態
+        exportBtn.disabled = true;
+        exportBtn.classList.add('loading');
+        exportBtn.style.opacity = '0.6';
+        exportBtn.style.cursor = 'not-allowed';
+        
+        // 更新按鈕文字（根據按鈕類型）
+        if (exportBtn.id === 'exportExcelBtn') {
+            exportBtn.innerHTML = '⏳';
+        } else {
+            exportBtn.innerHTML = '⏳ 正在導出...';
+        }
+
+        // 構建導出URL
+        const exportUrl = `/api/rooms/${ROOM_ID}/export-excel/`;
+
+        // 使用fetch下載文件
+        fetch(exportUrl, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error('房間不存在');
+                } else if (response.status === 403 || response.status === 401) {
+                    throw new Error('沒有權限導出，請確認已登錄');
+                } else {
+                    throw new Error(`導出失敗 (狀態碼: ${response.status})`);
+                }
+            }
+            
+            // 從響應頭獲取文件名
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = `排行榜_${ROOM_ID}.xlsx`;
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1].replace(/['"]/g, '');
+                    // 處理URL編碼的文件名
+                    try {
+                        filename = decodeURIComponent(filename);
+                    } catch (e) {
+                        // 如果解碼失敗，使用原始文件名
+                    }
+                }
+            }
+            
+            // 返回blob和文件名
+            return response.blob().then(blob => ({ blob, filename }));
+        })
+        .then(({ blob, filename }) => {
+            // 創建下載鏈接
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showToast('Excel導出成功！', 'success');
+        })
+        .catch(error => {
+            console.error('導出Excel失敗:', error);
+            let errorMsg = '導出Excel時發生錯誤';
+            if (error.message) {
+                errorMsg = error.message;
+            }
+            showToast(errorMsg, 'error');
+        })
+        .finally(() => {
+            // 恢復按鈕狀態
+            exportBtn.disabled = false;
+            exportBtn.classList.remove('loading');
+            exportBtn.style.opacity = '1';
+            exportBtn.style.cursor = 'pointer';
+            // 恢復原始內容
+            exportBtn.innerHTML = exportBtn.dataset.originalContent || (exportBtn.id === 'exportExcelBtn' ? '💾' : '💾 導出Excel');
+        });
     }
 
     function showCompletedRoutes(memberId, memberName) {
