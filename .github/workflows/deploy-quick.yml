@@ -48,7 +48,7 @@ on:
         options:
           - main
           - master
-          - develop
+          - dev
       skip_tests:
         description: '跳過測試（快速部署）'
         required: false

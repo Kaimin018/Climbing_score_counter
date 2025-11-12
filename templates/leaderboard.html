@@ -849,8 +849,27 @@
             return;
         }
 
+        // 計算排名（處理同分情況）
+        let currentRank = 1;
+        let previousScore = null;
+        
         tbody.innerHTML = leaderboard.map((member, index) => {
-            const rank = index + 1;
+            const currentScore = parseFloat(member.total_score);
+            
+            // 第一個成員始終是第1名
+            if (index === 0) {
+                currentRank = 1;
+            } else {
+                // 如果分數與前一個不同，更新排名為當前索引+1
+                if (previousScore !== null && currentScore !== previousScore) {
+                    currentRank = index + 1;
+                }
+                // 如果分數相同，保持當前排名（不更新 currentRank）
+            }
+            
+            previousScore = currentScore;
+            
+            const rank = currentRank;
             const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
             const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
             return `

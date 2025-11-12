@@ -172,15 +172,67 @@ class RouteCreateSerializer(serializers.ModelSerializer):
 
     def validate_name(self, value):
         """驗證並清理路線名稱，防止 XSS"""
-        if value:
-            return escape(value.strip())
-        return value
+        if not value:
+            raise serializers.ValidationError('路線名稱不能為空')
+        
+        # 去除首尾空白
+        value = value.strip()
+        
+        # 檢查是否為空字符串
+        if not value:
+            raise serializers.ValidationError('路線名稱不能為空')
+        
+        # 檢查長度限制
+        if len(value) > 200:
+            raise serializers.ValidationError('路線名稱不能超過200個字符')
+        
+        # 檢查最小長度
+        if len(value) < 1:
+            raise serializers.ValidationError('路線名稱至少需要1個字符')
+        
+        # 防止 XSS 攻擊
+        cleaned_value = escape(value)
+        
+        return cleaned_value
     
     def validate_grade(self, value):
         """驗證並清理難度等級，防止 XSS"""
-        if value:
-            return escape(value.strip())
-        return value
+        if not value:
+            raise serializers.ValidationError('難度等級為必填項目，不能為空')
+        
+        # 去除首尾空白
+        value = value.strip()
+        
+        # 檢查是否為空字符串
+        if not value:
+            raise serializers.ValidationError('難度等級不能為空')
+        
+        # 檢查長度限制
+        if len(value) > 50:
+            raise serializers.ValidationError('難度等級不能超過50個字符')
+        
+        # 防止 XSS 攻擊
+        cleaned_value = escape(value)
+        
+        return cleaned_value
+    
+    def validate(self, data):
+        """整體驗證路線數據，包括房間內路線名稱重複檢查"""
+        # 獲取房間對象（從 context 中）
+        room = self.context.get('room')
+        
+        # 驗證路線名稱在同一房間內是否重複
+        name = data.get('name')
+        if name and room:
+            # 檢查同一房間內是否有相同名稱的路線
+            existing_route = Route.objects.filter(room=room, name=name)
+            
+            if existing_route.exists():
+                raise serializers.ValidationError({
+                    'name': f'該房間內已存在名為 "{name}" 的路線，請使用不同的名稱。'
+                })
+        
+        return data
     
     def validate_photo(self, value):
         """驗證圖片文件"""
@@ -851,15 +903,83 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
     
     def validate_name(self, value):
         """驗證並清理路線名稱，防止 XSS"""
-        if value:
-            return escape(value.strip())
-        return value
+        if not value:
+            raise serializers.ValidationError('路線名稱不能為空')
+        
+        # 去除首尾空白
+        value = value.strip()
+        
+        # 檢查是否為空字符串
+        if not value:
+            raise serializers.ValidationError('路線名稱不能為空')
+        
+        # 檢查長度限制
+        if len(value) > 200:
+            raise serializers.ValidationError('路線名稱不能超過200個字符')
+        
+        # 檢查最小長度
+        if len(value) < 1:
+            raise serializers.ValidationError('路線名稱至少需要1個字符')
+        
+        # 防止 XSS 攻擊
+        cleaned_value = escape(value)
+        
+        return cleaned_value
     
     def validate_grade(self, value):
         """驗證並清理難度等級，防止 XSS"""
-        if value:
-            return escape(value.strip())
-        return value
+        # 如果值為 None 或空字符串，允許為空（更新時可能不提供）
+        if value is None or (isinstance(value, str) and not value.strip()):
+            # 在更新操作中，如果沒有提供 grade，保持原值
+            if self.instance:
+                return self.instance.grade
+            # 如果沒有 instance（不應該發生），返回空字符串
+            return ''
+        
+        # 去除首尾空白
+        value = value.strip()
+        
+        # 檢查是否為空字符串
+        if not value:
+            if self.instance:
+                return self.instance.grade
+            return ''
+        
+        # 檢查長度限制
+        if len(value) > 50:
+            raise serializers.ValidationError('難度等級不能超過50個字符')
+        
+        # 防止 XSS 攻擊
+        cleaned_value = escape(value)
+        
+        return cleaned_value
+    
+    def validate(self, data):
+        """整體驗證路線數據，包括房間內路線名稱重複檢查"""
+        # 獲取房間對象（從 instance 中獲取，因為更新操作時 instance 已存在）
+        room = None
+        if self.instance:
+            room = self.instance.room
+        else:
+            # 創建操作時，從 context 中獲取（雖然 RouteUpdateSerializer 通常用於更新）
+            room = self.context.get('room')
+        
+        # 驗證路線名稱在同一房間內是否重複
+        name = data.get('name')
+        if name and room:
+            # 檢查同一房間內是否有相同名稱的路線
+            existing_route = Route.objects.filter(room=room, name=name)
+            
+            # 如果是更新操作，排除當前路線
+            if self.instance:
+                existing_route = existing_route.exclude(id=self.instance.id)
+            
+            if existing_route.exists():
+                raise serializers.ValidationError({
+                    'name': f'該房間內已存在名為 "{name}" 的路線，請使用不同的名稱。'
+                })
+        
+        return data
     
     def validate_photo(self, value):
         """驗證圖片文件（與 RouteCreateSerializer 相同）"""

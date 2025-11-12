@@ -189,10 +189,26 @@ class RoomViewSet(viewsets.ModelViewSet):
         # 獲取成員數據（按總分降序）
         members = room.members.all().order_by('-total_score', 'name')
         
-        # 寫入成員數據
+        # 寫入成員數據（處理同分排名）
         row_num = 4
-        for index, member in enumerate(members, 1):
-            ws.cell(row=row_num, column=1, value=index).font = Font(name='微軟正黑體', size=11)
+        current_rank = 1
+        previous_score = None
+        
+        for index, member in enumerate(members, start=1):
+            current_score = float(member.total_score)
+            
+            # 第一個成員始終是第1名
+            if index == 1:
+                current_rank = 1
+            else:
+                # 如果分數與前一個不同，更新排名為當前索引
+                if previous_score is not None and current_score != previous_score:
+                    current_rank = index
+                # 如果分數相同，保持當前排名（不更新 current_rank）
+            
+            previous_score = current_score
+            
+            ws.cell(row=row_num, column=1, value=current_rank).font = Font(name='微軟正黑體', size=11)
             ws.cell(row=row_num, column=1).alignment = Alignment(horizontal='center', vertical='center')
             ws.cell(row=row_num, column=1).border = thin_border
             
@@ -292,14 +308,49 @@ class RoomViewSet(viewsets.ModelViewSet):
                         # 記錄臨時文件路徑，稍後清理
                         temp_files.append(temp_path)
                         
-                        # 插入圖片到Excel
-                        excel_img = ExcelImage(temp_path)
-                        # 設置圖片位置和大小
-                        routes_ws.add_image(excel_img, f'D{route_row}')
+                        # 插入圖片到Excel - 優化以確保 iPhone 兼容性
+                        # 關鍵：確保圖片是標準 JPEG 格式並正確嵌入（不是鏈接）
                         
-                        # 設置行高以適應圖片（轉換像素為點，1點約等於1.33像素）
-                        img_height_points = excel_img.height * 0.75 if hasattr(excel_img, 'height') else 80
+                        # 確保圖片是 JPEG 格式（iPhone 兼容性最好）
+                        # temp_path 已經是 JPEG（上面已保存為 JPEG），直接使用
+                        excel_img = ExcelImage(temp_path)
+                        
+                        # 設置圖片大小（像素轉換為 Excel 單位）
+                        # openpyxl 使用像素作為單位，Excel 使用點（points）
+                        # 1 點 = 1/72 英寸，假設 96 DPI，1 點 ≈ 1.33 像素
+                        # 所以 Excel 中的尺寸 = 像素 / 0.75
+                        
+                        # 限制圖片最大寬度（適應儲存格）
+                        max_excel_width = 200  # Excel 單位（約 150 像素）
+                        max_excel_height = 150  # Excel 單位（約 112 像素）
+                        
+                        # 如果圖片太大，按比例縮小
+                        if excel_img.width > max_excel_width or excel_img.height > max_excel_height:
+                            width_ratio = max_excel_width / excel_img.width if excel_img.width > 0 else 1
+                            height_ratio = max_excel_height / excel_img.height if excel_img.height > 0 else 1
+                            scale_ratio = min(width_ratio, height_ratio)
+                            excel_img.width = excel_img.width * scale_ratio
+                            excel_img.height = excel_img.height * scale_ratio
+                        
+                        # 獲取目標儲存格座標
+                        col_letter = get_column_letter(4)  # D 列
+                        cell_coord = f'{col_letter}{route_row}'
+                        
+                        # 使用 openpyxl 的標準方法插入圖片
+                        # add_image 會自動將圖片嵌入到文件中（不是鏈接），這對 iPhone 兼容性很重要
+                        routes_ws.add_image(excel_img, cell_coord)
+                        
+                        # 設置行高以適應圖片
+                        # Excel 行高單位是點，1 點 ≈ 1.33 像素
+                        # openpyxl 的圖片尺寸單位是像素，需要轉換
+                        img_height_points = excel_img.height / 0.75 if excel_img.height > 0 else 80
                         routes_ws.row_dimensions[route_row].height = max(80, img_height_points)
+                        
+                        # 設置列寬以適應圖片（如果需要）
+                        # Excel 列寬單位是字符寬度，需要特殊轉換
+                        # 大約：列寬 = (像素寬度 / 7) + 2
+                        col_width_chars = (excel_img.width / 7) + 2 if excel_img.width > 0 else 15
+                        routes_ws.column_dimensions[col_letter].width = max(10, col_width_chars)
                     else:
                         routes_ws.cell(row=route_row, column=4, value='照片不存在').font = Font(name='微軟正黑體', size=10, color='999999')
                         routes_ws.cell(row=route_row, column=4).alignment = Alignment(horizontal='center', vertical='center')

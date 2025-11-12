@@ -16,3 +16,4 @@ pillow-heif>=0.13.0; sys_platform == "win32"  # Windows 用戶使用此替代方
 beautifulsoup4>=4.12.0  # HTML 解析庫，用於測試中的 HTML 結構檢查
 gunicorn>=21.2.0  # WSGI 服務器，用於生產環境
 openpyxl>=3.1.0  # Excel 文件處理庫，用於導出功能
+Spire.XLS>=4.0.0  # Excel 圖片嵌入儲存格功能庫（用於精準對齊圖片與儲存格）
