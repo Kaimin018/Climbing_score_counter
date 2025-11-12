@@ -218,6 +218,9 @@
         };
     })();
 
+    // 全局變量：存儲用戶是否為訪客
+    let isGuestUser = false;
+    
     // 檢查用戶登錄狀態
     function checkAuthStatus() {
         fetch('/api/auth/current-user/', {
@@ -241,6 +244,19 @@
         })
         .then(user => {
             console.log('當前用戶:', user);
+            // 檢查是否是訪客用戶（用戶名以 'guest_' 開頭）
+            if (user && user.username) {
+                isGuestUser = user.username.startsWith('guest_');
+                console.log('用戶類型:', isGuestUser ? '訪客' : '普通用戶', user.username);
+                
+                // 如果是訪客，隱藏創建房間按鈕
+                if (isGuestUser) {
+                    const createRoomBtn = document.querySelector('button[onclick="showCreateRoomModal()"]');
+                    if (createRoomBtn) {
+                        createRoomBtn.style.display = 'none';
+                    }
+                }
+            }
             // 已登錄，顯示房間列表
             document.getElementById('loginSection').style.display = 'none';
             document.getElementById('homeSection').style.display = 'block';
@@ -685,9 +701,11 @@
                         <button class="btn btn-primary" onclick="event.stopPropagation(); enterRoom(${room.id})">
                             進入房間
                         </button>
+                        ${!isGuestUser ? `
                         <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); deleteRoom(${room.id}, '${room.name}')">
                             刪除
                         </button>
+                        ` : ''}
                     </div>
                 </div>
             `;

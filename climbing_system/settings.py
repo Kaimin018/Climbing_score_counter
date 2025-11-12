@@ -170,10 +170,11 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.BasicAuthentication',
     ],
-    # 權限設置：開發環境允許所有操作，生產環境需要認證
+    # 權限設置：開發環境允許所有操作，生產環境區分訪客和成員
+    # 訪客只能讀取，普通成員可以讀寫
     'DEFAULT_PERMISSION_CLASSES': (
         ['rest_framework.permissions.AllowAny'] if DEBUG 
-        else ['rest_framework.permissions.IsAuthenticatedOrReadOnly']
+        else ['scoring.permissions.IsMemberOrReadOnly']
     ),
 }
 

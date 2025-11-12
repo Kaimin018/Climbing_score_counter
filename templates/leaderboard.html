@@ -169,10 +169,10 @@
                     </small>
                 </div>
                 <div class="form-actions">
-                    <button type="button" class="btn btn-danger" onclick="deleteMemberFromEditModal()" style="margin-right: auto;">
+                    <button type="button" class="btn btn-danger" id="deleteMemberBtn" onclick="deleteMemberFromEditModal()" style="margin-right: auto;">
                         刪除成員
                     </button>
-                    <button type="submit" class="btn btn-primary">更新成員</button>
+                    <button type="submit" class="btn btn-primary" id="updateMemberBtn">更新成員</button>
                     <button type="button" class="btn btn-secondary" onclick="closeEditMemberModal()">取消</button>
                 </div>
             </form>
@@ -203,7 +203,7 @@
                     </small>
                 </div>
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">更新房間</button>
+                    <button type="submit" class="btn btn-primary" id="updateRoomBtn">更新房間</button>
                     <button type="button" class="btn btn-secondary" onclick="closeEditRoomModal()">取消</button>
                 </div>
             </form>
@@ -269,10 +269,10 @@
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button type="button" class="btn btn-danger" onclick="deleteRouteFromEditModal()" style="margin-right: auto;">
+                    <button type="button" class="btn btn-danger" id="deleteRouteBtn" onclick="deleteRouteFromEditModal()" style="margin-right: auto;">
                         刪除路線
                     </button>
-                    <button type="submit" class="btn btn-primary">更新路線</button>
+                    <button type="submit" class="btn btn-primary" id="updateRouteBtn">更新路線</button>
                     <button type="button" class="btn btn-secondary" onclick="closeEditRouteModal()">取消</button>
                 </div>
             </form>
@@ -620,6 +620,9 @@
     // 當前標籤頁狀態：0 = 排行榜，1 = 路線列表
     let currentTab = 0;
     
+    // 全局變量：存儲用戶是否為訪客
+    let isGuestUser = false;
+    
     document.addEventListener('DOMContentLoaded', function() {
         // 初始化：確保只顯示排行榜標籤頁
         const leaderboardPane = document.getElementById('tabPaneLeaderboard');
@@ -648,7 +651,16 @@
         
         // 檢查認證狀態（在生產環境中很重要）
         checkAuthentication().then(authStatus => {
-            if (!authStatus.authenticated) {
+            if (authStatus.authenticated && authStatus.user) {
+                // 檢查是否是訪客用戶（用戶名以 'guest_' 開頭）
+                isGuestUser = authStatus.user.username && authStatus.user.username.startsWith('guest_');
+                console.log('用戶類型:', isGuestUser ? '訪客' : '普通用戶', authStatus.user.username);
+                
+                // 如果是訪客，隱藏編輯按鈕
+                if (isGuestUser) {
+                    hideEditButtons();
+                }
+            } else {
                 console.warn('用戶未認證，某些操作可能需要登錄');
                 // 在生產環境中，可以選擇重定向到登錄頁面
                 // 但在開發環境中，允許未認證用戶訪問（因為 DEBUG=True 時使用 AllowAny）
@@ -659,6 +671,45 @@
         loadMembersForRouteForm();
         loadRoutes();
     });
+    
+    // 隱藏編輯按鈕的函數
+    function hideEditButtons() {
+        // 隱藏編輯房間按鈕
+        const editRoomButtons = document.querySelectorAll('button[onclick="showEditRoomModal()"]');
+        editRoomButtons.forEach(btn => {
+            btn.style.display = 'none';
+        });
+        
+        // 隱藏新增成員按鈕
+        const addMemberButtons = document.querySelectorAll('button[onclick="showAddMemberModal()"]');
+        addMemberButtons.forEach(btn => {
+            btn.style.display = 'none';
+        });
+        
+        // 隱藏新增路線按鈕
+        const addRouteButtons = document.querySelectorAll('button[onclick="showAddRouteModal()"]');
+        addRouteButtons.forEach(btn => {
+            btn.style.display = 'none';
+        });
+        
+        // 隱藏編輯彈窗中的按鈕
+        const deleteMemberBtn = document.getElementById('deleteMemberBtn');
+        const updateMemberBtn = document.getElementById('updateMemberBtn');
+        const deleteRouteBtn = document.getElementById('deleteRouteBtn');
+        const updateRouteBtn = document.getElementById('updateRouteBtn');
+        const updateRoomBtn = document.getElementById('updateRoomBtn');
+        
+        if (deleteMemberBtn) deleteMemberBtn.style.display = 'none';
+        if (updateMemberBtn) updateMemberBtn.style.display = 'none';
+        if (deleteRouteBtn) deleteRouteBtn.style.display = 'none';
+        if (updateRouteBtn) updateRouteBtn.style.display = 'none';
+        if (updateRoomBtn) updateRoomBtn.style.display = 'none';
+    }
+    
+    // 檢查是否應該顯示編輯按鈕
+    function shouldShowEditButton() {
+        return !isGuestUser;
+    }
 
     function loadLeaderboard() {
         // 添加時間戳防止緩存
@@ -813,9 +864,11 @@
                         </a>
                     </td>
                     <td>
+                        ${shouldShowEditButton() ? `
                         <button class="btn btn-primary btn-small" onclick="editMember(${member.id}, '${member.name}', ${member.is_custom_calc})" title="編輯成員">
                             編輯
                         </button>
+                        ` : ''}
                     </td>
                 </tr>
             `;
@@ -1069,9 +1122,11 @@
                         </div>
                     </div>
                     <div class="route-actions">
+                        ${shouldShowEditButton() ? `
                         <button class="btn btn-primary btn-small" onclick="editRoute(${route.id})">
                             編輯
                         </button>
+                        ` : ''}
                     </div>
                 </div>
             `;

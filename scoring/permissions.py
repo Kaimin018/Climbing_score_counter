@@ -57,3 +57,32 @@ class IsAuthenticatedOrReadOnlyForCreate(permissions.BasePermission):
         # 更新和刪除操作需要認證
         return request.user.is_authenticated
 
+
+class IsMemberOrReadOnly(permissions.BasePermission):
+    """
+    權限控制：區分訪客和普通成員
+    - 訪客用戶（username 以 'guest_' 開頭）：只能讀取（GET/HEAD/OPTIONS）
+    - 普通登錄用戶：可以讀寫
+    - 未認證用戶：只能讀取
+    - 開發環境（DEBUG=True）：允許所有操作（便於測試）
+    """
+    
+    def has_permission(self, request, view):
+        # 開發環境允許所有操作（用於測試）
+        if settings.DEBUG:
+            return True
+        
+        # 讀取操作對所有人開放
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        
+        # 寫入操作需要認證
+        if not request.user.is_authenticated:
+            return False
+        
+        # 檢查是否是訪客用戶（用戶名以 'guest_' 開頭）
+        if request.user.username.startswith('guest_'):
+            return False  # 訪客不能進行寫入操作
+        
+        # 普通登錄用戶可以進行寫入操作
+        return True
