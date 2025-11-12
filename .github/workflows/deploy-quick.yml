@@ -138,7 +138,7 @@ jobs:
         echo "目標: ${EC2_USER}@${EC2_HOST}"
         echo "分支: ${DEPLOY_BRANCH}"
         ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
-          ${EC2_USER}@${EC2_HOST} << 'ENDSSH'
+          ${EC2_USER}@${EC2_HOST} "DEPLOY_BRANCH='${DEPLOY_BRANCH}' bash -s" << 'ENDSSH'
           set -e
           set -o pipefail
           
