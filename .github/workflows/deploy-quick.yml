@@ -92,27 +92,24 @@ jobs:
     - name: Run migrations
       if: ${{ github.event.inputs.skip_tests != 'true' }}
       env:
-        SECRET_KEY: ${{ secrets.SECRET_KEY }}
         DEBUG: 'True'
       run: |
-        export SECRET_KEY=${SECRET_KEY:-django-insecure-climbing-score-system-dev-key-change-in-production}
+        export SECRET_KEY="${{ secrets.SECRET_KEY || 'django-insecure-climbing-score-system-dev-key-change-in-production' }}"
         python manage.py migrate --noinput
     
     - name: Run tests
       if: ${{ github.event.inputs.skip_tests != 'true' }}
       env:
-        SECRET_KEY: ${{ secrets.SECRET_KEY }}
         DEBUG: 'True'
       run: |
-        export SECRET_KEY=${SECRET_KEY:-django-insecure-climbing-score-system-dev-key-change-in-production}
+        export SECRET_KEY="${{ secrets.SECRET_KEY || 'django-insecure-climbing-score-system-dev-key-change-in-production' }}"
         python manage.py test scoring.tests --verbosity=0
     
     - name: Configure SSH
-      env:
-        EC2_HOST: ${{ secrets.EC2_HOST }}
-        EC2_USER: ${{ secrets.EC2_USER }}
-        EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
       run: |
+        EC2_HOST="${{ secrets.EC2_HOST || '' }}"
+        EC2_USER="${{ secrets.EC2_USER || '' }}"
+        EC2_SSH_KEY="${{ secrets.EC2_SSH_KEY || '' }}"
         if [ -z "$EC2_HOST" ] || [ -z "$EC2_USER" ] || [ -z "$EC2_SSH_KEY" ]; then
           echo "⚠️  跳過 SSH 配置：未配置 EC2 secrets"
           exit 0
@@ -124,11 +121,11 @@ jobs:
     
     - name: Quick Deploy to EC2
       env:
-        EC2_USER: ${{ secrets.EC2_USER }}
-        EC2_HOST: ${{ secrets.EC2_HOST }}
-        EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         DEPLOY_BRANCH: ${{ github.event.inputs.branch }}
       run: |
+        EC2_USER="${{ secrets.EC2_USER || '' }}"
+        EC2_HOST="${{ secrets.EC2_HOST || '' }}"
+        EC2_SSH_KEY="${{ secrets.EC2_SSH_KEY || '' }}"
         if [ -z "$EC2_HOST" ] || [ -z "$EC2_USER" ] || [ -z "$EC2_SSH_KEY" ]; then
           echo "⚠️  跳過部署：未配置 EC2 secrets"
           echo "請檢查 GitHub Secrets 配置："
@@ -176,17 +173,65 @@ jobs:
           # 拉取指定分支的最新代碼
           if [ -d ".git" ]; then
             echo "📥 拉取分支 ${DEPLOY_BRANCH} 的最新代碼..."
-            git fetch origin || {
-              echo "⚠️  警告: git fetch 失敗，繼續執行部署"
-            }
+            
+            # 檢查遠程配置
+            if ! git remote get-url origin >/dev/null 2>&1; then
+              echo "❌ 錯誤: 未配置遠程倉庫 origin"
+              exit 1
+            fi
+            REMOTE_URL=$(git remote get-url origin)
+            echo "   遠程倉庫: $REMOTE_URL"
+            
+            # 獲取最新代碼（明確指定分支，並添加重試機制）
+            FETCH_SUCCESS=false
+            for i in 1 2 3; do
+              echo "   嘗試獲取分支 ${DEPLOY_BRANCH} ($i/3)..."
+              if git fetch origin ${DEPLOY_BRANCH} 2>&1; then
+                FETCH_SUCCESS=true
+                echo "   ✅ Git fetch 成功"
+                break
+              else
+                FETCH_ERROR=$?
+                echo "   ⚠️  嘗試 $i 失敗，退出碼: $FETCH_ERROR"
+                if [ $i -lt 3 ]; then
+                  echo "   等待 2 秒後重試..."
+                  sleep 2
+                fi
+              fi
+            done
+            
+            if [ "$FETCH_SUCCESS" = "false" ]; then
+              echo "   ❌ 所有 Git fetch 嘗試都失敗"
+              echo "   診斷信息:"
+              echo "   遠程 URL: $(git remote get-url origin 2>/dev/null || echo '無法獲取')"
+              echo "   目標分支: ${DEPLOY_BRANCH}"
+              echo "   可用的遠程分支:"
+              git branch -r 2>/dev/null | head -10 || echo "   無法獲取遠程分支列表"
+              exit 1
+            fi
+            
+            # 驗證遠程分支是否存在
+            if ! git rev-parse --verify origin/${DEPLOY_BRANCH} >/dev/null 2>&1; then
+              echo "❌ 錯誤: 遠程分支 origin/${DEPLOY_BRANCH} 不存在"
+              echo "   可用的遠程分支:"
+              git branch -r 2>/dev/null | head -10
+              exit 1
+            fi
+            REMOTE_COMMIT=$(git rev-parse --short origin/${DEPLOY_BRANCH} 2>/dev/null || echo "unknown")
+            echo "   ✅ 找到遠程分支 origin/${DEPLOY_BRANCH}: $REMOTE_COMMIT"
             
             # 切換到指定分支
             CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
             if [ "$CURRENT_BRANCH" != "${DEPLOY_BRANCH}" ]; then
               echo "🔄 切換分支: $CURRENT_BRANCH -> ${DEPLOY_BRANCH}"
-              git checkout ${DEPLOY_BRANCH} 2>/dev/null || git checkout -b ${DEPLOY_BRANCH} origin/${DEPLOY_BRANCH} 2>/dev/null || {
-                echo "⚠️  警告: 無法切換到分支 ${DEPLOY_BRANCH}，繼續使用當前分支"
-              }
+              if git checkout ${DEPLOY_BRANCH} 2>/dev/null; then
+                echo "   ✅ 已切換到分支 ${DEPLOY_BRANCH}"
+              elif git checkout -b ${DEPLOY_BRANCH} origin/${DEPLOY_BRANCH} 2>/dev/null; then
+                echo "   ✅ 已創建並切換到分支 ${DEPLOY_BRANCH}"
+              else
+                echo "❌ 錯誤: 無法切換到分支 ${DEPLOY_BRANCH}"
+                exit 1
+              fi
             fi
             
             # 處理數據庫文件衝突
@@ -197,18 +242,31 @@ jobs:
               git checkout -- db.sqlite3 2>/dev/null || true
             fi
             
-            # 重置到遠程分支
-            echo "🔄 重置到 origin/${DEPLOY_BRANCH}..."
-            if git reset --hard origin/${DEPLOY_BRANCH} 2>/dev/null; then
+            # 重置到遠程分支（確保獲取最新代碼）
+            echo "🔄 重置到 origin/${DEPLOY_BRANCH} ($REMOTE_COMMIT)..."
+            if git reset --hard origin/${DEPLOY_BRANCH} 2>&1; then
               echo "✅ 已重置到 origin/${DEPLOY_BRANCH}"
             else
-              echo "⚠️  警告: git reset 失敗，繼續執行部署"
+              RESET_ERROR=$?
+              echo "❌ 錯誤: git reset 失敗，退出碼: $RESET_ERROR"
+              exit $RESET_ERROR
             fi
             
+            # 驗證更新結果
             NEW_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
             echo "📌 部署後代碼版本: $NEW_COMMIT"
+            echo "📌 遠程最新版本: $REMOTE_COMMIT"
+            
+            if [ "$NEW_COMMIT" != "$REMOTE_COMMIT" ]; then
+              echo "⚠️  警告: 本地版本 ($NEW_COMMIT) 與遠程版本 ($REMOTE_COMMIT) 不一致"
+            fi
+            
             if [ "$OLD_COMMIT" != "unknown" ] && [ "$NEW_COMMIT" != "unknown" ] && [ "$OLD_COMMIT" != "$NEW_COMMIT" ]; then
               echo "✅ 代碼已更新: $OLD_COMMIT -> $NEW_COMMIT"
+              echo "   最新提交信息:"
+              git log -1 --oneline 2>/dev/null || true
+            elif [ "$OLD_COMMIT" = "$NEW_COMMIT" ]; then
+              echo "ℹ️  代碼版本未變更（已是最新版本）"
             fi
           else
             echo "⚠️  警告: 未檢測到 Git 倉庫，跳過代碼更新"
@@ -239,9 +297,10 @@ jobs:
           # 確保腳本有執行權限
           chmod +x "$DEPLOY_SCRIPT"
           
-          # 執行部署腳本（但跳過 Git 更新，因為我們已經在上面處理了）
-          # 注意：deploy.sh 會執行 Git 更新，但我們已經處理過了，所以會很快
-          echo "執行: bash $DEPLOY_SCRIPT"
+          # 執行部署腳本（跳過 Git 更新，因為我們已經在上面處理了）
+          # 設置環境變數告訴 deploy.sh 跳過 Git 更新
+          echo "執行: bash $DEPLOY_SCRIPT (跳過 Git 更新)"
+          export SKIP_GIT_UPDATE=true
           if bash "$DEPLOY_SCRIPT"; then
             echo "✅ 部署腳本執行成功"
           else
@@ -278,19 +337,4 @@ jobs:
           echo "時間: $(date)"
           echo "✅ 部署完成"
         ENDSSH
-    
-    - name: Skip deployment notice
-      env:
-        EC2_HOST: ${{ secrets.EC2_HOST }}
-        EC2_USER: ${{ secrets.EC2_USER }}
-        EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-      if: env.EC2_HOST == '' || env.EC2_USER == '' || env.EC2_SSH_KEY == ''
-      run: |
-        echo "⚠️  跳過部署：未配置 EC2 secrets"
-        echo "請在 GitHub 倉庫設置中配置以下 secrets："
-        echo "  - EC2_HOST: EC2 實例 IP 或域名"
-        echo "  - EC2_USER: SSH 用戶名（通常是 ubuntu）"
-        echo "  - EC2_SSH_KEY: SSH 私鑰內容"
-        echo ""
-        echo "快速部署已跳過。"
 
