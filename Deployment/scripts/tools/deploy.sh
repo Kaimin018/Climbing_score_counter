@@ -99,7 +99,15 @@ echo "📁 項目目錄: $PROJECT_DIR"
 apply_server_config
 
 # Git 更新
-if [ -d ".git" ]; then
+# 如果設置了 SKIP_GIT_UPDATE 環境變數，則跳過 Git 更新
+# 這用於當 Git 更新已在外部（如 CI/CD 工作流）中處理的情況
+if [ -n "$SKIP_GIT_UPDATE" ] && [ "$SKIP_GIT_UPDATE" = "true" ]; then
+    echo "ℹ️  跳過 Git 更新（已在外部處理）"
+    CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
+    CURRENT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    echo "   當前分支: $CURRENT_BRANCH"
+    echo "   當前版本: $CURRENT_COMMIT"
+elif [ -d ".git" ]; then
     echo "📥 開始 Git 更新..."
     
     # 記錄當前版本

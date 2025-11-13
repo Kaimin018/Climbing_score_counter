@@ -25,7 +25,7 @@
                 <button class="btn btn-secondary btn-square" onclick="showEditRoomModal()" title="編輯房間" style="font-size: 1.3rem; line-height: 1;">
                     ✏️
                 </button>
-                <button class="btn btn-secondary btn-square" id="exportExcelBtn" onclick="exportToExcel()" title="導出Excel（包含照片和測項）" style="font-size: 1.3rem; line-height: 1;">
+                <button class="btn btn-secondary btn-square" id="exportPdfBtn" onclick="exportToPdf()" title="導出PDF（包含照片和測項）" style="font-size: 1.3rem; line-height: 1;">
                     💾
                 </button>
             </div>
@@ -47,8 +47,8 @@
                     <button class="btn btn-secondary btn-small" onclick="showEditRoomModal()" style="margin-left: 10px;">
                         編輯房間
                     </button>
-                    <button class="btn btn-secondary btn-small" id="exportExcelBtnDesktop" onclick="exportToExcel()" title="導出Excel（包含照片和測項）" style="margin-left: 10px;">
-                        💾 導出Excel
+                    <button class="btn btn-secondary btn-small" id="exportPdfBtnDesktop" onclick="exportToPdf()" title="導出PDF（包含照片和測項）" style="margin-left: 10px;">
+                        💾 導出PDF
                     </button>
                 </div>
                 <div class="room-info">
@@ -85,12 +85,12 @@
                                                 <th>成員</th>
                                                 <th>總分</th>
                                                 <th>完成條數</th>
-                                                <th>操作</th>
+                                                <th class="operation-column">操作</th>
                                             </tr>
                                         </thead>
                                         <tbody id="leaderboardBody">
                                             <tr>
-                                                <td colspan="5" class="loading">載入中...</td>
+                                                <td colspan="5" class="loading" id="loadingRow">載入中...</td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -169,10 +169,10 @@
                     </small>
                 </div>
                 <div class="form-actions">
-                    <button type="button" class="btn btn-danger" onclick="deleteMemberFromEditModal()" style="margin-right: auto;">
+                    <button type="button" class="btn btn-danger" id="deleteMemberBtn" onclick="deleteMemberFromEditModal()" style="margin-right: auto;">
                         刪除成員
                     </button>
-                    <button type="submit" class="btn btn-primary">更新成員</button>
+                    <button type="submit" class="btn btn-primary" id="updateMemberBtn">更新成員</button>
                     <button type="button" class="btn btn-secondary" onclick="closeEditMemberModal()">取消</button>
                 </div>
             </form>
@@ -203,7 +203,7 @@
                     </small>
                 </div>
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">更新房間</button>
+                    <button type="submit" class="btn btn-primary" id="updateRoomBtn">更新房間</button>
                     <button type="button" class="btn btn-secondary" onclick="closeEditRoomModal()">取消</button>
                 </div>
             </form>
@@ -269,10 +269,10 @@
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button type="button" class="btn btn-danger" onclick="deleteRouteFromEditModal()" style="margin-right: auto;">
+                    <button type="button" class="btn btn-danger" id="deleteRouteBtn" onclick="deleteRouteFromEditModal()" style="margin-right: auto;">
                         刪除路線
                     </button>
-                    <button type="submit" class="btn btn-primary">更新路線</button>
+                    <button type="submit" class="btn btn-primary" id="updateRouteBtn">更新路線</button>
                     <button type="button" class="btn btn-secondary" onclick="closeEditRouteModal()">取消</button>
                 </div>
             </form>
@@ -412,6 +412,34 @@
     
     .dropdown-content a:first-child {
         border-bottom: 1px solid #ddd;
+    }
+    
+    /* 默認隱藏編輯按鈕，等確認用戶類型後再顯示（防止閃爍） */
+    button[onclick="showEditRoomModal()"],
+    button[onclick="showAddMemberModal()"],
+    button[onclick="showAddRouteModal()"],
+    thead th.operation-column,
+    tbody td.operation-column,
+    .route-actions {
+        display: none !important;
+    }
+    
+    /* 普通用戶顯示編輯按鈕的類 */
+    body.show-edit-buttons button[onclick="showEditRoomModal()"],
+    body.show-edit-buttons button[onclick="showAddMemberModal()"],
+    body.show-edit-buttons button[onclick="showAddRouteModal()"],
+    body.show-edit-buttons thead th.operation-column,
+    body.show-edit-buttons tbody td.operation-column,
+    body.show-edit-buttons .route-actions {
+        display: block !important;
+    }
+    
+    /* 對於 inline 元素，使用 inline-block */
+    body.show-edit-buttons button.btn-secondary.btn-small[onclick="showEditRoomModal()"],
+    body.show-edit-buttons button.btn-primary.btn-square[onclick="showAddMemberModal()"],
+    body.show-edit-buttons button.btn-primary.btn-square[onclick="showAddRouteModal()"],
+    body.show-edit-buttons button.btn-secondary.btn-square[onclick="showEditRoomModal()"] {
+        display: inline-block !important;
     }
 </style>
 <script>
@@ -620,6 +648,11 @@
     // 當前標籤頁狀態：0 = 排行榜，1 = 路線列表
     let currentTab = 0;
     
+    // 全局變量：存儲用戶是否為訪客
+    let isGuestUser = false;
+    
+    // 注意：編輯按鈕已通過CSS默認隱藏，無需在此處再次隱藏
+    
     document.addEventListener('DOMContentLoaded', function() {
         // 初始化：確保只顯示排行榜標籤頁
         const leaderboardPane = document.getElementById('tabPaneLeaderboard');
@@ -646,19 +679,145 @@
         // 設置當前標籤頁狀態
         currentTab = 0;
         
-        // 檢查認證狀態（在生產環境中很重要）
+        // 先檢查認證狀態，確定用戶類型後再加載數據
         checkAuthentication().then(authStatus => {
-            if (!authStatus.authenticated) {
+            if (authStatus.authenticated && authStatus.user) {
+                // 檢查是否是訪客用戶（用戶名以 'guest_' 開頭）
+                isGuestUser = authStatus.user.username && authStatus.user.username.startsWith('guest_');
+                console.log('用戶類型:', isGuestUser ? '訪客' : '普通用戶', authStatus.user.username);
+                
+                // 如果是訪客，隱藏編輯按鈕和操作列
+                if (isGuestUser) {
+                    hideEditButtons();
+                    // 立即隱藏操作列表頭（在數據加載前）
+                    const operationHeader = document.querySelector('thead th.operation-column');
+                    if (operationHeader) {
+                        operationHeader.style.display = 'none';
+                    }
+                    // 更新載入中的 colspan
+                    const loadingRow = document.getElementById('loadingRow');
+                    if (loadingRow) {
+                        loadingRow.setAttribute('colspan', '4');
+                    }
+                } else {
+                    // 如果是普通用戶，顯示編輯按鈕
+                    showEditButtons();
+                }
+            } else {
                 console.warn('用戶未認證，某些操作可能需要登錄');
                 // 在生產環境中，可以選擇重定向到登錄頁面
                 // 但在開發環境中，允許未認證用戶訪問（因為 DEBUG=True 時使用 AllowAny）
+                // 未認證用戶也隱藏編輯按鈕（生產環境需要認證）
+                hideEditButtons();
+            }
+            
+            // 確定用戶類型後再加載數據
+            loadLeaderboard();
+            loadMembersForRouteForm();
+            loadRoutes();
+        }).catch(error => {
+            console.error('檢查認證狀態失敗:', error);
+            // 即使檢查失敗，也加載數據（允許未認證用戶查看）
+            // 但隱藏編輯按鈕（安全起見）
+            hideEditButtons();
+            loadLeaderboard();
+            loadMembersForRouteForm();
+            loadRoutes();
+        });
+    });
+    
+    // 隱藏編輯按鈕的函數
+    function hideEditButtons() {
+        // 隱藏編輯房間按鈕（桌面端和移動端）
+        const editRoomButtons = document.querySelectorAll('button[onclick="showEditRoomModal()"]');
+        editRoomButtons.forEach(btn => {
+            btn.style.display = 'none';
+        });
+        
+        // 隱藏新增成員按鈕
+        const addMemberButtons = document.querySelectorAll('button[onclick="showAddMemberModal()"]');
+        addMemberButtons.forEach(btn => {
+            btn.style.display = 'none';
+        });
+        
+        // 隱藏新增路線按鈕
+        const addRouteButtons = document.querySelectorAll('button[onclick="showAddRouteModal()"]');
+        addRouteButtons.forEach(btn => {
+            btn.style.display = 'none';
+        });
+        
+        // 隱藏編輯彈窗中的按鈕
+        const deleteMemberBtn = document.getElementById('deleteMemberBtn');
+        const updateMemberBtn = document.getElementById('updateMemberBtn');
+        const deleteRouteBtn = document.getElementById('deleteRouteBtn');
+        const updateRouteBtn = document.getElementById('updateRouteBtn');
+        const updateRoomBtn = document.getElementById('updateRoomBtn');
+        
+        if (deleteMemberBtn) deleteMemberBtn.style.display = 'none';
+        if (updateMemberBtn) updateMemberBtn.style.display = 'none';
+        if (deleteRouteBtn) deleteRouteBtn.style.display = 'none';
+        if (updateRouteBtn) updateRouteBtn.style.display = 'none';
+        if (updateRoomBtn) updateRoomBtn.style.display = 'none';
+    }
+    
+    // 顯示編輯按鈕的函數（普通用戶使用）
+    function showEditButtons() {
+        // 通過添加 body 類來顯示編輯按鈕（CSS 會自動處理）
+        document.body.classList.add('show-edit-buttons');
+        
+        // 顯示編輯彈窗中的按鈕
+        const deleteMemberBtn = document.getElementById('deleteMemberBtn');
+        const updateMemberBtn = document.getElementById('updateMemberBtn');
+        const deleteRouteBtn = document.getElementById('deleteRouteBtn');
+        const updateRouteBtn = document.getElementById('updateRouteBtn');
+        const updateRoomBtn = document.getElementById('updateRoomBtn');
+        
+        if (deleteMemberBtn) deleteMemberBtn.style.display = '';
+        if (updateMemberBtn) updateMemberBtn.style.display = '';
+        if (deleteRouteBtn) deleteRouteBtn.style.display = '';
+        if (updateRouteBtn) updateRouteBtn.style.display = '';
+        if (updateRoomBtn) updateRoomBtn.style.display = '';
+    }
+    
+    // 檢查是否應該顯示編輯按鈕
+    function shouldShowEditButton() {
+        return !isGuestUser;
+    }
+    
+    // 隱藏操作列的函數
+    function hideOperationColumn() {
+        // 隱藏排行榜表格中的操作列表頭
+        const operationHeaders = document.querySelectorAll('thead th.operation-column, thead th:last-child');
+        operationHeaders.forEach(header => {
+            if (header.textContent.trim() === '操作') {
+                header.style.display = 'none';
             }
         });
         
-        loadLeaderboard();
-        loadMembersForRouteForm();
-        loadRoutes();
-    });
+        // 隱藏所有操作列的單元格
+        const operationCells = document.querySelectorAll('tbody td.operation-column, tbody td:last-child');
+        operationCells.forEach(cell => {
+            // 檢查是否包含編輯按鈕或是操作列
+            if (cell.classList.contains('operation-column') || cell.querySelector('button[onclick*="edit"]')) {
+                cell.style.display = 'none';
+            }
+        });
+        
+        // 隱藏路線列表中的編輯按鈕容器
+        const routeActions = document.querySelectorAll('.route-actions');
+        routeActions.forEach(actions => {
+            if (actions.querySelector('button[onclick*="editRoute"]')) {
+                actions.style.display = 'none';
+            }
+        });
+    }
+    
+    // 在數據更新後重新隱藏操作列（防止動態更新時顯示）
+    function updateOperationColumnVisibility() {
+        if (isGuestUser) {
+            hideOperationColumn();
+        }
+    }
 
     function loadLeaderboard() {
         // 添加時間戳防止緩存
@@ -793,13 +952,34 @@
 
         // 更新排行榜
         const tbody = document.getElementById('leaderboardBody');
+        // 根據是否為訪客決定 colspan（訪客沒有操作列）
+        const colspan = isGuestUser ? 4 : 5;
         if (leaderboard.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty">尚無成員數據</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="empty">尚無成員數據</td></tr>`;
             return;
         }
 
+        // 計算排名（處理同分情況）
+        let currentRank = 1;
+        let previousScore = null;
+        
         tbody.innerHTML = leaderboard.map((member, index) => {
-            const rank = index + 1;
+            const currentScore = parseFloat(member.total_score);
+            
+            // 第一個成員始終是第1名
+            if (index === 0) {
+                currentRank = 1;
+            } else {
+                // 如果分數與前一個不同，更新排名為當前索引+1
+                if (previousScore !== null && currentScore !== previousScore) {
+                    currentRank = index + 1;
+                }
+                // 如果分數相同，保持當前排名（不更新 currentRank）
+            }
+            
+            previousScore = currentScore;
+            
+            const rank = currentRank;
             const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
             const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
             return `
@@ -812,14 +992,23 @@
                             ${member.completed_routes_count}
                         </a>
                     </td>
-                    <td>
+                    ${shouldShowEditButton() ? `
+                    <td class="operation-column">
                         <button class="btn btn-primary btn-small" onclick="editMember(${member.id}, '${member.name}', ${member.is_custom_calc})" title="編輯成員">
                             編輯
                         </button>
                     </td>
+                    ` : ''}
                 </tr>
             `;
         }).join('');
+        
+        // 如果是訪客，更新後重新隱藏操作列
+        if (isGuestUser) {
+            setTimeout(() => {
+                hideOperationColumn();
+            }, 0);
+        }
     }
 
     function refreshLeaderboard(updateOnly = false) {
@@ -834,10 +1023,10 @@
         }
     }
 
-    // 導出Excel功能
-    function exportToExcel() {
+    // 導出PDF功能
+    function exportToPdf() {
         // 嘗試獲取按鈕（移動端或桌面端）
-        const exportBtn = document.getElementById('exportExcelBtn') || document.getElementById('exportExcelBtnDesktop');
+        const exportBtn = document.getElementById('exportPdfBtn') || document.getElementById('exportPdfBtnDesktop');
         if (!exportBtn) {
             showToast('找不到導出按鈕', 'error');
             return;
@@ -860,14 +1049,14 @@
         exportBtn.style.cursor = 'not-allowed';
         
         // 更新按鈕文字（根據按鈕類型）
-        if (exportBtn.id === 'exportExcelBtn') {
+        if (exportBtn.id === 'exportPdfBtn') {
             exportBtn.innerHTML = '⏳';
         } else {
             exportBtn.innerHTML = '⏳ 正在導出...';
         }
 
         // 構建導出URL
-        const exportUrl = `/api/rooms/${ROOM_ID}/export-excel/`;
+        const exportUrl = `/api/rooms/${ROOM_ID}/export-pdf/`;
 
         // 使用fetch下載文件
         fetch(exportUrl, {
@@ -890,7 +1079,7 @@
             
             // 從響應頭獲取文件名
             const contentDisposition = response.headers.get('Content-Disposition');
-            let filename = `排行榜_${ROOM_ID}.xlsx`;
+            let filename = `排行榜_${ROOM_ID}.pdf`;
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
                 if (filenameMatch && filenameMatch[1]) {
@@ -918,11 +1107,11 @@
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
             
-            showToast('Excel導出成功！', 'success');
+            showToast('PDF導出成功！', 'success');
         })
         .catch(error => {
-            console.error('導出Excel失敗:', error);
-            let errorMsg = '導出Excel時發生錯誤';
+            console.error('導出PDF失敗:', error);
+            let errorMsg = '導出PDF時發生錯誤';
             if (error.message) {
                 errorMsg = error.message;
             }
@@ -935,7 +1124,7 @@
             exportBtn.style.opacity = '1';
             exportBtn.style.cursor = 'pointer';
             // 恢復原始內容
-            exportBtn.innerHTML = exportBtn.dataset.originalContent || (exportBtn.id === 'exportExcelBtn' ? '💾' : '💾 導出Excel');
+            exportBtn.innerHTML = exportBtn.dataset.originalContent || (exportBtn.id === 'exportPdfBtn' ? '💾' : '💾 導出PDF');
         });
     }
 
@@ -1068,14 +1257,23 @@
                             完成條數: ${completedCount}/${totalCount} 人
                         </div>
                     </div>
+                    ${shouldShowEditButton() ? `
                     <div class="route-actions">
                         <button class="btn btn-primary btn-small" onclick="editRoute(${route.id})">
                             編輯
                         </button>
                     </div>
+                    ` : ''}
                 </div>
             `;
         }).join('');
+        
+        // 如果是訪客，更新後重新隱藏操作列
+        if (isGuestUser) {
+            setTimeout(() => {
+                hideOperationColumn();
+            }, 0);
+        }
     }
 
     function editRoute(routeId) {

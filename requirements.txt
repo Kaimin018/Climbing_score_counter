@@ -15,4 +15,5 @@ pillow-heif>=0.13.0; sys_platform == "win32"  # Windows 用戶使用此替代方
 
 beautifulsoup4>=4.12.0  # HTML 解析庫，用於測試中的 HTML 結構檢查
 gunicorn>=21.2.0  # WSGI 服務器，用於生產環境
-openpyxl>=3.1.0  # Excel 文件處理庫，用於導出功能
+reportlab>=4.0.0  # PDF 文件生成庫，用於導出功能
+# reportlab-cjk>=0.1.0  # PDF 中文字體支持（可選，如果系統沒有中文字體可以安裝此包）
