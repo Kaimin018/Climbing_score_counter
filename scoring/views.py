@@ -199,7 +199,7 @@ class RoomViewSet(viewsets.ModelViewSet):
         # 創建自定義文檔模板，設置標題和作者
         class CustomDocTemplate(SimpleDocTemplate):
             def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
+                super(CustomDocTemplate, self).__init__(*args, **kwargs)
             
             def build(self, flowables, onFirstPage=None, onLaterPages=None, canvasmaker=None):
                 # 設置PDF元數據
@@ -229,7 +229,8 @@ class RoomViewSet(viewsets.ModelViewSet):
                 if canvasmaker is not None:
                     build_kwargs['canvasmaker'] = canvasmaker
                 
-                super().build(flowables, **build_kwargs)
+                # 使用顯式的 super() 調用以確保 Python 3.8 兼容性
+                super(CustomDocTemplate, self).build(flowables, **build_kwargs)
         
         doc = CustomDocTemplate(buffer, pagesize=A4, 
                                 rightMargin=0.5*inch, leftMargin=0.5*inch,
