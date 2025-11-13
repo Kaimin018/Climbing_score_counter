@@ -197,14 +197,20 @@ class RoomViewSet(viewsets.ModelViewSet):
         pdf_title = f"{room.name} - 總表"
         
         # 創建自定義文檔模板，設置標題和作者
+        # 將 pdf_title 作為類變量傳遞，確保 Python 3.8 兼容性
         class CustomDocTemplate(SimpleDocTemplate):
             def __init__(self, *args, **kwargs):
+                # 從 kwargs 中提取 pdf_title，如果存在則存儲為實例變量
+                self.pdf_title_value = kwargs.pop('pdf_title_value', None)
                 super(CustomDocTemplate, self).__init__(*args, **kwargs)
             
             def build(self, flowables, onFirstPage=None, onLaterPages=None, canvasmaker=None):
+                # 使用實例變量而不是閉包變量，確保 Python 3.8 兼容性
+                pdf_title_for_metadata = self.pdf_title_value
+                
                 # 設置PDF元數據
                 def set_metadata(canvas, doc):
-                    canvas.setTitle(pdf_title)
+                    canvas.setTitle(pdf_title_for_metadata)
                     canvas.setAuthor("攀岩計分系統")
                     canvas.setSubject("排行榜導出")
                 
@@ -235,7 +241,7 @@ class RoomViewSet(viewsets.ModelViewSet):
         doc = CustomDocTemplate(buffer, pagesize=A4, 
                                 rightMargin=0.5*inch, leftMargin=0.5*inch,
                                 topMargin=0.5*inch, bottomMargin=0.5*inch,
-                                title=pdf_title)
+                                title=pdf_title, pdf_title_value=pdf_title)
         
         # 註冊中文字體（嘗試使用系統字體）
         # 如果系統沒有中文字體，可以使用 reportlab 的 CJK 支持或下載字體文件
