@@ -134,6 +134,19 @@ class TestCaseGuestPermissionRestrictions(TestCase):
     )
     def test_guest_cannot_create_room(self):
         """測試訪客不能創建房間"""
+        # 調試：檢查 @override_settings 是否生效
+        from django.conf import settings as django_settings
+        rest_framework_config = getattr(django_settings, 'REST_FRAMEWORK', {})
+        default_perms = rest_framework_config.get('DEFAULT_PERMISSION_CLASSES', [])
+        debug_value = getattr(django_settings, 'DEBUG', None)
+        
+        print(f"\n[DEBUG] test_guest_cannot_create_room:")
+        print(f"  DEBUG = {debug_value}")
+        print(f"  DEFAULT_PERMISSION_CLASSES = {default_perms}")
+        print(f"  First permission class = {default_perms[0] if default_perms else 'None'}")
+        print(f"  Guest user = {self.guest_user.username}")
+        print(f"  User authenticated = {self.guest_user.is_authenticated}")
+        
         self.client.force_authenticate(user=self.guest_user)
         
         response = self.client.post(
@@ -141,6 +154,15 @@ class TestCaseGuestPermissionRestrictions(TestCase):
             {'name': '訪客創建的房間'},
             format='json'
         )
+        
+        print(f"  Response status = {response.status_code}")
+        print(f"  Expected status = {status.HTTP_403_FORBIDDEN}")
+        if hasattr(response, 'data'):
+            try:
+                print(f"  Response data = {response.data}")
+            except UnicodeEncodeError:
+                print(f"  Response data = (contains non-ASCII characters)")
+        
         self.assertEqual(
             response.status_code,
             status.HTTP_403_FORBIDDEN,

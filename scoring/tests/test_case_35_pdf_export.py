@@ -178,15 +178,24 @@ class TestCasePdfExport(TestCase):
         self.assertGreater(len(pdf_content), 1000)
     
     def test_pdf_export_without_authentication(self):
-        """測試未認證時導出 PDF"""
+        """測試未認證時導出 PDF（訪客也可以導出）"""
+        try:
+            from reportlab.lib.pagesizes import A4
+        except ImportError:
+            self.skipTest("reportlab 未安裝，跳過測試")
+        
         # 使用未認證的客戶端
         unauthenticated_client = APIClient()
         
         url = f'/api/rooms/{self.room.id}/export-pdf/'
         response = unauthenticated_client.get(url)
         
-        # 根據權限設置，可能返回 401 或 403
-        self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+        # 訪客也可以導出PDF，應該返回 200
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # 驗證返回的是PDF內容
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        pdf_content = response.content
+        self.assertTrue(pdf_content.startswith(b'%PDF'))
     
     def test_pdf_export_nonexistent_room(self):
         """測試導出不存在的房間 PDF"""
@@ -220,7 +229,10 @@ class TestCasePdfExport(TestCase):
         # 驗證文件名
         content_disposition = response.get('Content-Disposition', '')
         self.assertIn('.pdf', content_disposition)
-        self.assertIn(self.room.name, content_disposition or '')
+        # Content-Disposition中的文件名是URL编码的，需要解码后检查
+        from urllib.parse import unquote
+        decoded_disposition = unquote(content_disposition)
+        self.assertIn(self.room.name, decoded_disposition or '')
     
     def test_pdf_export_empty_room(self):
         """測試空房間（沒有路線）的 PDF 導出"""

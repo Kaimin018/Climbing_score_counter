@@ -34,10 +34,55 @@ except ImportError:
     logger.warning("reportlab 未安装，PDF 导出功能将不可用。请运行: pip install reportlab")
 
 
+def get_dynamic_permissions(viewset_instance):
+    """
+    動態獲取權限類，支持 @override_settings
+    用於 ViewSet 的 get_permissions() 方法
+    """
+    import sys
+    is_test = 'test' in sys.argv or 'pytest' in sys.modules or 'unittest' in sys.modules
+    
+    # 動態讀取設置，支持 @override_settings
+    from django.conf import settings as django_settings
+    rest_framework_config = getattr(django_settings, 'REST_FRAMEWORK', {})
+    default_perms = rest_framework_config.get('DEFAULT_PERMISSION_CLASSES', [])
+    
+    if is_test:
+        viewset_name = viewset_instance.__class__.__name__
+        print(f"\n[DEBUG] {viewset_name}.get_permissions:")
+        print(f"  DEFAULT_PERMISSION_CLASSES = {default_perms}")
+    
+    # 如果設置了權限類，使用設置的權限類
+    if default_perms:
+        from django.utils.module_loading import import_string
+        permission_classes = []
+        for perm_class in default_perms:
+            if isinstance(perm_class, str):
+                permission_classes.append(import_string(perm_class))
+            else:
+                permission_classes.append(perm_class)
+        
+        if is_test:
+            print(f"  Using permission classes = {[p.__name__ for p in permission_classes]}")
+        
+        # 創建權限實例
+        return [perm() for perm in permission_classes]
+    
+    # 如果沒有設置，使用父類的默認行為
+    permissions_list = super(viewset_instance.__class__, viewset_instance).get_permissions()
+    if is_test:
+        print(f"  Using default permission classes = {[type(p).__name__ for p in permissions_list]}")
+    return permissions_list
+
+
 class RoomViewSet(viewsets.ModelViewSet):
     queryset = Room.objects.all()
     serializer_class = RoomSerializer
     # 使用 settings.py 中的默認權限設置（開發環境為 AllowAny）
+    
+    def get_permissions(self):
+        """獲取權限類（動態讀取設置，支持 @override_settings）"""
+        return get_dynamic_permissions(self)
     
     def get_queryset(self):
         """確保查詢時預加載相關數據"""
@@ -137,7 +182,14 @@ class RoomViewSet(viewsets.ModelViewSet):
         import os
         from PIL import Image as PILImage
         
-        room = self.get_object()
+        try:
+            room = self.get_object()
+        except Exception as e:
+            logger.error(f"獲取房間對象時發生錯誤: {e}")
+            return Response(
+                {'detail': '找不到指定的房間'},
+                status=status.HTTP_404_NOT_FOUND
+            )
         
         # 創建PDF緩衝區
         buffer = BytesIO()
@@ -596,7 +648,10 @@ class RoomViewSet(viewsets.ModelViewSet):
                         os.remove(temp_file)
                 except Exception:
                     pass
-            buffer.close()
+            try:
+                buffer.close()
+            except Exception:
+                pass
             # 返回錯誤響應
             return Response(
                 {'detail': f'PDF 生成失敗: {str(build_error)}'},
@@ -612,17 +667,35 @@ class RoomViewSet(viewsets.ModelViewSet):
                 logger.warning(f"清理臨時文件失敗 {temp_file}: {cleanup_error}")
         
         # 獲取PDF內容
-        pdf_content = buffer.getvalue()
-        buffer.close()
+        try:
+            pdf_content = buffer.getvalue()
+        except Exception as e:
+            logger.error(f"獲取PDF內容時發生錯誤: {e}")
+            buffer.close()
+            return Response(
+                {'detail': 'PDF 內容獲取失敗'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        finally:
+            try:
+                buffer.close()
+            except Exception:
+                pass
         
         # 創建HTTP響應
-        response = HttpResponse(pdf_content, content_type='application/pdf')
-        filename = f"{room.name}_排行榜_{room.id}.pdf"
-        # 處理中文文件名
-        from urllib.parse import quote
-        response['Content-Disposition'] = f'attachment; filename="{quote(filename)}"; filename*=UTF-8\'\'{quote(filename)}'
-        
-        return response
+        try:
+            response = HttpResponse(pdf_content, content_type='application/pdf')
+            filename = f"{room.name}_排行榜_{room.id}.pdf"
+            # 處理中文文件名
+            from urllib.parse import quote
+            response['Content-Disposition'] = f'attachment; filename="{quote(filename)}"; filename*=UTF-8\'\'{quote(filename)}'
+            return response
+        except Exception as e:
+            logger.error(f"創建HTTP響應時發生錯誤: {e}")
+            return Response(
+                {'detail': 'PDF 響應創建失敗'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=['post'], url_path='routes')
     def create_route(self, request, pk=None):
@@ -667,6 +740,10 @@ class ScoreViewSet(viewsets.ModelViewSet):
     queryset = Score.objects.all()
     serializer_class = ScoreUpdateSerializer
     # 使用 settings.py 中的默認權限設置（開發環境為 AllowAny）
+    
+    def get_permissions(self):
+        """獲取權限類（動態讀取設置，支持 @override_settings）"""
+        return get_dynamic_permissions(self)
 
     def update(self, request, *args, **kwargs):
         """更新成績狀態（標記完成/未完成）"""
@@ -687,6 +764,10 @@ class ScoreViewSet(viewsets.ModelViewSet):
 class RouteViewSet(viewsets.ModelViewSet):
     queryset = Route.objects.all()
     # 使用 settings.py 中的默認權限設置（開發環境為 AllowAny）
+    
+    def get_permissions(self):
+        """獲取權限類（動態讀取設置，支持 @override_settings）"""
+        return get_dynamic_permissions(self)
     
     def get_serializer_class(self):
         """根據操作選擇不同的序列化器"""
@@ -969,6 +1050,10 @@ class MemberViewSet(viewsets.ModelViewSet):
     queryset = Member.objects.all()
     serializer_class = MemberSerializer
     # 使用 settings.py 中的默認權限設置（開發環境為 AllowAny）
+    
+    def get_permissions(self):
+        """獲取權限類（動態讀取設置，支持 @override_settings）"""
+        return get_dynamic_permissions(self)
 
     def create(self, request, *args, **kwargs):
         """創建成員"""

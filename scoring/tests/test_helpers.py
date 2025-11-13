@@ -228,6 +228,38 @@ def cleanup_test_photos(room=None, routes=None):
     return deleted_count
 
 
+def cleanup_all_test_photos():
+    """
+    清理所有測試中創建的圖片文件
+    
+    這個函數會查找所有有照片的路線並清理它們的圖片文件。
+    通常在測試套件結束時調用，確保不會留下測試圖片文件。
+    
+    Returns:
+        int: 成功刪除的圖片文件數量
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    deleted_count = 0
+    # 獲取所有有照片的路線
+    routes_with_photos = Route.objects.exclude(photo='').exclude(photo=None)
+    
+    for route in routes_with_photos:
+        if route.photo:
+            photo_name = route.photo.name
+            try:
+                if default_storage.exists(photo_name):
+                    default_storage.delete(photo_name)
+                    deleted_count += 1
+                    logger.debug(f"已刪除測試圖片: {photo_name}")
+            except Exception as e:
+                # 如果刪除失敗，記錄錯誤但不中斷測試
+                logger.warning(f"刪除測試圖片失敗: {photo_name}, 錯誤: {str(e)}")
+    
+    return deleted_count
+
+
 def cleanup_test_data(room=None, routes=None, cleanup_photos=False):
     """
     清理測試數據

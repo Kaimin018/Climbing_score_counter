@@ -81,6 +81,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        # 添加测试数据库配置，使用内存数据库加速测试
+        'TEST': {
+            'NAME': ':memory:',  # 使用内存数据库，速度更快
+        },
     }
 }
 
