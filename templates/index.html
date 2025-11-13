@@ -674,6 +674,7 @@
             return;
         }
 
+        // 確保在渲染前已經檢查過用戶類型
         container.innerHTML = rooms.map(room => {
             const memberCount = room.members ? room.members.length : 0;
             const routeCount = room.routes ? room.routes.length : 0;

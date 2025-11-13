@@ -566,78 +566,6 @@ body {
     font-size: 1.2rem;
 }
 
-/* 導出Excel按鈕（固定在右下角，美化版） */
-.export-excel-btn {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    padding: 16px 28px;
-    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
-    color: white;
-    border: none;
-    border-radius: 50px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4),
-                0 2px 8px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    font-family: 'Noto Sans', 'Noto Sans CJK TC', sans-serif;
-    white-space: nowrap;
-    min-width: 140px;
-    /* 添加微妙的浮动动画 */
-    animation: float 3s ease-in-out infinite;
-}
-
-/* 浮动动画效果 */
-@keyframes float {
-    0%, 100% {
-        transform: translateY(0px);
-    }
-    50% {
-        transform: translateY(-5px);
-    }
-}
-
-.export-excel-btn:hover {
-    background: linear-gradient(135deg, #229954 0%, #1e8449 100%);
-    transform: translateY(-3px) scale(1.05);
-    box-shadow: 0 8px 25px rgba(39, 174, 96, 0.5),
-                0 4px 12px rgba(0, 0, 0, 0.15);
-    animation: none; /* 悬停时停止浮动动画 */
-}
-
-.export-excel-btn:active {
-    transform: translateY(-1px) scale(1.02);
-    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4),
-                0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.export-excel-btn:disabled {
-    background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: 0 2px 8px rgba(149, 165, 166, 0.3);
-    animation: none;
-    opacity: 0.7;
-}
-
-/* 按钮图标样式 */
-.export-excel-btn::before {
-    content: '📊';
-    font-size: 1.2rem;
-    display: inline-block;
-    transition: transform 0.3s ease;
-}
-
-.export-excel-btn:hover::before {
-    transform: rotate(15deg) scale(1.1);
-}
 
 /* 按鈕 */
 .actions {
@@ -2056,21 +1984,6 @@ tbody tr:hover {
         margin-bottom: 10px;
     }
 
-    /* 移動端導出Excel按鈕樣式 */
-    .export-excel-btn {
-        bottom: 20px;
-        right: 20px;
-        padding: 14px 22px;
-        font-size: 0.9rem;
-        min-width: 120px;
-        box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4),
-                    0 2px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    .export-excel-btn:hover {
-        box-shadow: 0 6px 20px rgba(39, 174, 96, 0.5),
-                    0 3px 8px rgba(0, 0, 0, 0.15);
-    }
 
     /* 移動端標籤頁樣式 */
     .tabs-nav {
@@ -2434,13 +2347,6 @@ tbody tr:hover {
         font-size: 1.1rem;
     }
 
-    /* 超小屏幕導出Excel按鈕樣式 */
-    .export-excel-btn {
-        bottom: 15px;
-        right: 15px;
-        padding: 12px 18px;
-        font-size: 0.85rem;
-        min-width: 110px;
     }
 
     .room-info {

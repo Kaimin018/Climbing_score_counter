@@ -18,15 +18,20 @@ from .serializers import convert_file_to_uploaded_file
 
 logger = logging.getLogger(__name__)
 
-# Excel 导出相关导入
+# PDF 导出相关导入
 try:
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-    from openpyxl.drawing.image import Image as ExcelImage
-    OPENPYXL_AVAILABLE = True
+    from reportlab.lib.pagesizes import A4, letter
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch, cm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as PDFImage, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    REPORTLAB_AVAILABLE = True
 except ImportError:
-    OPENPYXL_AVAILABLE = False
-    logger.warning("openpyxl 未安装，Excel 导出功能将不可用。请运行: pip install openpyxl")
+    REPORTLAB_AVAILABLE = False
+    logger.warning("reportlab 未安装，PDF 导出功能将不可用。请运行: pip install reportlab")
 
 
 class RoomViewSet(viewsets.ModelViewSet):
@@ -118,79 +123,191 @@ class RoomViewSet(viewsets.ModelViewSet):
         
         return Response(serializer.data)
 
-    @action(detail=True, methods=['get'], url_path='export-excel')
-    def export_excel(self, request, pk=None):
-        """導出排行榜Excel，包含照片和測項"""
-        if not OPENPYXL_AVAILABLE:
+    @action(detail=True, methods=['get'], url_path='export-pdf')
+    def export_pdf(self, request, pk=None):
+        """導出排行榜PDF，包含照片和測項"""
+        if not REPORTLAB_AVAILABLE:
             return Response(
-                {'detail': 'Excel 导出功能不可用，请安装 openpyxl: pip install openpyxl'},
+                {'detail': 'PDF 导出功能不可用，请安装 reportlab: pip install reportlab'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
         
-        from openpyxl.utils import get_column_letter
         from django.http import HttpResponse
         from io import BytesIO
         import os
+        from PIL import Image as PILImage
         
         room = self.get_object()
         
-        # 創建Excel工作簿
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "排行榜"
+        # 創建PDF緩衝區
+        buffer = BytesIO()
+        # 設置PDF標題（用於PDF查看器的標題欄顯示）
+        pdf_title = f"{room.name} - 總表"
         
-        # 設置標題樣式
-        title_font = Font(name='微軟正黑體', size=16, bold=True, color='FFFFFF')
-        title_fill = PatternFill(start_color='2C3E50', end_color='2C3E50', fill_type='solid')
-        title_alignment = Alignment(horizontal='center', vertical='center')
+        # 創建自定義文檔模板，設置標題和作者
+        class CustomDocTemplate(SimpleDocTemplate):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+            
+            def build(self, flowables, onFirstPage=None, onLaterPages=None, canvasmaker=None):
+                # 設置PDF元數據
+                def set_metadata(canvas, doc):
+                    canvas.setTitle(pdf_title)
+                    canvas.setAuthor("攀岩計分系統")
+                    canvas.setSubject("排行榜導出")
+                
+                # 如果沒有提供 onFirstPage，使用默認的元數據設置
+                if onFirstPage is None:
+                    onFirstPage = set_metadata
+                else:
+                    # 如果提供了 onFirstPage，組合兩個函數
+                    original_onFirstPage = onFirstPage
+                    def combined_onFirstPage(canvas, doc):
+                        set_metadata(canvas, doc)
+                        if original_onFirstPage:
+                            original_onFirstPage(canvas, doc)
+                    onFirstPage = combined_onFirstPage
+                
+                # 構建參數字典，只包含非 None 的參數
+                build_kwargs = {
+                    'onFirstPage': onFirstPage,
+                }
+                if onLaterPages is not None:
+                    build_kwargs['onLaterPages'] = onLaterPages
+                if canvasmaker is not None:
+                    build_kwargs['canvasmaker'] = canvasmaker
+                
+                super().build(flowables, **build_kwargs)
         
-        # 設置表頭樣式
-        header_font = Font(name='微軟正黑體', size=12, bold=True, color='FFFFFF')
-        header_fill = PatternFill(start_color='34495E', end_color='34495E', fill_type='solid')
-        header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        doc = CustomDocTemplate(buffer, pagesize=A4, 
+                                rightMargin=0.5*inch, leftMargin=0.5*inch,
+                                topMargin=0.5*inch, bottomMargin=0.5*inch,
+                                title=pdf_title)
         
-        # 設置邊框
-        thin_border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin')
+        # 註冊中文字體（嘗試使用系統字體）
+        # 如果系統沒有中文字體，可以使用 reportlab 的 CJK 支持或下載字體文件
+        try:
+            # 嘗試註冊常見的中文字體
+            font_paths = [
+                'C:/Windows/Fonts/msjh.ttc',  # 微軟正黑體 (Windows)
+                'C:/Windows/Fonts/simsun.ttc',  # 宋體 (Windows)
+                '/System/Library/Fonts/PingFang.ttc',  # 蘋方 (macOS)
+                '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',  # 文泉驛微米黑 (Linux)
+            ]
+            
+            chinese_font_registered = False
+            chinese_font_name = 'ChineseFont'
+            
+            for font_path in font_paths:
+                if os.path.exists(font_path):
+                    try:
+                        pdfmetrics.registerFont(TTFont(chinese_font_name, font_path))
+                        chinese_font_registered = True
+                        logger.info(f"成功註冊中文字體: {font_path}")
+                        break
+                    except Exception as e:
+                        logger.warning(f"註冊字體失敗 {font_path}: {e}")
+                        continue
+            
+            # 如果沒有找到系統字體，使用 reportlab 的內置支持（需要安裝 reportlab-cjk）
+            if not chinese_font_registered:
+                try:
+                    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+                    pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))  # 宋體
+                    chinese_font_name = 'STSong-Light'
+                    chinese_font_registered = True
+                    logger.info("使用 reportlab CJK 字體支持")
+                except ImportError:
+                    logger.warning("未找到中文字體，中文可能無法正確顯示。建議安裝 reportlab-cjk 或配置系統字體")
+                    chinese_font_name = 'Helvetica'  # 回退到默認字體
+        except Exception as e:
+            logger.error(f"字體註冊錯誤: {e}")
+            chinese_font_name = 'Helvetica'
+        
+        # 獲取樣式
+        styles = getSampleStyleSheet()
+        
+        # 創建自定義樣式（使用中文字體）
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontName=chinese_font_name,
+            fontSize=18,
+            textColor=colors.HexColor('#2C3E50'),
+            spaceAfter=12,
+            alignment=TA_CENTER
         )
         
-        # 寫入標題
-        ws.merge_cells('A1:E1')
-        title_cell = ws['A1']
-        title_cell.value = f"{room.name} - 排行榜"
-        title_cell.font = title_font
-        title_cell.fill = title_fill
-        title_cell.alignment = title_alignment
-        title_cell.border = thin_border
-        ws.row_dimensions[1].height = 30
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontName=chinese_font_name,
+            fontSize=14,
+            textColor=colors.HexColor('#34495E'),
+            spaceAfter=10,
+            alignment=TA_LEFT
+        )
         
-        # 寫入房間信息
-        ws['A2'] = f"房間 ID: {room.id}"
-        ws['B2'] = f"每一條線總分 (L): {room.standard_line_score}"
-        ws.merge_cells('A2:B2')
-        info_cell = ws['A2']
-        info_cell.font = Font(name='微軟正黑體', size=11)
-        info_cell.alignment = Alignment(horizontal='left', vertical='center')
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontName=chinese_font_name,
+            fontSize=10
+        )
         
-        # 寫入表頭
-        headers = ['排名', '成員', '總分', '完成條數', '是否客製化組']
-        for col_num, header in enumerate(headers, 1):
-            cell = ws.cell(row=3, column=col_num)
-            cell.value = header
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = header_alignment
-            cell.border = thin_border
-        ws.row_dimensions[3].height = 25
+        # 構建PDF內容
+        story = []
+        
+        # 標題
+        title = Paragraph(f"{room.name} - 排行榜", title_style)
+        story.append(title)
+        story.append(Spacer(1, 0.2*inch))
+        
+        # 房間信息
+        info_text = f"房間 ID: {room.id} | 每一條線總分 (L): {room.standard_line_score}"
+        story.append(Paragraph(info_text, normal_style))
+        story.append(Spacer(1, 0.3*inch))
         
         # 獲取成員數據（按總分降序）
         members = room.members.all().order_by('-total_score', 'name')
         
-        # 寫入成員數據（處理同分排名）
-        row_num = 4
+        # 先收集所有成員完成的所有路線的等級（用於確定需要哪些等級欄位）
+        all_completed_grades = set()
+        for member in members:
+            completed_scores = member.scores.filter(is_completed=True).select_related('route')
+            for score in completed_scores:
+                grade = score.route.grade
+                if grade:  # 只收集有等級的路線
+                    all_completed_grades.add(grade)
+        
+        # 等級排序函數：將等級轉換為可排序的數值
+        def sort_grade(grade):
+            """排序函數：將等級轉換為可排序的數值"""
+            if not grade or grade == '未知':
+                return (0, 0)  # 未知等級排最後
+            grade = grade.strip().upper()
+            # 處理 V8+ 這種格式
+            if grade.endswith('+'):
+                base_grade = grade[:-1]
+                try:
+                    num = int(base_grade.replace('V', ''))
+                    return (num, 1)  # + 表示 0.5
+                except:
+                    return (0, 0)
+            # 處理普通 V5 格式
+            try:
+                num = int(grade.replace('V', ''))
+                return (num, 0)
+            except:
+                return (0, 0)
+        
+        # 按等級從高到低排序
+        sorted_all_grades = sorted(all_completed_grades, key=sort_grade, reverse=True)
+        
+        # 構建表頭：排名、成員、總分、完成總條數、各等級欄位、是否客製化組
+        table_headers = ['排名', '成員', '總分', '完成總條數'] + sorted_all_grades + ['是否客製化組']
+        leaderboard_data = [table_headers]
+        
         current_rank = 1
         previous_score = None
         
@@ -208,196 +325,283 @@ class RoomViewSet(viewsets.ModelViewSet):
             
             previous_score = current_score
             
-            ws.cell(row=row_num, column=1, value=current_rank).font = Font(name='微軟正黑體', size=11)
-            ws.cell(row=row_num, column=1).alignment = Alignment(horizontal='center', vertical='center')
-            ws.cell(row=row_num, column=1).border = thin_border
-            
-            ws.cell(row=row_num, column=2, value=member.name).font = Font(name='微軟正黑體', size=11)
-            ws.cell(row=row_num, column=2).alignment = Alignment(horizontal='left', vertical='center')
-            ws.cell(row=row_num, column=2).border = thin_border
-            
-            ws.cell(row=row_num, column=3, value=float(member.total_score)).font = Font(name='微軟正黑體', size=11)
-            ws.cell(row=row_num, column=3).alignment = Alignment(horizontal='right', vertical='center')
-            ws.cell(row=row_num, column=3).border = thin_border
-            
-            completed_count = member.completed_routes_count
-            ws.cell(row=row_num, column=4, value=completed_count).font = Font(name='微軟正黑體', size=11)
-            ws.cell(row=row_num, column=4).alignment = Alignment(horizontal='center', vertical='center')
-            ws.cell(row=row_num, column=4).border = thin_border
-            
             custom_text = '是' if member.is_custom_calc else '否'
-            ws.cell(row=row_num, column=5, value=custom_text).font = Font(name='微軟正黑體', size=11)
-            ws.cell(row=row_num, column=5).alignment = Alignment(horizontal='center', vertical='center')
-            ws.cell(row=row_num, column=5).border = thin_border
+            completed_count = member.completed_routes_count
             
-            # 設置行高
-            ws.row_dimensions[row_num].height = 20
-            row_num += 1
+            # 計算成員通過的路線等級統計
+            completed_scores = member.scores.filter(is_completed=True).select_related('route')
+            grade_count = {}
+            for score in completed_scores:
+                grade = score.route.grade
+                if grade:  # 只統計有等級的路線
+                    grade_count[grade] = grade_count.get(grade, 0) + 1
+            
+            # 構建行數據：排名、成員、總分、完成總條數、各等級數量、是否客製化組
+            row_data = [
+                str(current_rank),
+                member.name,
+                f"{current_score:.2f}",
+                str(completed_count)
+            ]
+            
+            # 為每個等級欄位添加該成員完成該等級的數量
+            for grade in sorted_all_grades:
+                count = grade_count.get(grade, 0)
+                row_data.append(str(count) if count > 0 else '-')
+            
+            row_data.append(custom_text)
+            leaderboard_data.append(row_data)
         
-        # 設置列寬
-        ws.column_dimensions['A'].width = 10
-        ws.column_dimensions['B'].width = 20
-        ws.column_dimensions['C'].width = 15
-        ws.column_dimensions['D'].width = 15
-        ws.column_dimensions['E'].width = 15
+        # 計算列寬：基本列 + 每個等級列 + 最後一列
+        base_col_widths = [0.8*inch, 2*inch, 1*inch, 1*inch]  # 排名、成員、總分、完成總條數
+        grade_col_width = 0.7*inch  # 每個等級欄位寬度
+        grade_col_widths = [grade_col_width] * len(sorted_all_grades)
+        last_col_width = 1.2*inch  # 是否客製化組
+        col_widths = base_col_widths + grade_col_widths + [last_col_width]
         
-        # 創建路線工作表（測項）
-        routes_ws = wb.create_sheet(title="路線列表")
+        # 創建排行榜表格
+        leaderboard_table = Table(leaderboard_data, colWidths=col_widths)
+        
+        # 計算等級欄位的列索引範圍
+        # 表頭結構：排名(0) | 成員(1) | 總分(2) | 完成總條數(3) | 等級欄位(4~3+len) | 是否客製化組(最後)
+        grade_col_start = 4  # 等級欄位開始的列索引
+        grade_col_end = 3 + len(sorted_all_grades)  # 等級欄位結束的列索引
+        
+        leaderboard_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495E')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),  # 默認居中
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),  # 成員名稱左對齊
+            # 等級欄位居中对齐
+            ('ALIGN', (grade_col_start, 0), (grade_col_end, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), chinese_font_name),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), chinese_font_name),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        
+        story.append(Paragraph("排行榜", heading_style))
+        story.append(leaderboard_table)
+        story.append(Spacer(1, 0.5*inch))
+        story.append(PageBreak())
+        
+        # 路線列表（測項）- 總表格式
+        story.append(Paragraph("路線列表", heading_style))
+        story.append(Spacer(1, 0.2*inch))
         
         # 獲取所有成員（按名稱排序，保持一致性）
         all_members = room.members.all().order_by('name')
         member_names = [member.name for member in all_members]
-        member_dict = {member.id: member for member in all_members}
         
-        # 路線表頭：基本信息 + 每個成員的列
-        route_headers = ['路線名稱', '難度等級', '完成人數', '照片'] + member_names
-        for col_num, header in enumerate(route_headers, 1):
-            cell = routes_ws.cell(row=1, column=col_num)
-            cell.value = header
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = header_alignment
-            cell.border = thin_border
-        routes_ws.row_dimensions[1].height = 25
+        # 獲取路線數據，按難度遞減排序
+        # 使用與排行榜相同的等級排序函數
+        def sort_grade_for_route(route):
+            """排序函數：將路線等級轉換為可排序的數值"""
+            grade = route.grade
+            if not grade or grade == '未知':
+                return (0, 0)  # 未知等級排最後
+            grade = grade.strip().upper()
+            # 處理 V8+ 這種格式
+            if grade.endswith('+'):
+                base_grade = grade[:-1]
+                try:
+                    num = int(base_grade.replace('V', ''))
+                    return (num, 1)  # + 表示 0.5
+                except:
+                    return (0, 0)
+            # 處理普通 V5 格式
+            try:
+                num = int(grade.replace('V', ''))
+                return (num, 0)
+            except:
+                return (0, 0)
         
-        # 獲取路線數據
-        routes = room.routes.all().order_by('created_at')
+        # 獲取所有路線並按難度排序（從高到低）
+        all_routes = list(room.routes.all())
+        routes = sorted(all_routes, key=sort_grade_for_route, reverse=True)
         
         # 用於保存所有臨時文件路徑，以便最後清理
         temp_files = []
         
-        # 寫入路線數據
-        route_row = 2
-        for route in routes:
-            routes_ws.cell(row=route_row, column=1, value=route.name).font = Font(name='微軟正黑體', size=11)
-            routes_ws.cell(row=route_row, column=1).alignment = Alignment(horizontal='left', vertical='center')
-            routes_ws.cell(row=route_row, column=1).border = thin_border
+        # 構建總表：路線名稱、難度等級、完成人數、照片、每個成員的完成狀態（1/0）
+        # 表頭
+        route_table_headers = ['路線名稱', '難度等級', '完成人數', '照片'] + member_names
+        
+        # 計算列寬（根據內容動態調整）
+        # 基本列寬
+        photo_col_width = 1.8*inch  # 照片列寬度（增大）
+        col_widths = [2*inch, 1*inch, 1*inch, photo_col_width]  # 路線名稱、難度、完成人數、照片
+        # 每個成員列寬度
+        member_col_width = 0.6*inch
+        col_widths.extend([member_col_width] * len(member_names))
+        
+        # 構建表格數據
+        route_table_data = [route_table_headers]
+        
+        # 處理每個路線（先處理照片，準備嵌入表格）
+        route_photos = {}  # 存儲路線照片對象
+        photo_height = 1.0*inch  # 照片在表格中的高度（增大）
+        
+        # 如果沒有路線，添加提示行
+        if len(routes) == 0:
+            route_table_data.append([
+                '暫無路線',
+                '-',
+                '-',
+                Paragraph('無', normal_style)
+            ] + ['-' for _ in member_names])
+        else:
+            for route in routes:
+                # 處理照片
+                if route.photo:
+                    try:
+                        photo_path = route.photo.path
+                        if os.path.exists(photo_path):
+                            # 調整照片大小以適應表格單元格
+                            img = PILImage.open(photo_path)
+                            # 計算適合表格單元格的尺寸
+                            max_width_px = int(photo_col_width * 72)  # 轉換為點（points）
+                            max_height_px = int(photo_height * 72)
+                            
+                            # 按比例縮放
+                            width_ratio = max_width_px / img.width if img.width > 0 else 1
+                            height_ratio = max_height_px / img.height if img.height > 0 else 1
+                            scale_ratio = min(width_ratio, height_ratio, 1.0)  # 不放大，只縮小
+                            
+                            new_width = int(img.width * scale_ratio)
+                            new_height = int(img.height * scale_ratio)
+                            
+                            if scale_ratio < 1.0:
+                                img = img.resize((new_width, new_height), PILImage.Resampling.LANCZOS)
+                            
+                            # 保存臨時圖片
+                            temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp_export')
+                            os.makedirs(temp_dir, exist_ok=True)
+                            temp_path = os.path.join(temp_dir, f'route_{route.id}.jpg')
+                            img.save(temp_path, 'JPEG', quality=85)
+                            temp_files.append(temp_path)
+                            
+                            # 創建 PDF Image 對象（使用英寸單位）
+                            # 確保尺寸不為0，並且限制最大高度
+                            if new_width > 0 and new_height > 0:
+                                # 限制照片最大高度為 1.0 英寸（72 點），寬度為 1.8 英寸（129.6 點）
+                                max_img_height_points = 72  # 1.0 inch = 72 points
+                                max_img_width_points = 129.6  # 1.8 inch = 129.6 points
+                                
+                                # 如果高度或寬度超過限制，按比例縮小
+                                if new_height > max_img_height_points:
+                                    height_scale = max_img_height_points / new_height
+                                    new_width = int(new_width * height_scale)
+                                    new_height = max_img_height_points
+                                
+                                if new_width > max_img_width_points:
+                                    width_scale = max_img_width_points / new_width
+                                    new_height = int(new_height * width_scale)
+                                    new_width = max_img_width_points
+                                
+                                img_width_inch = new_width / 72.0  # 點轉換為英寸
+                                img_height_inch = new_height / 72.0
+                                pdf_img = PDFImage(temp_path, width=img_width_inch*inch, height=img_height_inch*inch)
+                                route_photos[route.id] = pdf_img
+                            else:
+                                route_photos[route.id] = Paragraph('照片尺寸錯誤', normal_style)
+                        else:
+                            route_photos[route.id] = Paragraph('照片不存在', normal_style)
+                    except Exception as e:
+                        logger.error(f"處理路線照片時發生錯誤: {e}")
+                        route_photos[route.id] = Paragraph('照片載入失敗', normal_style)
+                else:
+                    route_photos[route.id] = Paragraph('無照片', normal_style)
             
-            routes_ws.cell(row=route_row, column=2, value=route.grade or '-').font = Font(name='微軟正黑體', size=11)
-            routes_ws.cell(row=route_row, column=2).alignment = Alignment(horizontal='center', vertical='center')
-            routes_ws.cell(row=route_row, column=2).border = thin_border
-            
-            # 計算完成人數
-            completed_count = route.scores.filter(is_completed=True).count()
-            total_count = route.scores.count()
-            routes_ws.cell(row=route_row, column=3, value=f"{completed_count}/{total_count}").font = Font(name='微軟正黑體', size=11)
-            routes_ws.cell(row=route_row, column=3).alignment = Alignment(horizontal='center', vertical='center')
-            routes_ws.cell(row=route_row, column=3).border = thin_border
-            
-            # 處理照片
-            if route.photo:
-                try:
-                    photo_path = route.photo.path
-                    if os.path.exists(photo_path):
-                        # 調整照片大小以適應Excel單元格
-                        from PIL import Image as PILImage
-                        img = PILImage.open(photo_path)
-                        # 限制照片大小（寬度不超過200像素）
-                        max_width = 200
-                        if img.width > max_width:
-                            ratio = max_width / img.width
-                            new_height = int(img.height * ratio)
-                            img = img.resize((max_width, new_height), PILImage.Resampling.LANCZOS)
-                        
-                        # 保存臨時圖片
-                        temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp_export')
-                        os.makedirs(temp_dir, exist_ok=True)
-                        temp_path = os.path.join(temp_dir, f'route_{route.id}.jpg')
-                        img.save(temp_path, 'JPEG', quality=85)
-                        
-                        # 記錄臨時文件路徑，稍後清理
-                        temp_files.append(temp_path)
-                        
-                        # 插入圖片到Excel - 優化以確保 iPhone 兼容性
-                        # 關鍵：確保圖片是標準 JPEG 格式並正確嵌入（不是鏈接）
-                        
-                        # 確保圖片是 JPEG 格式（iPhone 兼容性最好）
-                        # temp_path 已經是 JPEG（上面已保存為 JPEG），直接使用
-                        excel_img = ExcelImage(temp_path)
-                        
-                        # 設置圖片大小（像素轉換為 Excel 單位）
-                        # openpyxl 使用像素作為單位，Excel 使用點（points）
-                        # 1 點 = 1/72 英寸，假設 96 DPI，1 點 ≈ 1.33 像素
-                        # 所以 Excel 中的尺寸 = 像素 / 0.75
-                        
-                        # 限制圖片最大寬度（適應儲存格）
-                        max_excel_width = 200  # Excel 單位（約 150 像素）
-                        max_excel_height = 150  # Excel 單位（約 112 像素）
-                        
-                        # 如果圖片太大，按比例縮小
-                        if excel_img.width > max_excel_width or excel_img.height > max_excel_height:
-                            width_ratio = max_excel_width / excel_img.width if excel_img.width > 0 else 1
-                            height_ratio = max_excel_height / excel_img.height if excel_img.height > 0 else 1
-                            scale_ratio = min(width_ratio, height_ratio)
-                            excel_img.width = excel_img.width * scale_ratio
-                            excel_img.height = excel_img.height * scale_ratio
-                        
-                        # 獲取目標儲存格座標
-                        col_letter = get_column_letter(4)  # D 列
-                        cell_coord = f'{col_letter}{route_row}'
-                        
-                        # 使用 openpyxl 的標準方法插入圖片
-                        # add_image 會自動將圖片嵌入到文件中（不是鏈接），這對 iPhone 兼容性很重要
-                        routes_ws.add_image(excel_img, cell_coord)
-                        
-                        # 設置行高以適應圖片
-                        # Excel 行高單位是點，1 點 ≈ 1.33 像素
-                        # openpyxl 的圖片尺寸單位是像素，需要轉換
-                        img_height_points = excel_img.height / 0.75 if excel_img.height > 0 else 80
-                        routes_ws.row_dimensions[route_row].height = max(80, img_height_points)
-                        
-                        # 設置列寬以適應圖片（如果需要）
-                        # Excel 列寬單位是字符寬度，需要特殊轉換
-                        # 大約：列寬 = (像素寬度 / 7) + 2
-                        col_width_chars = (excel_img.width / 7) + 2 if excel_img.width > 0 else 15
-                        routes_ws.column_dimensions[col_letter].width = max(10, col_width_chars)
-                    else:
-                        routes_ws.cell(row=route_row, column=4, value='照片不存在').font = Font(name='微軟正黑體', size=10, color='999999')
-                        routes_ws.cell(row=route_row, column=4).alignment = Alignment(horizontal='center', vertical='center')
-                        routes_ws.cell(row=route_row, column=4).border = thin_border
-                except Exception as e:
-                    logger.error(f"處理路線照片時發生錯誤: {e}")
-                    routes_ws.cell(row=route_row, column=4, value='照片載入失敗').font = Font(name='微軟正黑體', size=10, color='FF0000')
-                    routes_ws.cell(row=route_row, column=4).alignment = Alignment(horizontal='center', vertical='center')
-                    routes_ws.cell(row=route_row, column=4).border = thin_border
-            else:
-                routes_ws.cell(row=route_row, column=4, value='無照片').font = Font(name='微軟正黑體', size=10, color='999999')
-                routes_ws.cell(row=route_row, column=4).alignment = Alignment(horizontal='center', vertical='center')
-                routes_ws.cell(row=route_row, column=4).border = thin_border
-            
-            # 添加每個成員的完成狀態（1=完成，0=未完成）
-            # 獲取該路線的所有成績記錄
-            route_scores = {score.member_id: score.is_completed for score in route.scores.all()}
-            
-            # 從第5列開始（前4列是：路線名稱、難度等級、完成人數、照片）
-            member_col = 5
-            for member in all_members:
-                # 檢查該成員是否完成此路線
-                is_completed = route_scores.get(member.id, False)
-                completion_value = 1 if is_completed else 0
+            # 構建表格數據行
+            for route in routes:
+                # 計算完成人數
+                completed_count = route.scores.filter(is_completed=True).count()
+                total_count = route.scores.count()
+                completion_text = f"{completed_count}/{total_count}"
                 
-                routes_ws.cell(row=route_row, column=member_col, value=completion_value).font = Font(name='微軟正黑體', size=11)
-                routes_ws.cell(row=route_row, column=member_col).alignment = Alignment(horizontal='center', vertical='center')
-                routes_ws.cell(row=route_row, column=member_col).border = thin_border
-                member_col += 1
-            
-            route_row += 1
+                # 獲取該路線的所有成績記錄
+                route_scores = {score.member_id: score.is_completed for score in route.scores.all()}
+                
+                # 構建行數據（照片列使用 Image 對象或 Paragraph）
+                row_data = [
+                    route.name,
+                    route.grade or '-',
+                    completion_text,
+                    route_photos.get(route.id, Paragraph('無照片', normal_style))  # 嵌入照片或文字
+                ]
+                
+                # 添加每個成員的完成狀態（1=完成，0=未完成）
+                for member in all_members:
+                    is_completed = route_scores.get(member.id, False)
+                    row_data.append('1' if is_completed else '0')
+                
+                route_table_data.append(row_data)
         
-        # 設置路線工作表列寬
-        routes_ws.column_dimensions['A'].width = 25  # 路線名稱
-        routes_ws.column_dimensions['B'].width = 15  # 難度等級
-        routes_ws.column_dimensions['C'].width = 15  # 完成人數
-        routes_ws.column_dimensions['D'].width = 30  # 照片
+        # 創建路線總表（只有在有數據時才設置 repeatRows）
+        # 使用 splitByRow 允許表格跨頁，並設置最大行高
+        if len(route_table_data) > 1:  # 有數據行
+            route_table = Table(route_table_data, colWidths=col_widths, repeatRows=1, splitByRow=1)
+        else:
+            route_table = Table(route_table_data, colWidths=col_widths, splitByRow=1)
+        route_table.setStyle(TableStyle([
+            # 表頭樣式
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495E')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 1), (0, -1), 'LEFT'),  # 路線名稱左對齊
+            ('FONTNAME', (0, 0), (-1, 0), chinese_font_name),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            # 數據行樣式
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), chinese_font_name),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            # 照片列特殊處理：垂直和水平居中
+            ('VALIGN', (3, 1), (3, -1), 'MIDDLE'),  # 照片列垂直居中
+            ('ALIGN', (3, 1), (3, -1), 'CENTER'),   # 照片列水平居中
+            # 交替行背景色（可選）
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+            # 設置行高和內邊距（適應較大的照片）
+            ('LEFTPADDING', (3, 1), (3, -1), 4),    # 照片列左右內邊距
+            ('RIGHTPADDING', (3, 1), (3, -1), 4),
+            ('TOPPADDING', (3, 1), (3, -1), 4),     # 照片列上下內邊距
+            ('BOTTOMPADDING', (3, 1), (3, -1), 4),
+            # 數據行內邊距
+            ('TOPPADDING', (0, 1), (-1, -1), 4),    # 所有數據行上下內邊距
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+        ]))
         
-        # 設置成員列的寬度（從第5列開始）
-        for idx, member in enumerate(all_members, start=5):
-            col_letter = get_column_letter(idx)
-            routes_ws.column_dimensions[col_letter].width = 10  # 每個成員列寬度設為10
+        story.append(route_table)
+        story.append(Spacer(1, 0.3*inch))
         
-        # 保存到內存（在保存之前，臨時文件必須存在）
-        output = BytesIO()
-        wb.save(output)
-        output.seek(0)
+        # 構建PDF（添加錯誤處理）
+        try:
+            doc.build(story)
+        except Exception as build_error:
+            logger.error(f"構建PDF時發生錯誤: {build_error}")
+            import traceback
+            logger.error(f"錯誤堆棧: {traceback.format_exc()}")
+            # 清理臨時文件
+            for temp_file in temp_files:
+                try:
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                except Exception:
+                    pass
+            buffer.close()
+            # 返回錯誤響應
+            return Response(
+                {'detail': f'PDF 生成失敗: {str(build_error)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         
         # 保存完成後，清理所有臨時文件
         for temp_file in temp_files:
@@ -407,12 +611,13 @@ class RoomViewSet(viewsets.ModelViewSet):
             except Exception as cleanup_error:
                 logger.warning(f"清理臨時文件失敗 {temp_file}: {cleanup_error}")
         
+        # 獲取PDF內容
+        pdf_content = buffer.getvalue()
+        buffer.close()
+        
         # 創建HTTP響應
-        response = HttpResponse(
-            output.getvalue(),
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        filename = f"{room.name}_排行榜_{room.id}.xlsx"
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        filename = f"{room.name}_排行榜_{room.id}.pdf"
         # 處理中文文件名
         from urllib.parse import quote
         response['Content-Disposition'] = f'attachment; filename="{quote(filename)}"; filename*=UTF-8\'\'{quote(filename)}'
