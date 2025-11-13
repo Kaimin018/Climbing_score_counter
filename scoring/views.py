@@ -528,7 +528,12 @@ class RoomViewSet(viewsets.ModelViewSet):
                             new_height = int(img.height * scale_ratio)
                             
                             if scale_ratio < 1.0:
-                                img = img.resize((new_width, new_height), PILImage.Resampling.LANCZOS)
+                                # 兼容旧版本 Pillow：PILImage.Resampling 在 Pillow 10.0.0+ 才可用
+                                try:
+                                    resample = PILImage.Resampling.LANCZOS
+                                except AttributeError:
+                                    resample = PILImage.LANCZOS
+                                img = img.resize((new_width, new_height), resample)
                             
                             # 保存臨時圖片
                             temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp_export')
