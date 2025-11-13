@@ -567,9 +567,165 @@ scoring/tests/
   - 所有 ViewSet 使用默認權限配置
   
 - **生產環境**（`DEBUG=False`）:
-  - REST Framework 默認權限：`IsAuthenticatedOrReadOnly`（需要認證才能寫入）
+  - REST Framework 默認權限：`IsMemberOrReadOnly`（區分訪客和普通成員）
   - 讀取操作（GET）允許未認證訪問
   - 寫入操作（POST、PUT、PATCH、DELETE）需要認證
+
+### 權限類機制
+
+#### 權限類架構
+
+系統使用 Django REST Framework 的權限類機制來控制 API 訪問權限。所有 ViewSet 都實現了動態權限讀取機制，支持 `@override_settings` 在測試中覆蓋權限配置。
+
+#### 權限類實現
+
+**位置**: `scoring/permissions.py`
+
+系統定義了以下自定義權限類：
+
+1. **`IsOwnerOrReadOnly`**
+   - 只有房間的創建者可以修改，其他人只能讀取
+   - 開發環境（`DEBUG=True`）允許所有操作
+
+2. **`IsAuthenticatedOrReadOnlyForCreate`**
+   - 創建操作需要認證，其他操作允許讀取
+   - 開發環境（`DEBUG=True`）允許所有操作
+
+3. **`IsMemberOrReadOnly`**（主要權限類）
+   - **訪客用戶**（username 以 `'guest_'` 開頭）：只能讀取（GET/HEAD/OPTIONS）
+   - **普通登錄用戶**：可以讀寫
+   - **未認證用戶**：只能讀取
+   - **開發環境**（`DEBUG=True` 且 `DEFAULT_PERMISSION_CLASSES` 包含 `AllowAny`）：允許所有操作
+
+#### 動態權限讀取機制
+
+**位置**: `scoring/views.py`
+
+為了解決 DRF 在 ViewSet 初始化時讀取權限類，導致 `@override_settings` 無法生效的問題，所有 ViewSet 都實現了動態權限讀取機制。
+
+**實現方式**：
+
+1. **`get_dynamic_permissions()` 輔助函數**
+   ```python
+   def get_dynamic_permissions(viewset_instance):
+       """
+       動態獲取權限類，支持 @override_settings
+       用於 ViewSet 的 get_permissions() 方法
+       """
+       # 動態讀取設置，支持 @override_settings
+       from django.conf import settings as django_settings
+       rest_framework_config = getattr(django_settings, 'REST_FRAMEWORK', {})
+       default_perms = rest_framework_config.get('DEFAULT_PERMISSION_CLASSES', [])
+       
+       # 如果設置了權限類，使用設置的權限類
+       if default_perms:
+           from django.utils.module_loading import import_string
+           permission_classes = []
+           for perm_class in default_perms:
+               if isinstance(perm_class, str):
+                   permission_classes.append(import_string(perm_class))
+               else:
+                   permission_classes.append(perm_class)
+           
+           # 創建權限實例
+           return [perm() for perm in permission_classes]
+       
+       # 如果沒有設置，使用父類的默認行為
+       return super(viewset_instance.__class__, viewset_instance).get_permissions()
+   ```
+
+2. **ViewSet 中的實現**
+   ```python
+   class RoomViewSet(viewsets.ModelViewSet):
+       def get_permissions(self):
+           """獲取權限類（動態讀取設置，支持 @override_settings）"""
+           return get_dynamic_permissions(self)
+   ```
+
+**應用的 ViewSet**：
+- `RoomViewSet`
+- `RouteViewSet`
+- `MemberViewSet`
+- `ScoreViewSet`
+
+#### 權限檢查流程
+
+```
+1. 請求到達 ViewSet
+   ↓
+2. ViewSet.get_permissions() 被調用
+   ↓
+3. get_dynamic_permissions() 動態讀取 DEFAULT_PERMISSION_CLASSES
+   ↓
+4. 根據設置實例化權限類
+   ↓
+5. 權限類.has_permission() 被調用
+   ↓
+6. 檢查請求方法和用戶類型
+   ↓
+7. 返回權限檢查結果（True/False）
+```
+
+#### 權限檢查邏輯（IsMemberOrReadOnly）
+
+**`has_permission()` 方法**：
+
+1. **檢查是否允許所有操作**
+   - 如果 `DEFAULT_PERMISSION_CLASSES` 包含 `AllowAny`，返回 `True`（開發環境）
+   - 如果明確設置了 `IsMemberOrReadOnly`，繼續執行權限檢查
+
+2. **讀取操作（GET/HEAD/OPTIONS）**
+   - 對所有人開放，返回 `True`
+
+3. **寫入操作（POST/PUT/PATCH/DELETE）**
+   - 檢查用戶是否已認證
+   - 如果未認證，返回 `False`
+   - 如果已認證，檢查是否是訪客用戶（username 以 `'guest_'` 開頭）
+   - 如果是訪客用戶，返回 `False`
+   - 如果是普通登錄用戶，返回 `True`
+
+**`has_object_permission()` 方法**：
+- 對象級別權限檢查（用於更新、刪除等操作）
+- 邏輯與 `has_permission()` 相同
+
+#### 配置方式
+
+**settings.py**:
+```python
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': (
+        ['rest_framework.permissions.AllowAny'] if DEBUG 
+        else ['scoring.permissions.IsMemberOrReadOnly']
+    ),
+}
+```
+
+**測試中使用 `@override_settings`**:
+```python
+@override_settings(
+    DEBUG=False,
+    REST_FRAMEWORK={
+        'DEFAULT_PERMISSION_CLASSES': ['scoring.permissions.IsMemberOrReadOnly']
+    }
+)
+def test_guest_cannot_create_room(self):
+    # 測試會正確使用 IsMemberOrReadOnly 權限類
+    pass
+```
+
+#### 優勢
+
+1. **動態配置支持**: ViewSet 每次請求時都重新讀取權限配置，支持 `@override_settings`
+2. **測試友好**: 測試可以通過 `@override_settings` 覆蓋權限配置，無需修改代碼
+3. **環境適應**: 根據 `DEBUG` 設置自動切換權限類（開發環境使用 `AllowAny`，生產環境使用 `IsMemberOrReadOnly`）
+4. **訪客限制**: 明確區分訪客用戶和普通用戶，訪客只能讀取數據
+
+#### 相關文件
+
+- `scoring/permissions.py` - 權限類實現
+- `scoring/views.py` - ViewSet 實現，包含 `get_dynamic_permissions()` 函數
+- `climbing_system/settings.py` - 權限配置
+- `issue_fixed/issue_05_guest_permission_restrictions_fix_report.md` - 權限機制修復報告
 
 ### 環境變數配置
 - `SECRET_KEY`: Django 密鑰（必須在生產環境中設置）
