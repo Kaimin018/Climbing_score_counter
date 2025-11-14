@@ -24,6 +24,7 @@ climbing_score_counting_system/
 │   ├── admin.py            # Django Admin 配置
 │   ├── management/         # 管理命令
 │   │   └── commands/
+│   │       └── cleanup_unused_photos.py  # 清理未使用的照片命令
 │   ├── migrations/         # 資料庫遷移文件
 │   └── tests/              # 測試模組
 │       ├── __init__.py
@@ -58,7 +59,13 @@ climbing_score_counting_system/
 │       ├── test_case_27_tab_switching.py
 │       ├── test_case_28_boundary_values.py
 │       ├── test_case_29_data_integrity.py
-│       └── test_case_30_add_member_to_existing_routes.py
+│       ├── test_case_30_add_member_to_existing_routes.py
+│       ├── test_case_31_create_route_with_checked_members.py
+│       ├── test_case_32_buffered_random_pickle_fix.py
+│       ├── test_case_33_stress_test_100_routes_with_photos.py
+│       ├── test_case_34_guest_permission_restrictions.py
+│       ├── test_case_35_pdf_export.py
+│       └── test_case_iphone_screenshot_upload.py
 ├── templates/              # HTML 模板
 │   ├── base.html           # 基礎模板（導航欄、頁腳）
 │   ├── index.html          # 首頁（登錄界面/房間列表）
@@ -120,6 +127,7 @@ climbing_score_counting_system/
   - `retrieve`: 獲取房間詳情（包含路線列表和成員列表，使用 prefetch_related 優化）
   - `leaderboard`: 獲取排行榜
   - `create_route`: 創建路線（支持圖片上傳，支持初始完成狀態設置）
+  - `export_pdf`: 導出排行榜 PDF（包含照片和測項，需要 reportlab 庫）
 
 - **MemberViewSet**: 成員 CRUD 操作
   - `create`: 創建成員
@@ -190,6 +198,7 @@ climbing_score_counting_system/
 /api/rooms/<id>/               → RoomViewSet (詳情、更新、刪除)
 /api/rooms/<id>/leaderboard/   → RoomViewSet.leaderboard
 /api/rooms/<id>/routes/         → RoomViewSet.create_route
+/api/rooms/<id>/export-pdf/     → RoomViewSet.export_pdf
 /api/members/                   → MemberViewSet (列表、創建)
 /api/members/<id>/              → MemberViewSet (詳情、更新、刪除)
 /api/members/<id>/completed-routes/ → MemberViewSet.completed_routes
@@ -459,7 +468,13 @@ scoring/tests/
 ├── test_case_27_tab_switching.py            # 標籤頁切換測試
 ├── test_case_28_boundary_values.py          # 邊界值測試
 ├── test_case_29_data_integrity.py           # 數據完整性測試
-└── test_case_30_add_member_to_existing_routes.py  # 向現有路線添加成員測試
+├── test_case_30_add_member_to_existing_routes.py  # 向現有路線添加成員測試
+├── test_case_31_create_route_with_checked_members.py  # 創建路線並勾選成員測試
+├── test_case_32_buffered_random_pickle_fix.py  # BufferedRandom Pickle 修復測試
+├── test_case_33_stress_test_100_routes_with_photos.py  # 壓力測試：100 條路線帶照片
+├── test_case_34_guest_permission_restrictions.py  # 訪客權限限制測試
+├── test_case_35_pdf_export.py              # PDF 導出功能測試
+└── test_case_iphone_screenshot_upload.py   # iPhone 截圖上傳測試
 ```
 
 ### 測試輔助工具 (`test_helpers.py`)
@@ -497,15 +512,18 @@ scoring/tests/
 - **安全性測試**: 用戶認證、API 權限控制、XSS 防護、SQL 注入防護
 - **完整流程測試**: 創建房間、新增成員、建立路線的完整流程
 - **路線管理測試**: 路線名稱編輯、完成狀態更新、FormData 處理、路線刪除、房間刪除
-- **圖片功能測試**: 圖片上傳、圖片縮圖顯示、圖片格式支持（PNG、JPEG、HEIC）、iPhone 照片處理
+- **圖片功能測試**: 圖片上傳、圖片縮圖顯示、圖片格式支持（PNG、JPEG、HEIC）、iPhone 照片處理、iPhone 截圖上傳
 - **手機端測試**: 響應式設計、移動端 API 調用、移動端圖片上傳、移動端刪除操作
 - **邊界條件測試**: 空完成狀態、部分更新、漸進式完成、邊界值測試
 - **數據完整性測試**: 外鍵約束、唯一性約束、數據一致性、事務處理、並發操作
 - **部署相關測試**: AWS 部署問題、認證配置、CSRF 處理
 - **用戶體驗測試**: 標籤頁切換、移動端桌面端數據一致性、首次使用相機拍照
 - **配置測試**: 日誌配置（開發/生產環境）、權限配置（開發/生產環境）、環境變數配置
+- **PDF 導出測試**: PDF 導出功能、PDF 包含排行榜數據、PDF 包含路線照片、PDF 包含成員完成狀態
+- **壓力測試**: 100 條路線帶照片的壓力測試
+- **權限測試**: 訪客權限限制、BufferedRandom Pickle 修復
 
-**總測試數量：超過 150 個測試用例**（包含 30 個測試文件，涵蓋所有核心功能和邊界情況）
+**總測試數量：超過 300 個測試用例**（包含 36 個測試文件，涵蓋所有核心功能和邊界情況）
 
 ### CI/CD
 - **GitHub Actions**: 自動運行測試，workflow 分成兩個檔案
@@ -518,6 +536,33 @@ scoring/tests/
     - 僅在 `main`（或 `release`）分支測試通過後觸發部署
     - 包含上線所需自動化操作（可根據需求擴充：如 build、migrate、傳到伺服器、重啟服務等）
   - 兩者可以自動平行執行，確保各自負責測試與部署流程分離，提升 CI/CD 彈性與安全
+
+## 管理命令
+
+### cleanup_unused_photos
+
+**位置**: `scoring/management/commands/cleanup_unused_photos.py`
+
+**功能**: 清理 `media/route_photos/` 目錄下沒有對應路線記錄的照片文件
+
+**使用方法**:
+```bash
+python manage.py cleanup_unused_photos
+```
+
+**可選參數**:
+- `--dry-run`: 只顯示將要刪除的文件，不實際刪除
+- `--verbose`: 顯示詳細信息
+
+**使用場景**:
+- 定期清理未使用的照片文件，釋放存儲空間
+- 在刪除路線後清理對應的照片文件
+
+**實現細節**:
+- 掃描 `media/route_photos/` 目錄下的所有文件
+- 檢查每個文件是否有對應的路線記錄
+- 如果沒有對應的路線，則刪除該文件
+- 支持多種匹配方式（相對路徑、完整路徑、文件名）
 
 ## 靜態文件與媒體
 
@@ -816,11 +861,14 @@ def test_guest_cannot_create_room(self):
   - 當路線完成狀態改變時，自動推送更新給所有在線用戶
   - Nginx 配置中已預留 WebSocket 支持註釋
 
-### 3. 數據導出功能
+### 3. 數據導出功能 ✓
 - **PDF 導出**: 導出排行榜、路線完成記錄等
   - 使用 `reportlab` 庫
   - 支持包含照片的完整報告
   - 支持中文字體顯示
+  - API 端點: `GET /api/rooms/{room_id}/export-pdf/`
+  - 前端按鈕: 排行榜頁面提供「導出 PDF」按鈕
+  - 測試覆蓋: `test_case_35_pdf_export.py`
 
 ### 4. 統計分析功能
 - **路線完成率統計**: 計算每條路線的完成率

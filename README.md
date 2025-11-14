@@ -1,6 +1,6 @@
 # 攀岩計分系統
 
-基於「分數逆向分配」邏輯的即時排行榜應用系統。
+基於「路線總分固定」邏輯的即時排行榜應用系統。
 
 **[English](README_EN.md)** | **中文**
 
@@ -25,8 +25,9 @@
 - **資料庫**: SQLite（預設）或 MySQL 5.7+（可選）
 - **API**: Django REST Framework
 - **前端**: HTML + CSS + JavaScript
-- **圖片處理**: Pillow（支持手機照片上傳）
+- **圖片處理**: Pillow（支持手機照片上傳，包括 HEIC 格式）
 - **HTML 解析**: BeautifulSoup4（用於測試中的 HTML 結構檢查）
+- **PDF 生成**: ReportLab（用於導出排行榜 PDF，可選）
 - **生產環境**: Gunicorn + Nginx（AWS EC2 部署）
 
 ## 部署
@@ -36,14 +37,15 @@
 系統已配置支持 AWS EC2 部署，使用 Gunicorn + Nginx + SQLite 架構。
 
 詳細部署指南請參考：
-- `Deployment/SSH_SETUP.md` - SSH 連接配置指南（**首次部署必讀**）
-- `Deployment/DOMAIN_SSL_GUIDE.md` - 域名綁定與 SSL 配置指南（**HTTPS 必讀**）
-- `Deployment/AWS_EC2_DEPLOYMENT.md` - 完整部署指南
-- `Deployment/DEPLOYMENT_CI_CD.md` - CI/CD 自動部署指南
-- `Deployment/TROUBLESHOOTING_DEPLOYMENT.md` - 故障排除指南
-- `Deployment/DATABASE_SYNC.md` - 數據庫同步指南（**重要**：避免更新時數據丟失）
-- `QUICK_START.md` - 快速參考
-- `Deployment/DEPLOYMENT_CHANGES.md` - 部署修改總結
+- `Deployment/docs/setup/SSH_SETUP.md` - SSH 連接配置指南（**首次部署必讀**）
+- `Deployment/docs/setup/DOMAIN_SSL_GUIDE.md` - 域名綁定與 SSL 配置指南（**HTTPS 必讀**）
+- `Deployment/docs/guides/AWS_EC2_DEPLOYMENT.md` - 完整部署指南
+- `Deployment/docs/guides/DEPLOYMENT_CI_CD.md` - CI/CD 自動部署指南
+- `Deployment/docs/troubleshooting/TROUBLESHOOTING_DEPLOYMENT.md` - 故障排除指南
+- `Deployment/docs/setup/DATABASE_SYNC.md` - 數據庫同步指南（**重要**：避免更新時數據丟失）
+- `Deployment/QUICK_START.md` - 快速參考
+- `Deployment/docs/guides/DEPLOYMENT_CHANGES.md` - 部署修改總結
+- `Deployment/INDEX.md` - 部署文檔導航索引（**推薦查看**）
 
 **部署路徑**: `/var/www/Climbing_score_counter`
 
@@ -281,6 +283,17 @@ PATCH /api/scores/{score_id}/
 }
 ```
 
+### 導出排行榜 PDF
+
+```
+GET /api/rooms/{room_id}/export-pdf/
+```
+
+**注意**：
+- 需要安裝 `reportlab` 庫：`pip install reportlab`
+- 返回 PDF 文件，包含排行榜數據、路線照片和成員完成狀態
+- 支持中文字體顯示
+
 ### 刪除路線
 
 ```
@@ -288,6 +301,26 @@ DELETE /api/routes/{route_id}/
 ```
 
 刪除路線後會自動觸發計分更新。
+
+## 管理命令
+
+系統提供以下 Django 管理命令：
+
+### 清理未使用的照片
+
+```bash
+python manage.py cleanup_unused_photos
+```
+
+此命令會掃描 `media/route_photos/` 目錄下的所有照片文件，檢查是否有對應的路線記錄。如果沒有對應的路線，則刪除該照片文件。
+
+**可選參數**：
+- `--dry-run`: 只顯示將要刪除的文件，不實際刪除
+- `--verbose`: 顯示詳細信息
+
+**使用場景**：
+- 定期清理未使用的照片文件，釋放存儲空間
+- 在刪除路線後清理對應的照片文件
 
 ## 資料庫結構
 
@@ -353,7 +386,9 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ### 測試案例
 
-系統包含以下測試案例（共 31 個測試文件，超過 250 個測試用例）：
+系統包含以下測試案例（共 36 個測試文件，超過 300 個測試用例）：
+
+**注意**：詳細的測試文件列表請參考 `ARCHITECTURE.md` 文檔。
 
 1. **核心計分邏輯測試**（`test_case_01_default_member.py`）：
    - 循序漸進新增路線的計分
@@ -491,6 +526,18 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
    - 檢查 Safari 特定的兼容性問題（包括 -webkit- 前綴）
 
 32. **向現有路線添加成員測試**（`test_case_30_add_member_to_existing_routes.py`）
+
+33. **創建路線並勾選成員測試**（`test_case_31_create_route_with_checked_members.py`）
+
+34. **BufferedRandom Pickle 修復測試**（`test_case_32_buffered_random_pickle_fix.py`）
+
+35. **壓力測試：100 條路線帶照片**（`test_case_33_stress_test_100_routes_with_photos.py`）
+
+36. **訪客權限限制測試**（`test_case_34_guest_permission_restrictions.py`）
+
+37. **PDF 導出功能測試**（`test_case_35_pdf_export.py`）
+
+38. **iPhone 截圖上傳測試**（`test_case_iphone_screenshot_upload.py`）
 
 ### GitHub Actions 測試
 

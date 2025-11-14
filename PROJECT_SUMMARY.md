@@ -95,11 +95,25 @@
   - 用戶狀態管理測試
   - 完整工作流程測試
 
-- ✅ **總測試用例數**: 118 個測試用例，全部通過
+- ✅ **總測試用例數**: 超過 300 個測試用例，全部通過（36 個測試文件）
 
 ### 6. 管理後台
 - ✅ Django Admin 集成，支持所有模型的 CRUD 操作
 - ✅ 友好的中文界面標籤
+
+### 7. PDF 導出功能
+- ✅ **PDF 導出**: `GET /api/rooms/{room_id}/export-pdf/`
+  - 導出排行榜 PDF，包含照片和測項
+  - 支持中文字體顯示
+  - 使用 `reportlab` 庫（可選依賴）
+  - 前端提供「導出 PDF」按鈕
+  - 測試覆蓋: `test_case_35_pdf_export.py`
+
+### 8. 管理命令
+- ✅ **清理未使用的照片**: `python manage.py cleanup_unused_photos`
+  - 掃描並清理 `media/route_photos/` 目錄下沒有對應路線記錄的照片文件
+  - 支持 `--dry-run` 和 `--verbose` 參數
+  - 定期清理可釋放存儲空間
 
 ## 📁 專案結構
 
@@ -133,7 +147,32 @@ Climbing_score_counter/
 │       ├── test_case_11_mobile_ui.py
 │       ├── test_case_12_security.py
 │       ├── test_case_13_settings_config.py
-│       └── test_case_14_login_ui.py
+│       ├── test_case_14_login_ui.py
+│       ├── test_case_15_aws_deployment_issues.py
+│       ├── test_case_16_iphone_photo_upload.py
+│       ├── test_case_17_mobile_photo_upload.py
+│       ├── test_case_18_route_photo_display.py
+│       ├── test_case_19_mobile_delete_route.py
+│       ├── test_case_20_first_time_camera_photo.py
+│       ├── test_case_21_mobile_desktop_data_consistency.py
+│       ├── test_case_22_iphone_photo_update_route_fix.py
+│       ├── test_case_23_desktop_route_update_authentication.py
+│       ├── test_case_24_member_deletion_leaderboard.py
+│       ├── test_case_25_guest_create_room_csrf.py
+│       ├── test_case_26_create_route_with_photo.py
+│       ├── test_case_27_room_deletion.py
+│       ├── test_case_27_tab_switching.py
+│       ├── test_case_28_boundary_values.py
+│       ├── test_case_28_safari_route_list_alignment.py
+│       ├── test_case_29_data_integrity.py
+│       ├── test_case_29_safari_detailed_alignment.py
+│       ├── test_case_30_add_member_to_existing_routes.py
+│       ├── test_case_31_create_route_with_checked_members.py
+│       ├── test_case_32_buffered_random_pickle_fix.py
+│       ├── test_case_33_stress_test_100_routes_with_photos.py
+│       ├── test_case_34_guest_permission_restrictions.py
+│       ├── test_case_35_pdf_export.py
+│       └── test_case_iphone_screenshot_upload.py
 ├── templates/               # HTML 模板
 │   ├── base.html            # 基礎模板（包含導航欄）
 │   ├── index.html           # 首頁（登錄界面/房間列表）
@@ -143,21 +182,34 @@ Climbing_score_counter/
 │   ├── css/style.css        # 樣式文件（響應式設計）
 │   └── js/main.js           # JavaScript 文件
 ├── Deployment/              # 部署相關文件
-│   ├── AWS_EC2_DEPLOYMENT.md
-│   ├── DEPLOYMENT_CI_CD.md
-│   ├── DEPLOYMENT_CHANGES.md
-│   ├── DOMAIN_SETUP.md
-│   ├── CONFIG_MANAGEMENT.md
-│   ├── TROUBLESHOOTING_DEPLOYMENT.md
-│   ├── deploy.sh            # 自動部署腳本
-│   ├── setup_ec2.sh         # EC2 初始設置腳本
-│   ├── setup_config.sh      # 配置初始化腳本
-│   ├── fix_venv_path.sh     # 虛擬環境路徑修復腳本
-│   ├── gunicorn_config.py   # Gunicorn 配置
-│   ├── nginx/               # Nginx 配置
-│   │   └── climbing_system.conf
-│   └── systemd/              # Systemd 服務配置
-│       └── climbing_system.service
+│   ├── INDEX.md             # 部署文檔導航索引
+│   ├── QUICK_START.md       # 快速開始指南
+│   ├── QUICK_DEBUG.md       # 快速調試參考
+│   ├── docs/                # 部署文檔目錄
+│   │   ├── guides/          # 主要指南
+│   │   │   ├── AWS_EC2_DEPLOYMENT.md
+│   │   │   ├── DEPLOYMENT_CI_CD.md
+│   │   │   ├── DEPLOYMENT_CHANGES.md
+│   │   │   └── GITHUB_SECRETS_SETUP.md
+│   │   ├── setup/           # 配置設置
+│   │   │   ├── SSH_SETUP.md
+│   │   │   ├── DOMAIN_SETUP.md
+│   │   │   ├── DOMAIN_SSL_GUIDE.md
+│   │   │   ├── DATABASE_SETUP.md
+│   │   │   └── DATABASE_SYNC.md
+│   │   └── troubleshooting/ # 故障排除
+│   │       └── TROUBLESHOOTING_DEPLOYMENT.md
+│   ├── scripts/             # 腳本目錄
+│   │   ├── tools/           # 工具腳本
+│   │   │   ├── deploy.sh
+│   │   │   ├── setup_ec2.sh
+│   │   │   └── sync_database_*.sh
+│   │   └── checks/          # 檢查腳本
+│   │       └── check_*.sh
+│   └── configs/             # 配置文件
+│       ├── nginx/
+│       ├── systemd/
+│       └── gunicorn_config.py
 ├── .github/workflows/       # GitHub Actions
 │   ├── test.yml             # 自動測試工作流
 │   ├── deploy.yml           # 自動部署工作流
@@ -225,7 +277,7 @@ Climbing_score_counter/
 
 ## 📊 測試結果驗證
 
-系統已通過所有 118 個測試用例：
+系統已通過所有超過 300 個測試用例（36 個測試文件）：
 
 - ✅ **計分邏輯測試**: 10 條路線的循序新增，最終分數正確
 - ✅ **API 接口測試**: 所有 API 端點功能正常
@@ -235,6 +287,9 @@ Climbing_score_counter/
 - ✅ **移動端測試**: 響應式設計和移動端功能正常
 - ✅ **安全性測試**: 用戶認證、權限控制、XSS/SQL 注入防護測試通過
 - ✅ **登錄界面測試**: 24 個測試用例，包括訪客登錄和完整工作流程測試
+- ✅ **PDF 導出測試**: PDF 導出功能、包含排行榜數據、包含路線照片
+- ✅ **壓力測試**: 100 條路線帶照片的壓力測試
+- ✅ **權限測試**: 訪客權限限制、BufferedRandom Pickle 修復
 
 ## 🔧 技術實現亮點
 
@@ -248,6 +303,8 @@ Climbing_score_counter/
 8. **用戶體驗**: 實時驗證、視覺反饋、訪客模式、自動登錄
 9. **部署自動化**: GitHub Actions CI/CD、自動部署腳本、配置管理
 10. **文檔完善**: 詳細的部署指南、故障排除、架構文檔
+11. **PDF 導出**: 支持導出排行榜 PDF，包含照片和測項
+12. **管理命令**: 提供清理未使用照片的管理命令
 
 ## 🔒 安全性功能
 
@@ -330,13 +387,15 @@ Climbing_score_counter/
 - **PROJECT_SUMMARY.md**: 本文件（專案總結）
 
 ### 部署文檔（位於 `Deployment/` 目錄）
-- **AWS_EC2_DEPLOYMENT.md**: AWS EC2 完整部署指南
-- **DEPLOYMENT_CI_CD.md**: CI/CD 自動部署指南
-- **DEPLOYMENT_CHANGES.md**: 部署修改總結
-- **DOMAIN_SETUP.md**: 域名和 SSL 證書配置指南
-- **CONFIG_MANAGEMENT.md**: 配置管理策略說明
-- **TROUBLESHOOTING_DEPLOYMENT.md**: 故障排除指南
-- **README.md**: 部署文件說明
+- **INDEX.md**: 部署文檔導航索引（**推薦查看**）
+- **QUICK_START.md**: 快速開始指南
+- **docs/guides/AWS_EC2_DEPLOYMENT.md**: AWS EC2 完整部署指南
+- **docs/guides/DEPLOYMENT_CI_CD.md**: CI/CD 自動部署指南
+- **docs/guides/DEPLOYMENT_CHANGES.md**: 部署修改總結
+- **docs/setup/DOMAIN_SETUP.md**: 域名配置指南
+- **docs/setup/DOMAIN_SSL_GUIDE.md**: SSL 證書配置指南
+- **docs/setup/DATABASE_SYNC.md**: 數據庫同步指南
+- **docs/troubleshooting/TROUBLESHOOTING_DEPLOYMENT.md**: 故障排除指南
 
 ### 其他文檔
 - **QUICK_START.md**: 快速參考指南
@@ -362,7 +421,7 @@ Climbing_score_counter/
 
 ---
 
-**專案狀態**: ✅ 已完成並通過所有測試（118 個測試用例）
+**專案狀態**: ✅ 已完成並通過所有測試（超過 300 個測試用例，36 個測試文件）
 **最後更新**: 2025年11月
 **測試覆蓋率**: 100%（所有核心功能）
 

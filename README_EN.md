@@ -1,6 +1,6 @@
 # Climbing Score Counting System
 
-A real-time leaderboard application system based on "reverse score distribution" logic.
+A real-time leaderboard application system based on the logic of "fixed total score per route".
 
 **English** | **[中文](README.md)**
 
@@ -25,8 +25,33 @@ This system uses Python/Django as the backend framework and SQLite (default) or 
 - **Database**: SQLite (default) or MySQL 5.7+ (optional)
 - **API**: Django REST Framework
 - **Frontend**: HTML + CSS + JavaScript
-- **Image Processing**: Pillow (supports mobile photo uploads)
+- **Image Processing**: Pillow (supports mobile photo uploads, including HEIC format)
 - **HTML Parsing**: BeautifulSoup4 (for HTML structure checking in tests)
+- **PDF Generation**: ReportLab (for exporting leaderboard PDF, optional)
+- **Production Environment**: Gunicorn + Nginx (AWS EC2 deployment)
+
+## Deployment
+
+### AWS EC2 Deployment
+
+The system is configured to support AWS EC2 deployment using Gunicorn + Nginx + SQLite architecture.
+
+For detailed deployment guides, please refer to:
+- `Deployment/docs/setup/SSH_SETUP.md` - SSH connection configuration guide (**Required reading for first-time deployment**)
+- `Deployment/docs/setup/DOMAIN_SSL_GUIDE.md` - Domain binding and SSL configuration guide (**Required reading for HTTPS**)
+- `Deployment/docs/guides/AWS_EC2_DEPLOYMENT.md` - Complete deployment guide
+- `Deployment/docs/guides/DEPLOYMENT_CI_CD.md` - CI/CD automatic deployment guide
+- `Deployment/docs/troubleshooting/TROUBLESHOOTING_DEPLOYMENT.md` - Troubleshooting guide
+- `Deployment/docs/setup/DATABASE_SYNC.md` - Database synchronization guide (**Important**: avoid data loss during updates)
+- `Deployment/QUICK_START.md` - Quick reference
+- `Deployment/docs/guides/DEPLOYMENT_CHANGES.md` - Deployment changes summary
+- `Deployment/INDEX.md` - Deployment documentation navigation index (**Recommended**)
+
+**Deployment Path**: `/var/www/Climbing_score_counter`
+
+**Update Methods**:
+- ✅ Using Git: `git pull` or `deploy.sh` script (**No need to re-clone**)
+- ✅ Using CI/CD: Push to main/master branch for automatic deployment
 
 ## Quick Start
 
@@ -60,10 +85,16 @@ This system uses Python/Django as the backend framework and SQLite (default) or 
    - ✅ Start the server
 
 3. **Access the System**:
-   - **Homepage**: [http://127.0.0.1:8000/](http://127.0.0.1:8000/) (Create rooms, view room list)
+   - **Homepage**: [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+     - Not logged in: Display login/registration interface (desktop: two-column layout, mobile: single-column layout)
+     - Logged in: Display room list, can create new rooms
    - **Leaderboard Page**: [http://127.0.0.1:8000/leaderboard/{room_id}/](http://127.0.0.1:8000/leaderboard/{room_id}/) (Manage members, routes, view leaderboard)
    - **Rules Page**: [http://127.0.0.1:8000/rules/](http://127.0.0.1:8000/rules/) (View scoring rules)
    - **Admin Panel**: [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
+   
+   **Login Methods**:
+   - User registration/login: Requires username and password (password must meet strength requirements)
+   - Guest login: No registration required, one-click login to use system features
 
 ## Detailed Setup
 
@@ -83,7 +114,10 @@ Main steps include:
 3. Run migrations
 4. Start the server
 
-**Note**: All data (rooms, members, routes) must be created through the web interface. The system does not provide command-line data initialization functionality.
+**Note**:
+- All data (rooms, members, routes) must be created through the web interface. The system does not provide command-line data initialization functionality.
+- First-time access requires login (register account or use guest login)
+- Guest login does not require registration and can directly use system features
 
 ## API Endpoints
 
@@ -201,7 +235,6 @@ member_completions: {"1":true,"2":false}
 
 **Note**:
 - Difficulty level (grade) is required, range: V1-V8+
-- Route name will automatically have 【路線】prefix added
 - Supports photo uploads (mobile devices can take photos directly)
 
 ### Update Route
@@ -250,6 +283,17 @@ Request body format:
 }
 ```
 
+### Export Leaderboard PDF
+
+```
+GET /api/rooms/{room_id}/export-pdf/
+```
+
+**Note**:
+- Requires `reportlab` library: `pip install reportlab`
+- Returns PDF file containing leaderboard data, route photos, and member completion status
+- Supports Chinese font display
+
 ### Delete Route
 
 ```
@@ -257,6 +301,26 @@ DELETE /api/routes/{route_id}/
 ```
 
 Deleting a route will automatically trigger score updates.
+
+## Management Commands
+
+The system provides the following Django management commands:
+
+### Cleanup Unused Photos
+
+```bash
+python manage.py cleanup_unused_photos
+```
+
+This command scans all photo files in the `media/route_photos/` directory and checks if there are corresponding route records. If there is no corresponding route, it deletes the photo file.
+
+**Optional Parameters**:
+- `--dry-run`: Only display files to be deleted, do not actually delete
+- `--verbose`: Display detailed information
+
+**Use Cases**:
+- Periodically clean up unused photo files to free up storage space
+- Clean up corresponding photo files after deleting routes
 
 ## Database Structure
 
@@ -322,7 +386,9 @@ python manage.py test scoring.tests.test_api.APITestCase.test_create_room_add_me
 
 ### Test Cases
 
-The system includes the following test cases (31 test files, over 250 test cases):
+The system includes the following test cases (36 test files, over 300 test cases):
+
+**Note**: For detailed test file list, please refer to the `ARCHITECTURE.md` document.
 
 1. **Core Scoring Logic Tests** (`test_case_01_default_member.py`):
    - Progressive route addition scoring
@@ -369,10 +435,10 @@ The system includes the following test cases (31 test files, over 250 test cases
 
 8. **Route Photo Upload Tests** (`test_case_route_photo_upload.py`):
    - Create route with photo upload
-   - Create route without photo (should work normally)
-   - Update route to add photo (originally no photo)
-   - Update route to replace photo (originally has photo)
-   - Update route without updating photo (keep original photo)
+   - Create route without photo
+   - Update route to add photo
+   - Update route to replace photo
+   - Update route to remove photo
    - Get route and verify photo_url is correctly returned
 
 9. **Route Photo Thumbnail Display Tests** (`test_case_route_photo_thumbnail.py`):
@@ -397,11 +463,23 @@ The system includes the following test cases (31 test files, over 250 test cases
    - CSS file contains mobile media queries
    - Mobile form input font size (prevent iOS auto-zoom)
 
-11. **Security Tests** (`test_case_12_security.py`)
+11. **Security Tests** (`test_case_12_security.py`):
+   - User authentication (registration, login, logout, current user, XSS/SQL injection protection)
+   - API permission control (read/write permissions, delete permissions)
+   - XSS attack protection (room name, member name, route name, difficulty level, JSON fields, email)
+   - SQL injection protection (room name, member name, route name, URL parameters, query parameters)
 
-12. **Settings Configuration Tests** (`test_case_13_settings_config.py`)
+12. **Settings Configuration Tests** (`test_case_13_settings_config.py`):
+   - Logging configuration (development/production environment)
+   - Permission configuration (development/production environment)
+   - Environment variable configuration
 
-13. **Login UI Tests** (`test_case_14_login_ui.py`)
+13. **Login UI Tests** (`test_case_14_login_ui.py`):
+   - Login/registration form functionality
+   - Password validation
+   - Guest login
+   - CSRF handling
+   - User status management
 
 14. **AWS Deployment Issues Tests** (`test_case_15_aws_deployment_issues.py`)
 
@@ -449,6 +527,18 @@ The system includes the following test cases (31 test files, over 250 test cases
 
 32. **Add Member to Existing Routes Tests** (`test_case_30_add_member_to_existing_routes.py`)
 
+33. **Create Route with Checked Members Tests** (`test_case_31_create_route_with_checked_members.py`)
+
+34. **BufferedRandom Pickle Fix Tests** (`test_case_32_buffered_random_pickle_fix.py`)
+
+35. **Stress Test: 100 Routes with Photos** (`test_case_33_stress_test_100_routes_with_photos.py`)
+
+36. **Guest Permission Restrictions Tests** (`test_case_34_guest_permission_restrictions.py`)
+
+37. **PDF Export Tests** (`test_case_35_pdf_export.py`)
+
+38. **iPhone Screenshot Upload Tests** (`test_case_iphone_screenshot_upload.py`)
+
 ### GitHub Actions Testing
 
 The project is configured with GitHub Actions for automated testing. Tests run automatically on every code push. See `.github/workflows/test.yml`.
@@ -480,27 +570,37 @@ All data must be created through the web interface:
 Fixed issues are documented in the `issue_fixed/` folder:
 - `issue_01_create_route_completion_count_zero_flow_analysis.md` - Detailed flow analysis
 - `issue_01_create_route_completion_count_zero_fix_report.md` - Fix report
+- `issue_02_logging_and_permission_config_fix_report.md` - Logging and permission configuration fix report
+- `issue_02_logging_and_permission_config_flow_analysis.md` - Logging and permission configuration flow analysis
 
-**Naming Convention**: Same issue uses the same number (e.g., `issue_01`), different document types use different suffixes (`flow_analysis`, `fix_report`).
+**Naming Convention**: Same issue uses the same number (e.g., `issue_01`, `issue_02`), different document types use different suffixes (`flow_analysis`, `fix_report`).
 
 ### Test Helpers
 
-The system provides a `scoring/tests/test_helpers.py` module with reusable test data creation functions:
+The system provides a `scoring/tests/test_helpers.py` module with reusable test data creation, configuration checking, and assertion functions:
 
-- **`TestDataFactory`**: Provides convenient methods for creating rooms, members, and routes
-- **`cleanup_test_data()`**: Unified test data cleanup (deletes rooms and all related data)
-- **`create_basic_test_setup()`**: One-click basic test setup creation
+- **Data Creation**:
+  - `TestDataFactory`: Provides convenient methods for creating rooms, members, and routes
+  - `cleanup_test_data()`: Unified test data cleanup (deletes rooms and all related data)
+  - `create_basic_test_setup()`: One-click basic test setup creation
+
+- **Configuration Checking**:
+  - `is_allow_any_permission()`: Check if current environment uses AllowAny permission
+  - `is_debug_mode()`: Check if currently in debug mode
+  - `should_allow_unauthenticated_access()`: Check if current environment should allow unauthenticated access
+  - `get_logging_handlers()`: Get current logging configuration handlers
+  - `has_file_logging()`: Check if file logging is currently configured
+
+- **Test Assertions**:
+  - `assert_response_status_for_permission()`: Verify response status code based on current permission configuration
 
 All tests use `cleanup_test_data()` in their `tearDown` methods to ensure clean test environments.
 
 ### Code Standards
 
-- All debug logging code has been removed
-- Code simplified, only core logic and necessary comments retained
 - Test code uses helper modules for improved maintainability
 - Temporary files and test output files have been added to `.gitignore`
 
 ## License
 
 This project is for learning and development purposes only.
-
