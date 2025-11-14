@@ -165,17 +165,17 @@ python manage.py shell
 
 ## 快速測試腳本
 
-已經創建了快速測試腳本 `test_production_permission.py`，可以直接運行：
+已經創建了快速測試腳本 `Deployment/scripts/tools/test_production_permission.py`，可以直接運行：
 
 ```powershell
 # Windows PowerShell
 # 注意：腳本內部已經自動設置 DEBUG=False，所以不需要手動設置環境變數
-python test_production_permission.py
+python Deployment/scripts/tools/test_production_permission.py
 ```
 
 ```bash
 # Linux/macOS
-python test_production_permission.py
+python Deployment/scripts/tools/test_production_permission.py
 ```
 
 ### 這個腳本的作用
@@ -219,7 +219,7 @@ python manage.py runserver
 ```
 
 **重要提示**：
-- `test_production_permission.py` 只是驗證權限邏輯，不會啟動服務器
+- `Deployment/scripts/tools/test_production_permission.py` 只是驗證權限邏輯，不會啟動服務器
 - 如果要在瀏覽器中測試，需要單獨運行 `python manage.py runserver`
 - 環境變數 `$env:DEBUG = "False"` 只在當前 PowerShell 會話中有效
 - 如果關閉 PowerShell 窗口，需要重新設置環境變數

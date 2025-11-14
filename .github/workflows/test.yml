@@ -28,7 +28,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libjpeg-dev zlib1g-dev libheif-dev libde265-dev
+        sudo apt-get install -y libjpeg-dev zlib1g-dev libheif-dev libde265-dev libfreetype6-dev
     
     - name: Install Python dependencies
       run: |
