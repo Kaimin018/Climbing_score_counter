@@ -74,8 +74,17 @@ class TestCasePdfExport(TestCase):
         url = f'/api/rooms/{self.room.id}/export-pdf/'
         response = self.client.get(url)
         
+        # 如果返回 500，輸出錯誤詳情以便調試
+        if response.status_code != status.HTTP_200_OK:
+            error_detail = getattr(response, 'data', {}).get('detail', '無錯誤詳情')
+            logger.error(f"PDF 導出失敗，狀態碼: {response.status_code}, 錯誤: {error_detail}")
+            print(f"\n[DEBUG] PDF 導出錯誤詳情: {error_detail}")
+            if hasattr(response, 'data'):
+                print(f"[DEBUG] 完整響應數據: {response.data}")
+        
         # 應該返回 200 狀態碼
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, 
+                        f"PDF 導出應該返回 200，但返回了 {response.status_code}。錯誤詳情: {getattr(response, 'data', {}).get('detail', '無詳情')}")
         
         # 應該返回 PDF 內容類型
         self.assertEqual(response['Content-Type'], 'application/pdf')

@@ -182,251 +182,253 @@ class RoomViewSet(viewsets.ModelViewSet):
         import os
         from PIL import Image as PILImage
         
+        # 頂層異常處理，確保所有錯誤都被捕獲
         try:
-            room = self.get_object()
-        except Exception as e:
-            logger.error(f"獲取房間對象時發生錯誤: {e}")
-            return Response(
-                {'detail': '找不到指定的房間'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        # 創建PDF緩衝區
-        buffer = BytesIO()
-        # 設置PDF標題（用於PDF查看器的標題欄顯示）
-        pdf_title = f"{room.name} - 總表"
-        
-        # 創建自定義文檔模板，設置標題和作者
-        # 將 pdf_title 作為類變量傳遞，確保 Python 3.8 兼容性
-        class CustomDocTemplate(SimpleDocTemplate):
-            def __init__(self, *args, **kwargs):
-                # 從 kwargs 中提取 pdf_title，如果存在則存儲為實例變量
-                self.pdf_title_value = kwargs.pop('pdf_title_value', None)
-                super(CustomDocTemplate, self).__init__(*args, **kwargs)
+            try:
+                room = self.get_object()
+            except Exception as e:
+                logger.error(f"獲取房間對象時發生錯誤: {e}")
+                return Response(
+                    {'detail': '找不到指定的房間'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
             
-            def build(self, flowables, onFirstPage=None, onLaterPages=None, canvasmaker=None):
-                # 使用實例變量而不是閉包變量，確保 Python 3.8 兼容性
-                pdf_title_for_metadata = self.pdf_title_value
+            # 創建PDF緩衝區
+            buffer = BytesIO()
+            # 設置PDF標題（用於PDF查看器的標題欄顯示）
+            pdf_title = f"{room.name} - 總表"
+            
+            # 創建自定義文檔模板，設置標題和作者
+            # 將 pdf_title 作為類變量傳遞，確保 Python 3.8 兼容性
+            class CustomDocTemplate(SimpleDocTemplate):
+                def __init__(self, *args, **kwargs):
+                    # 從 kwargs 中提取 pdf_title，如果存在則存儲為實例變量
+                    self.pdf_title_value = kwargs.pop('pdf_title_value', None)
+                    super(CustomDocTemplate, self).__init__(*args, **kwargs)
                 
-                # 設置PDF元數據
-                def set_metadata(canvas, doc):
-                    canvas.setTitle(pdf_title_for_metadata)
-                    canvas.setAuthor("攀岩計分系統")
-                    canvas.setSubject("排行榜導出")
-                
-                # 如果沒有提供 onFirstPage，使用默認的元數據設置
-                if onFirstPage is None:
-                    onFirstPage = set_metadata
-                else:
-                    # 如果提供了 onFirstPage，組合兩個函數
-                    original_onFirstPage = onFirstPage
-                    def combined_onFirstPage(canvas, doc):
-                        set_metadata(canvas, doc)
-                        if original_onFirstPage:
-                            original_onFirstPage(canvas, doc)
-                    onFirstPage = combined_onFirstPage
-                
-                # 構建參數字典，只包含非 None 的參數
-                build_kwargs = {
-                    'onFirstPage': onFirstPage,
-                }
-                if onLaterPages is not None:
-                    build_kwargs['onLaterPages'] = onLaterPages
-                if canvasmaker is not None:
-                    build_kwargs['canvasmaker'] = canvasmaker
-                
-                # 使用顯式的 super() 調用以確保 Python 3.8 兼容性
-                super(CustomDocTemplate, self).build(flowables, **build_kwargs)
-        
-        doc = CustomDocTemplate(buffer, pagesize=A4, 
+                def build(self, flowables, onFirstPage=None, onLaterPages=None, canvasmaker=None):
+                    # 使用實例變量而不是閉包變量，確保 Python 3.8 兼容性
+                    pdf_title_for_metadata = self.pdf_title_value
+                    
+                    # 設置PDF元數據
+                    def set_metadata(canvas, doc):
+                        canvas.setTitle(pdf_title_for_metadata)
+                        canvas.setAuthor("攀岩計分系統")
+                        canvas.setSubject("排行榜導出")
+                    
+                    # 如果沒有提供 onFirstPage，使用默認的元數據設置
+                    if onFirstPage is None:
+                        onFirstPage = set_metadata
+                    else:
+                        # 如果提供了 onFirstPage，組合兩個函數
+                        original_onFirstPage = onFirstPage
+                        def combined_onFirstPage(canvas, doc):
+                            set_metadata(canvas, doc)
+                            if original_onFirstPage:
+                                original_onFirstPage(canvas, doc)
+                        onFirstPage = combined_onFirstPage
+                    
+                    # 構建參數字典，只包含非 None 的參數
+                    build_kwargs = {
+                        'onFirstPage': onFirstPage,
+                    }
+                    if onLaterPages is not None:
+                        build_kwargs['onLaterPages'] = onLaterPages
+                    if canvasmaker is not None:
+                        build_kwargs['canvasmaker'] = canvasmaker
+                    
+                    # 使用顯式的 super() 調用以確保 Python 3.8 兼容性
+                    super(CustomDocTemplate, self).build(flowables, **build_kwargs)
+            
+            doc = CustomDocTemplate(buffer, pagesize=A4, 
                                 rightMargin=0.5*inch, leftMargin=0.5*inch,
                                 topMargin=0.5*inch, bottomMargin=0.5*inch,
                                 title=pdf_title, pdf_title_value=pdf_title)
-        
-        # 註冊中文字體（嘗試使用系統字體）
-        # 如果系統沒有中文字體，可以使用 reportlab 的 CJK 支持或下載字體文件
-        try:
-            # 嘗試註冊常見的中文字體
-            font_paths = [
-                'C:/Windows/Fonts/msjh.ttc',  # 微軟正黑體 (Windows)
-                'C:/Windows/Fonts/simsun.ttc',  # 宋體 (Windows)
-                '/System/Library/Fonts/PingFang.ttc',  # 蘋方 (macOS)
-                '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',  # 文泉驛微米黑 (Linux)
-            ]
             
-            chinese_font_registered = False
-            chinese_font_name = 'ChineseFont'
-            
-            for font_path in font_paths:
-                if os.path.exists(font_path):
+            # 註冊中文字體（嘗試使用系統字體）
+            # 如果系統沒有中文字體，可以使用 reportlab 的 CJK 支持或下載字體文件
+            try:
+                # 嘗試註冊常見的中文字體
+                font_paths = [
+                    'C:/Windows/Fonts/msjh.ttc',  # 微軟正黑體 (Windows)
+                    'C:/Windows/Fonts/simsun.ttc',  # 宋體 (Windows)
+                    '/System/Library/Fonts/PingFang.ttc',  # 蘋方 (macOS)
+                    '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',  # 文泉驛微米黑 (Linux)
+                ]
+                
+                chinese_font_registered = False
+                chinese_font_name = 'ChineseFont'
+                
+                for font_path in font_paths:
+                    if os.path.exists(font_path):
+                        try:
+                            pdfmetrics.registerFont(TTFont(chinese_font_name, font_path))
+                            chinese_font_registered = True
+                            logger.info(f"成功註冊中文字體: {font_path}")
+                            break
+                        except Exception as e:
+                            logger.warning(f"註冊字體失敗 {font_path}: {e}")
+                            continue
+                
+                # 如果沒有找到系統字體，使用 reportlab 的內置支持（需要安裝 reportlab-cjk）
+                if not chinese_font_registered:
                     try:
-                        pdfmetrics.registerFont(TTFont(chinese_font_name, font_path))
+                        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+                        pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))  # 宋體
+                        chinese_font_name = 'STSong-Light'
                         chinese_font_registered = True
-                        logger.info(f"成功註冊中文字體: {font_path}")
-                        break
-                    except Exception as e:
-                        logger.warning(f"註冊字體失敗 {font_path}: {e}")
-                        continue
+                        logger.info("使用 reportlab CJK 字體支持")
+                    except ImportError:
+                        logger.warning("未找到中文字體，中文可能無法正確顯示。建議安裝 reportlab-cjk 或配置系統字體")
+                        chinese_font_name = 'Helvetica'  # 回退到默認字體
+            except Exception as e:
+                logger.error(f"字體註冊錯誤: {e}")
+                chinese_font_name = 'Helvetica'
             
-            # 如果沒有找到系統字體，使用 reportlab 的內置支持（需要安裝 reportlab-cjk）
-            if not chinese_font_registered:
+            # 獲取樣式
+            styles = getSampleStyleSheet()
+            
+            # 創建自定義樣式（使用中文字體）
+            title_style = ParagraphStyle(
+                'CustomTitle',
+                parent=styles['Heading1'],
+                fontName=chinese_font_name,
+                fontSize=18,
+                textColor=colors.HexColor('#2C3E50'),
+                spaceAfter=12,
+                alignment=TA_CENTER
+            )
+            
+            heading_style = ParagraphStyle(
+                'CustomHeading',
+                parent=styles['Heading2'],
+                fontName=chinese_font_name,
+                fontSize=14,
+                textColor=colors.HexColor('#34495E'),
+                spaceAfter=10,
+                alignment=TA_LEFT
+            )
+            
+            normal_style = ParagraphStyle(
+                'CustomNormal',
+                parent=styles['Normal'],
+                fontName=chinese_font_name,
+                fontSize=10
+            )
+            
+            # 構建PDF內容
+            story = []
+            
+            # 標題
+            title = Paragraph(f"{room.name} - 排行榜", title_style)
+            story.append(title)
+            story.append(Spacer(1, 0.2*inch))
+            
+            # 房間信息
+            info_text = f"房間 ID: {room.id} | 每一條線總分 (L): {room.standard_line_score}"
+            story.append(Paragraph(info_text, normal_style))
+            story.append(Spacer(1, 0.3*inch))
+            
+            # 獲取成員數據（按總分降序）
+            members = room.members.all().order_by('-total_score', 'name')
+            
+            # 先收集所有成員完成的所有路線的等級（用於確定需要哪些等級欄位）
+            all_completed_grades = set()
+            for member in members:
+                completed_scores = member.scores.filter(is_completed=True).select_related('route')
+                for score in completed_scores:
+                    grade = score.route.grade
+                    if grade:  # 只收集有等級的路線
+                        all_completed_grades.add(grade)
+            
+            # 等級排序函數：將等級轉換為可排序的數值
+            def sort_grade(grade):
+                """排序函數：將等級轉換為可排序的數值"""
+                if not grade or grade == '未知':
+                    return (0, 0)  # 未知等級排最後
+                grade = grade.strip().upper()
+                # 處理 V8+ 這種格式
+                if grade.endswith('+'):
+                    base_grade = grade[:-1]
+                    try:
+                        num = int(base_grade.replace('V', ''))
+                        return (num, 1)  # + 表示 0.5
+                    except:
+                        return (0, 0)
+                # 處理普通 V5 格式
                 try:
-                    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-                    pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))  # 宋體
-                    chinese_font_name = 'STSong-Light'
-                    chinese_font_registered = True
-                    logger.info("使用 reportlab CJK 字體支持")
-                except ImportError:
-                    logger.warning("未找到中文字體，中文可能無法正確顯示。建議安裝 reportlab-cjk 或配置系統字體")
-                    chinese_font_name = 'Helvetica'  # 回退到默認字體
-        except Exception as e:
-            logger.error(f"字體註冊錯誤: {e}")
-            chinese_font_name = 'Helvetica'
-        
-        # 獲取樣式
-        styles = getSampleStyleSheet()
-        
-        # 創建自定義樣式（使用中文字體）
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontName=chinese_font_name,
-            fontSize=18,
-            textColor=colors.HexColor('#2C3E50'),
-            spaceAfter=12,
-            alignment=TA_CENTER
-        )
-        
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
-            fontName=chinese_font_name,
-            fontSize=14,
-            textColor=colors.HexColor('#34495E'),
-            spaceAfter=10,
-            alignment=TA_LEFT
-        )
-        
-        normal_style = ParagraphStyle(
-            'CustomNormal',
-            parent=styles['Normal'],
-            fontName=chinese_font_name,
-            fontSize=10
-        )
-        
-        # 構建PDF內容
-        story = []
-        
-        # 標題
-        title = Paragraph(f"{room.name} - 排行榜", title_style)
-        story.append(title)
-        story.append(Spacer(1, 0.2*inch))
-        
-        # 房間信息
-        info_text = f"房間 ID: {room.id} | 每一條線總分 (L): {room.standard_line_score}"
-        story.append(Paragraph(info_text, normal_style))
-        story.append(Spacer(1, 0.3*inch))
-        
-        # 獲取成員數據（按總分降序）
-        members = room.members.all().order_by('-total_score', 'name')
-        
-        # 先收集所有成員完成的所有路線的等級（用於確定需要哪些等級欄位）
-        all_completed_grades = set()
-        for member in members:
-            completed_scores = member.scores.filter(is_completed=True).select_related('route')
-            for score in completed_scores:
-                grade = score.route.grade
-                if grade:  # 只收集有等級的路線
-                    all_completed_grades.add(grade)
-        
-        # 等級排序函數：將等級轉換為可排序的數值
-        def sort_grade(grade):
-            """排序函數：將等級轉換為可排序的數值"""
-            if not grade or grade == '未知':
-                return (0, 0)  # 未知等級排最後
-            grade = grade.strip().upper()
-            # 處理 V8+ 這種格式
-            if grade.endswith('+'):
-                base_grade = grade[:-1]
-                try:
-                    num = int(base_grade.replace('V', ''))
-                    return (num, 1)  # + 表示 0.5
+                    num = int(grade.replace('V', ''))
+                    return (num, 0)
                 except:
                     return (0, 0)
-            # 處理普通 V5 格式
-            try:
-                num = int(grade.replace('V', ''))
-                return (num, 0)
-            except:
-                return (0, 0)
         
-        # 按等級從高到低排序
-        sorted_all_grades = sorted(all_completed_grades, key=sort_grade, reverse=True)
+            # 按等級從高到低排序
+            sorted_all_grades = sorted(all_completed_grades, key=sort_grade, reverse=True)
         
-        # 構建表頭：排名、成員、總分、完成總條數、各等級欄位、是否客製化組
-        table_headers = ['排名', '成員', '總分', '完成總條數'] + sorted_all_grades + ['是否客製化組']
-        leaderboard_data = [table_headers]
+            # 構建表頭：排名、成員、總分、完成總條數、各等級欄位、是否客製化組
+            table_headers = ['排名', '成員', '總分', '完成總條數'] + sorted_all_grades + ['是否客製化組']
+            leaderboard_data = [table_headers]
         
-        current_rank = 1
-        previous_score = None
+            current_rank = 1
+            previous_score = None
         
-        for index, member in enumerate(members, start=1):
-            current_score = float(member.total_score)
-            
-            # 第一個成員始終是第1名
-            if index == 1:
-                current_rank = 1
-            else:
-                # 如果分數與前一個不同，更新排名為當前索引
-                if previous_score is not None and current_score != previous_score:
-                    current_rank = index
-                # 如果分數相同，保持當前排名（不更新 current_rank）
-            
-            previous_score = current_score
-            
-            custom_text = '是' if member.is_custom_calc else '否'
-            completed_count = member.completed_routes_count
-            
-            # 計算成員通過的路線等級統計
-            completed_scores = member.scores.filter(is_completed=True).select_related('route')
-            grade_count = {}
-            for score in completed_scores:
-                grade = score.route.grade
-                if grade:  # 只統計有等級的路線
-                    grade_count[grade] = grade_count.get(grade, 0) + 1
-            
-            # 構建行數據：排名、成員、總分、完成總條數、各等級數量、是否客製化組
-            row_data = [
-                str(current_rank),
-                member.name,
-                f"{current_score:.2f}",
-                str(completed_count)
-            ]
-            
-            # 為每個等級欄位添加該成員完成該等級的數量
-            for grade in sorted_all_grades:
-                count = grade_count.get(grade, 0)
-                row_data.append(str(count) if count > 0 else '-')
-            
-            row_data.append(custom_text)
-            leaderboard_data.append(row_data)
+            for index, member in enumerate(members, start=1):
+                current_score = float(member.total_score)
+                
+                # 第一個成員始終是第1名
+                if index == 1:
+                    current_rank = 1
+                else:
+                    # 如果分數與前一個不同，更新排名為當前索引
+                    if previous_score is not None and current_score != previous_score:
+                        current_rank = index
+                    # 如果分數相同，保持當前排名（不更新 current_rank）
+                
+                previous_score = current_score
+                
+                custom_text = '是' if member.is_custom_calc else '否'
+                completed_count = member.completed_routes_count
+                
+                # 計算成員通過的路線等級統計
+                completed_scores = member.scores.filter(is_completed=True).select_related('route')
+                grade_count = {}
+                for score in completed_scores:
+                    grade = score.route.grade
+                    if grade:  # 只統計有等級的路線
+                        grade_count[grade] = grade_count.get(grade, 0) + 1
+                
+                # 構建行數據：排名、成員、總分、完成總條數、各等級數量、是否客製化組
+                row_data = [
+                    str(current_rank),
+                    member.name,
+                    f"{current_score:.2f}",
+                    str(completed_count)
+                ]
+                
+                # 為每個等級欄位添加該成員完成該等級的數量
+                for grade in sorted_all_grades:
+                    count = grade_count.get(grade, 0)
+                    row_data.append(str(count) if count > 0 else '-')
+                
+                row_data.append(custom_text)
+                leaderboard_data.append(row_data)
         
-        # 計算列寬：基本列 + 每個等級列 + 最後一列
-        base_col_widths = [0.8*inch, 2*inch, 1*inch, 1*inch]  # 排名、成員、總分、完成總條數
-        grade_col_width = 0.7*inch  # 每個等級欄位寬度
-        grade_col_widths = [grade_col_width] * len(sorted_all_grades)
-        last_col_width = 1.2*inch  # 是否客製化組
-        col_widths = base_col_widths + grade_col_widths + [last_col_width]
+            # 計算列寬：基本列 + 每個等級列 + 最後一列
+            base_col_widths = [0.8*inch, 2*inch, 1*inch, 1*inch]  # 排名、成員、總分、完成總條數
+            grade_col_width = 0.7*inch  # 每個等級欄位寬度
+            grade_col_widths = [grade_col_width] * len(sorted_all_grades)
+            last_col_width = 1.2*inch  # 是否客製化組
+            col_widths = base_col_widths + grade_col_widths + [last_col_width]
         
-        # 創建排行榜表格
-        leaderboard_table = Table(leaderboard_data, colWidths=col_widths)
+            # 創建排行榜表格
+            leaderboard_table = Table(leaderboard_data, colWidths=col_widths)
         
-        # 計算等級欄位的列索引範圍
-        # 表頭結構：排名(0) | 成員(1) | 總分(2) | 完成總條數(3) | 等級欄位(4~3+len) | 是否客製化組(最後)
-        grade_col_start = 4  # 等級欄位開始的列索引
-        grade_col_end = 3 + len(sorted_all_grades)  # 等級欄位結束的列索引
+            # 計算等級欄位的列索引範圍
+            # 表頭結構：排名(0) | 成員(1) | 總分(2) | 完成總條數(3) | 等級欄位(4~3+len) | 是否客製化組(最後)
+            grade_col_start = 4  # 等級欄位開始的列索引
+            grade_col_end = 3 + len(sorted_all_grades)  # 等級欄位結束的列索引
         
-        leaderboard_table.setStyle(TableStyle([
+            leaderboard_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495E')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),  # 默認居中
@@ -441,143 +443,143 @@ class RoomViewSet(viewsets.ModelViewSet):
             ('FONTNAME', (0, 1), (-1, -1), chinese_font_name),
             ('FONTSIZE', (0, 1), (-1, -1), 9),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
+            ]))
         
-        story.append(Paragraph("排行榜", heading_style))
-        story.append(leaderboard_table)
-        story.append(Spacer(1, 0.5*inch))
-        story.append(PageBreak())
+            story.append(Paragraph("排行榜", heading_style))
+            story.append(leaderboard_table)
+            story.append(Spacer(1, 0.5*inch))
+            story.append(PageBreak())
         
-        # 路線列表（測項）- 總表格式
-        story.append(Paragraph("路線列表", heading_style))
-        story.append(Spacer(1, 0.2*inch))
+            # 路線列表（測項）- 總表格式
+            story.append(Paragraph("路線列表", heading_style))
+            story.append(Spacer(1, 0.2*inch))
         
-        # 獲取所有成員（按名稱排序，保持一致性）
-        all_members = room.members.all().order_by('name')
-        member_names = [member.name for member in all_members]
+            # 獲取所有成員（按名稱排序，保持一致性）
+            all_members = room.members.all().order_by('name')
+            member_names = [member.name for member in all_members]
         
-        # 獲取路線數據，按難度遞減排序
-        # 使用與排行榜相同的等級排序函數
-        def sort_grade_for_route(route):
-            """排序函數：將路線等級轉換為可排序的數值"""
-            grade = route.grade
-            if not grade or grade == '未知':
-                return (0, 0)  # 未知等級排最後
-            grade = grade.strip().upper()
-            # 處理 V8+ 這種格式
-            if grade.endswith('+'):
-                base_grade = grade[:-1]
+            # 獲取路線數據，按難度遞減排序
+            # 使用與排行榜相同的等級排序函數
+            def sort_grade_for_route(route):
+                """排序函數：將路線等級轉換為可排序的數值"""
+                grade = route.grade
+                if not grade or grade == '未知':
+                    return (0, 0)  # 未知等級排最後
+                grade = grade.strip().upper()
+                # 處理 V8+ 這種格式
+                if grade.endswith('+'):
+                    base_grade = grade[:-1]
+                    try:
+                        num = int(base_grade.replace('V', ''))
+                        return (num, 1)  # + 表示 0.5
+                    except:
+                        return (0, 0)
+                # 處理普通 V5 格式
                 try:
-                    num = int(base_grade.replace('V', ''))
-                    return (num, 1)  # + 表示 0.5
+                    num = int(grade.replace('V', ''))
+                    return (num, 0)
                 except:
                     return (0, 0)
-            # 處理普通 V5 格式
-            try:
-                num = int(grade.replace('V', ''))
-                return (num, 0)
-            except:
-                return (0, 0)
         
-        # 獲取所有路線並按難度排序（從高到低）
-        all_routes = list(room.routes.all())
-        routes = sorted(all_routes, key=sort_grade_for_route, reverse=True)
+            # 獲取所有路線並按難度排序（從高到低）
+            all_routes = list(room.routes.all())
+            routes = sorted(all_routes, key=sort_grade_for_route, reverse=True)
         
-        # 用於保存所有臨時文件路徑，以便最後清理
-        temp_files = []
+            # 用於保存所有臨時文件路徑，以便最後清理
+            temp_files = []
         
-        # 構建總表：路線名稱、難度等級、完成人數、照片、每個成員的完成狀態（1/0）
-        # 表頭
-        route_table_headers = ['路線名稱', '難度等級', '完成人數', '照片'] + member_names
+            # 構建總表：路線名稱、難度等級、完成人數、照片、每個成員的完成狀態（1/0）
+            # 表頭
+            route_table_headers = ['路線名稱', '難度等級', '完成人數', '照片'] + member_names
         
-        # 計算列寬（根據內容動態調整）
-        # 基本列寬
-        photo_col_width = 1.8*inch  # 照片列寬度（增大）
-        col_widths = [2*inch, 1*inch, 1*inch, photo_col_width]  # 路線名稱、難度、完成人數、照片
-        # 每個成員列寬度
-        member_col_width = 0.6*inch
-        col_widths.extend([member_col_width] * len(member_names))
+            # 計算列寬（根據內容動態調整）
+            # 基本列寬
+            photo_col_width = 1.8*inch  # 照片列寬度（增大）
+            col_widths = [2*inch, 1*inch, 1*inch, photo_col_width]  # 路線名稱、難度、完成人數、照片
+            # 每個成員列寬度
+            member_col_width = 0.6*inch
+            col_widths.extend([member_col_width] * len(member_names))
         
-        # 構建表格數據
-        route_table_data = [route_table_headers]
+            # 構建表格數據
+            route_table_data = [route_table_headers]
         
-        # 處理每個路線（先處理照片，準備嵌入表格）
-        route_photos = {}  # 存儲路線照片對象
-        photo_height = 1.0*inch  # 照片在表格中的高度（增大）
+            # 處理每個路線（先處理照片，準備嵌入表格）
+            route_photos = {}  # 存儲路線照片對象
+            photo_height = 1.0*inch  # 照片在表格中的高度（增大）
         
-        # 如果沒有路線，添加提示行
-        if len(routes) == 0:
-            route_table_data.append([
-                '暫無路線',
-                '-',
-                '-',
-                Paragraph('無', normal_style)
-            ] + ['-' for _ in member_names])
-        else:
-            for route in routes:
-                # 處理照片
-                if route.photo:
-                    try:
-                        photo_path = route.photo.path
-                        if os.path.exists(photo_path):
-                            # 調整照片大小以適應表格單元格
-                            img = PILImage.open(photo_path)
-                            # 計算適合表格單元格的尺寸
-                            max_width_px = int(photo_col_width * 72)  # 轉換為點（points）
-                            max_height_px = int(photo_height * 72)
-                            
-                            # 按比例縮放
-                            width_ratio = max_width_px / img.width if img.width > 0 else 1
-                            height_ratio = max_height_px / img.height if img.height > 0 else 1
-                            scale_ratio = min(width_ratio, height_ratio, 1.0)  # 不放大，只縮小
-                            
-                            new_width = int(img.width * scale_ratio)
-                            new_height = int(img.height * scale_ratio)
-                            
-                            if scale_ratio < 1.0:
-                                # 兼容旧版本 Pillow：PILImage.Resampling 在 Pillow 10.0.0+ 才可用
-                                try:
-                                    resample = PILImage.Resampling.LANCZOS
-                                except AttributeError:
-                                    resample = PILImage.LANCZOS
-                                img = img.resize((new_width, new_height), resample)
-                            
-                            # 保存臨時圖片
-                            temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp_export')
-                            os.makedirs(temp_dir, exist_ok=True)
-                            temp_path = os.path.join(temp_dir, f'route_{route.id}.jpg')
-                            img.save(temp_path, 'JPEG', quality=85)
-                            temp_files.append(temp_path)
-                            
-                            # 創建 PDF Image 對象（使用英寸單位）
-                            # 確保尺寸不為0，並且限制最大高度
-                            if new_width > 0 and new_height > 0:
-                                # 限制照片最大高度為 1.0 英寸（72 點），寬度為 1.8 英寸（129.6 點）
-                                max_img_height_points = 72  # 1.0 inch = 72 points
-                                max_img_width_points = 129.6  # 1.8 inch = 129.6 points
+            # 如果沒有路線，添加提示行
+            if len(routes) == 0:
+                route_table_data.append([
+                    '暫無路線',
+                    '-',
+                    '-',
+                    Paragraph('無', normal_style)
+                ] + ['-' for _ in member_names])
+            else:
+                for route in routes:
+                    # 處理照片
+                    if route.photo:
+                        try:
+                            photo_path = route.photo.path
+                            if os.path.exists(photo_path):
+                                # 調整照片大小以適應表格單元格
+                                img = PILImage.open(photo_path)
+                                # 計算適合表格單元格的尺寸
+                                max_width_px = int(photo_col_width * 72)  # 轉換為點（points）
+                                max_height_px = int(photo_height * 72)
                                 
-                                # 如果高度或寬度超過限制，按比例縮小
-                                if new_height > max_img_height_points:
-                                    height_scale = max_img_height_points / new_height
-                                    new_width = int(new_width * height_scale)
-                                    new_height = max_img_height_points
+                                # 按比例縮放
+                                width_ratio = max_width_px / img.width if img.width > 0 else 1
+                                height_ratio = max_height_px / img.height if img.height > 0 else 1
+                                scale_ratio = min(width_ratio, height_ratio, 1.0)  # 不放大，只縮小
                                 
-                                if new_width > max_img_width_points:
-                                    width_scale = max_img_width_points / new_width
-                                    new_height = int(new_height * width_scale)
-                                    new_width = max_img_width_points
+                                new_width = int(img.width * scale_ratio)
+                                new_height = int(img.height * scale_ratio)
                                 
-                                img_width_inch = new_width / 72.0  # 點轉換為英寸
-                                img_height_inch = new_height / 72.0
-                                pdf_img = PDFImage(temp_path, width=img_width_inch*inch, height=img_height_inch*inch)
-                                route_photos[route.id] = pdf_img
+                                if scale_ratio < 1.0:
+                                    # 兼容旧版本 Pillow：PILImage.Resampling 在 Pillow 10.0.0+ 才可用
+                                    try:
+                                        resample = PILImage.Resampling.LANCZOS
+                                    except AttributeError:
+                                        resample = PILImage.LANCZOS
+                                    img = img.resize((new_width, new_height), resample)
+                                
+                                # 保存臨時圖片
+                                temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp_export')
+                                os.makedirs(temp_dir, exist_ok=True)
+                                temp_path = os.path.join(temp_dir, f'route_{route.id}.jpg')
+                                img.save(temp_path, 'JPEG', quality=85)
+                                temp_files.append(temp_path)
+                                
+                                # 創建 PDF Image 對象（使用英寸單位）
+                                # 確保尺寸不為0，並且限制最大高度
+                                if new_width > 0 and new_height > 0:
+                                    # 限制照片最大高度為 1.0 英寸（72 點），寬度為 1.8 英寸（129.6 點）
+                                    max_img_height_points = 72  # 1.0 inch = 72 points
+                                    max_img_width_points = 129.6  # 1.8 inch = 129.6 points
+                                    
+                                    # 如果高度或寬度超過限制，按比例縮小
+                                    if new_height > max_img_height_points:
+                                        height_scale = max_img_height_points / new_height
+                                        new_width = int(new_width * height_scale)
+                                        new_height = max_img_height_points
+                                    
+                                    if new_width > max_img_width_points:
+                                        width_scale = max_img_width_points / new_width
+                                        new_height = int(new_height * width_scale)
+                                        new_width = max_img_width_points
+                                    
+                                    img_width_inch = new_width / 72.0  # 點轉換為英寸
+                                    img_height_inch = new_height / 72.0
+                                    pdf_img = PDFImage(temp_path, width=img_width_inch*inch, height=img_height_inch*inch)
+                                    route_photos[route.id] = pdf_img
+                                else:
+                                    route_photos[route.id] = Paragraph('照片尺寸錯誤', normal_style)
                             else:
-                                route_photos[route.id] = Paragraph('照片尺寸錯誤', normal_style)
-                        else:
-                            route_photos[route.id] = Paragraph('照片不存在', normal_style)
-                    except Exception as e:
-                        logger.error(f"處理路線照片時發生錯誤: {e}")
-                        route_photos[route.id] = Paragraph('照片載入失敗', normal_style)
+                                route_photos[route.id] = Paragraph('照片不存在', normal_style)
+                        except Exception as e:
+                            logger.error(f"處理路線照片時發生錯誤: {e}")
+                            route_photos[route.id] = Paragraph('照片載入失敗', normal_style)
                 else:
                     route_photos[route.id] = Paragraph('無照片', normal_style)
             
@@ -606,13 +608,13 @@ class RoomViewSet(viewsets.ModelViewSet):
                 
                 route_table_data.append(row_data)
         
-        # 創建路線總表（只有在有數據時才設置 repeatRows）
-        # 使用 splitByRow 允許表格跨頁，並設置最大行高
-        if len(route_table_data) > 1:  # 有數據行
-            route_table = Table(route_table_data, colWidths=col_widths, repeatRows=1, splitByRow=1)
-        else:
-            route_table = Table(route_table_data, colWidths=col_widths, splitByRow=1)
-        route_table.setStyle(TableStyle([
+            # 創建路線總表（只有在有數據時才設置 repeatRows）
+            # 使用 splitByRow 允許表格跨頁，並設置最大行高
+            if len(route_table_data) > 1:  # 有數據行
+                route_table = Table(route_table_data, colWidths=col_widths, repeatRows=1, splitByRow=1)
+            else:
+                route_table = Table(route_table_data, colWidths=col_widths, splitByRow=1)
+            route_table.setStyle(TableStyle([
             # 表頭樣式
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495E')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -641,71 +643,85 @@ class RoomViewSet(viewsets.ModelViewSet):
             # 數據行內邊距
             ('TOPPADDING', (0, 1), (-1, -1), 4),    # 所有數據行上下內邊距
             ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
-        ]))
+            ]))
         
-        story.append(route_table)
-        story.append(Spacer(1, 0.3*inch))
+            story.append(route_table)
+            story.append(Spacer(1, 0.3*inch))
         
-        # 構建PDF（添加錯誤處理）
-        try:
-            doc.build(story)
-        except Exception as build_error:
-            logger.error(f"構建PDF時發生錯誤: {build_error}")
-            import traceback
-            logger.error(f"錯誤堆棧: {traceback.format_exc()}")
-            # 清理臨時文件
+            # 構建PDF（添加錯誤處理）
+            try:
+                doc.build(story)
+            except Exception as build_error:
+                logger.error(f"構建PDF時發生錯誤: {build_error}")
+                import traceback
+                logger.error(f"錯誤堆棧: {traceback.format_exc()}")
+                # 清理臨時文件
+                for temp_file in temp_files:
+                    try:
+                        if os.path.exists(temp_file):
+                            os.remove(temp_file)
+                    except Exception:
+                        pass
+                try:
+                    buffer.close()
+                except Exception:
+                    pass
+                # 返回錯誤響應
+                return Response(
+                    {'detail': f'PDF 生成失敗: {str(build_error)}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        
+            # 保存完成後，清理所有臨時文件
             for temp_file in temp_files:
                 try:
                     if os.path.exists(temp_file):
                         os.remove(temp_file)
+                except Exception as cleanup_error:
+                    logger.warning(f"清理臨時文件失敗 {temp_file}: {cleanup_error}")
+        
+            # 獲取PDF內容
+            try:
+                pdf_content = buffer.getvalue()
+            except Exception as e:
+                logger.error(f"獲取PDF內容時發生錯誤: {e}")
+                try:
+                    buffer.close()
                 except Exception:
                     pass
+                return Response(
+                    {'detail': 'PDF 內容獲取失敗'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            # 創建HTTP響應
             try:
-                buffer.close()
-            except Exception:
-                pass
-            # 返回錯誤響應
-            return Response(
-                {'detail': f'PDF 生成失敗: {str(build_error)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        
-        # 保存完成後，清理所有臨時文件
-        for temp_file in temp_files:
-            try:
-                if os.path.exists(temp_file):
-                    os.remove(temp_file)
-            except Exception as cleanup_error:
-                logger.warning(f"清理臨時文件失敗 {temp_file}: {cleanup_error}")
-        
-        # 獲取PDF內容
-        try:
-            pdf_content = buffer.getvalue()
+                response = HttpResponse(pdf_content, content_type='application/pdf')
+                filename = f"{room.name}_排行榜_{room.id}.pdf"
+                # 處理中文文件名
+                from urllib.parse import quote
+                response['Content-Disposition'] = f'attachment; filename="{quote(filename)}"; filename*=UTF-8\'\'{quote(filename)}'
+                return response
+            except Exception as e:
+                logger.error(f"創建HTTP響應時發生錯誤: {e}")
+                return Response(
+                    {'detail': 'PDF 響應創建失敗'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            finally:
+                try:
+                    buffer.close()
+                except Exception:
+                    pass
         except Exception as e:
-            logger.error(f"獲取PDF內容時發生錯誤: {e}")
-            buffer.close()
+            # 頂層異常處理，捕獲所有未處理的異常
+            import traceback
+            error_msg = str(e)
+            error_traceback = traceback.format_exc()
+            logger.error(f"PDF 導出過程中發生未預期的錯誤: {error_msg}")
+            logger.error(f"錯誤堆棧: {error_traceback}")
             return Response(
-                {'detail': 'PDF 內容獲取失敗'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        finally:
-            try:
-                buffer.close()
-            except Exception:
-                pass
-        
-        # 創建HTTP響應
-        try:
-            response = HttpResponse(pdf_content, content_type='application/pdf')
-            filename = f"{room.name}_排行榜_{room.id}.pdf"
-            # 處理中文文件名
-            from urllib.parse import quote
-            response['Content-Disposition'] = f'attachment; filename="{quote(filename)}"; filename*=UTF-8\'\'{quote(filename)}'
-            return response
-        except Exception as e:
-            logger.error(f"創建HTTP響應時發生錯誤: {e}")
-            return Response(
-                {'detail': 'PDF 響應創建失敗'},
+                {'detail': f'PDF 導出失敗: {error_msg}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
